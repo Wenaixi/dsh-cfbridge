@@ -53,3 +53,10 @@ cfbridge 是 DeepSeek Harness（DSH）到 Cloudflare 官方 Code Mode MCP 的最
 - `.gitignore`：密钥、DSH 状态和历史诊断文件过滤规则。
 - `LICENSE`：MIT License。
 - `CLAUDE.md`：本文件，开发决策和长期上下文。
+
+## 本地 Git 状态
+
+- 已于 2026-08-15 初始化本地 Git 仓库，默认分支 `main`。
+- v0.1.0 基线提交：`4184753`（`chore: initialize cfbridge v0.1.0`）。
+- 提交前已验证：仅 8 个正式文件被跟踪、`package.json` 版本/作者正确、无 Cloudflare token 或常见密钥前缀、`git diff --cached --check` 通过。
+- 尚未配置远程仓库，且不得在未获用户明确许可时 push。
