@@ -1,0 +1,20 @@
+# cfbridge v0.1.0
+# 将本条目添加到 %USERPROFILE%\.dsh\profiles\web\cordis.patch.yml 的 insert 列表。
+# token 必须只保存在 %USERPROFILE%\.dsh\.env，不能写入本文件。
+
+- insert:
+    - id: mcp-cloudflare
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: cloudflare
+        transport: streamable-http
+        url: https://mcp.cloudflare.com/mcp
+        headers:
+          Authorization: !!js '`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 30000
+          maxAttempts: 10

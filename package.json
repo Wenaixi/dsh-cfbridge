@@ -1,0 +1,23 @@
+{
+  "name": "cfbridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Code Mode MCP bridge configuration for DeepSeek Harness.",
+  "author": "Wenaixi <wenxiloveyou@gmail.com>",
+  "license": "MIT",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Wenaixi/cfbridge.git"
+  },
+  "keywords": [
+    "cloudflare",
+    "mcp",
+    "deepseek-harness",
+    "dsh",
+    "cordis"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}

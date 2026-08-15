@@ -1,0 +1,11 @@
+# 明确规范仓库内文本文件的换行符，避免 Windows 上的自动转换噪声。
+* text=auto
+
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.js text eol=lf
+.env.example text eol=lf
+.gitignore text eol=lf
+LICENSE text eol=lf
