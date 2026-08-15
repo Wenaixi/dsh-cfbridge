@@ -48,11 +48,23 @@ cfbridge 是 DeepSeek Harness（DSH）到 Cloudflare 官方 Code Mode MCP 的最
 
 - `cordis.patch.yml`：可复制到 DSH web profile 的正式 MCP 条目模板。
 - `README.md`：用户安装、使用、验证与安全说明。
-- `package.json`：版本、作者、许可证、Node 版本与维护脚本。
+- `package.json`：版本、作者、许可证、Node/Wrangler 版本与维护脚本。
+- `package-lock.json`：Wrangler 和其传递依赖的可复现锁定版本。
+- `scripts/check.js`：无副作用的仓库配置、版本和常见 token 前缀扫描。
+- `scripts/wrangler.js`：项目本地 Wrangler 的安全启动器；只在未设置 token 时从 DSH 私有 `.env` 读取，不会打印或保存 token。
 - `.env.example`：安全的环境变量模板。
 - `.gitignore`：密钥、DSH 状态和历史诊断文件过滤规则。
 - `LICENSE`：MIT License。
 - `CLAUDE.md`：本文件，开发决策和长期上下文。
+
+## 最新验证记录（2026-08-15）
+
+- `npm ci` 安装了项目内锁定的 Wrangler `4.123.0`；`npm run check` 和 `npm run wrangler:version` 均成功。
+- `npm run wrangler:whoami` 使用 DSH 私有环境文件的 token 成功认证到 account `wenxiloveyou`。
+- 只读 Wrangler 验证成功：`d1 list --json`（发现 vmail 数据库）、`deployments list --name vmail --json`、`pages project list --json`（空列表也是成功响应）。
+- DSH MCP 三工具已实际验证：`docs`、`search`、`execute`；execute 完成了账号/Zone/Workers/KV/D1/Pages/GraphQL 的只读冒烟。
+- Git 再次审计：工作区无 remote，完整提交历史与跟踪文件均未匹配 Cloudflare token 或常见密钥前缀；`.env` 已被忽略。
+- **禁止为“全功能测试”执行任何资源写入**。部署、删除、写 KV/D1/DNS、更新 secret 都须获得用户针对该操作的明确授权。
 
 ## 本地 Git 状态
 

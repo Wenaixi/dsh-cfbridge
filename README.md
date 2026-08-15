@@ -152,26 +152,87 @@ D1、Pages、GraphQL analytics，以及 MCP docs/search/execute。
 | `/user/tokens/verify` | 对 `cfat_` account token 返回 401 是预期行为；用 `/accounts` 验证 token |
 | 认证/权限错误 | 通过 Cloudflare Dashboard 复核 token 类型、资源范围及所需权限 |
 
-## 本地验证脚本
+## Wrangler CLI 集成
 
-脚本只从环境变量读取 token，避免把密钥写入仓库：
+除了远程 MCP，本项目还内置了 [Wrangler](https://developers.cloudflare.com/workers/wrangler/)
+4.x 的本地开发依赖，用于项目级、可复现的 Workers/D1/Pages 命令。Cloudflare 官方推荐
+**按项目本地安装** Wrangler，而不是依赖全局版本；本项目已把它锁定在
+`package-lock.json` 中。
 
 ```powershell
-$env:CLOUDFLARE_API_TOKEN = '你的token'
-& 'D:\Program Files\nodejs\node.exe' .\probe-cf-docs.js
-& 'D:\Program Files\nodejs\node.exe' .\probe-cf-v2.js
-& 'D:\Program Files\nodejs\node.exe' .\probe-cf-v3.js
+npm ci
+npm run wrangler:version
 ```
 
-- `probe-cf-docs.js`：验证 REST 文档与 MCP 协议响应。
-- `probe-cf-v2.js`：验证 `/accounts`、MCP `tools/list` 与 docs 调用信封。
-- `probe-cf-v3.js`：打印官方 MCP 工具 schema。
+### 认证模型
+
+项目的 `scripts/wrangler.js` 会优先使用当前终端的 `CLOUDFLARE_API_TOKEN`；若没有设置，
+才读取私有的 `%USERPROFILE%\.dsh\.env`。它从不输出、持久化或把 token 拼接到命令行。
+
+```dotenv
+# %USERPROFILE%\.dsh\.env（私有文件，不属于仓库）
+CLOUDFLARE_API_TOKEN=请替换为你的token
+```
+
+官方文档确认：`CLOUDFLARE_API_TOKEN` 可用于自动化认证，并且优先于 Wrangler 的已保存
+OAuth profile。若希望完全不使用 DSH 环境文件，也可以仅在当前 PowerShell 会话中设置该
+变量后运行 npm 脚本。
+
+### 安全的只读命令
+
+```powershell
+# 校验依赖版本、配置结构、忽略规则和仓库中的 token 痕迹
+npm run check
+
+# 验证 token 对应的账号；不修改 Cloudflare 资源
+npm run wrangler:whoami
+
+# 列出 D1 数据库；不修改 Cloudflare 资源
+npm run wrangler:d1:list
+
+# 列出指定 Worker 的部署历史；不修改 Cloudflare 资源
+npm run wrangler:workers:list
+
+# 列出 Pages 项目；不修改 Cloudflare 资源
+npm run wrangler:pages:list
+
+# 传入任意其他 Wrangler 参数
+npm run wrangler -- pages project list --json
+```
+
+有意执行 `deploy`、`secret put`、`kv namespace create`、`d1 execute` 等写操作前，应先
+明确复核目标账号、环境和命令参数。cfbridge 不提供自动部署脚本，也不会自动执行写操作。
+
+### 更新 Wrangler
+
+```powershell
+npm install --save-dev wrangler@latest
+npm run check
+```
+
+更新后请审阅 `package-lock.json` 的差异并运行验证；不要使用未固定版本的全局安装作为
+项目部署依据。
+
+## 测试范围
+
+v0.1.0 发布前已实际验证以下只读路径：
+
+| 层级 | 验证项 |
+| --- | --- |
+| DSH MCP | `docs` 文档检索、`search` OpenAPI 检索、`execute` 账号/Zone/Workers/KV/D1/Pages/GraphQL 只读调用 |
+| 本地 Wrangler | 版本检查、token `whoami`、D1 列表、Worker 部署列表、Pages 项目列表 |
+| 安全 | 追踪文件与完整 Git 历史均无 token 类内容；无 Git remote；`.env`、证书和 DSH 本地状态均被忽略 |
+
+“所有功能”指配置本身的三条 MCP 通路和本仓库提供的 Wrangler 封装均经过验证；Cloudflare
+上千个 API 端点的具体业务权限则取决于 token 类型、资源范围和产品是否已开通，不能用一次
+无差别写入测试替代。
 
 ## 版本与维护
 
 - 当前版本：**v0.1.0**
 - 作者：**Wenaixi**
 - 许可证：MIT
+- 官方文档：[Cloudflare MCP](https://github.com/cloudflare/mcp) · [Wrangler 安装](https://developers.cloudflare.com/workers/wrangler/install-and-update/) · [Wrangler 环境变量](https://developers.cloudflare.com/workers/wrangler/system-environment-variables/)
 - 设计参考：[Edge-Echo/dsh-mcp-bridge](https://github.com/Edge-Echo/dsh-mcp-bridge)
 - 项目决策、验证记录与历史诊断见 [`CLAUDE.md`](./CLAUDE.md)。
 

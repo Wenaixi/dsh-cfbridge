@@ -17,6 +17,18 @@
     "dsh",
     "cordis"
   ],
+  "scripts": {
+    "check": "node scripts/check.js",
+    "wrangler": "node scripts/wrangler.js",
+    "wrangler:version": "node scripts/wrangler.js --version",
+    "wrangler:whoami": "node scripts/wrangler.js whoami",
+    "wrangler:d1:list": "node scripts/wrangler.js d1 list --json",
+    "wrangler:workers:list": "node scripts/wrangler.js deployments list --name vmail --json",
+    "wrangler:pages:list": "node scripts/wrangler.js pages project list --json"
+  },
+  "devDependencies": {
+    "wrangler": "^4.123.0"
+  },
   "engines": {
     "node": ">=22"
   }
