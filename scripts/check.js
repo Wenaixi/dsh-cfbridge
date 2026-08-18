@@ -125,7 +125,43 @@ for (const file of tracked) {
 }
 check('no tracked file contains token-like content', !tokenLeak, tokenLeak ? `found in ${tokenLeak}` : '')
 
-// === 9. Git remote ===
+// === 9. web profile 未被污染 ===
+const webPatch = path.join(process.env.USERPROFILE || process.env.HOME || '', '.dsh', 'profiles', 'web', 'cordis.patch.yml')
+if (fs.existsSync(webPatch)) {
+  const text = readText(webPatch)
+  check('web profile cordis.patch.yml has no cloudflare residue', !/cloudflare|CLOUDFLARE_API_TOKEN|cfbridge/i.test(text))
+} else {
+  check('web profile cordis.patch.yml not polluted', true, 'no web profile patch to pollute')
+}
+
+// === 10. 系统预设目录未被污染 ===
+const SYSTEM_DSH = 'C:\\Users\\Administrator\\AppData\\Roaming\\npm\\node_modules\\@deepseek-ai\\dsh'
+const systemSkills = path.join(SYSTEM_DSH, 'config', 'agent-presets')
+let systemPolluted = null
+if (fs.existsSync(systemSkills)) {
+  for (const sub of ['standard', 'code', 'cordis', 'minimal']) {
+    const skillsDir = path.join(systemSkills, sub, 'skills')
+    if (!fs.existsSync(skillsDir)) continue
+    // 简单递归：检查任何文件名包含 cfbridge
+    const stack = [skillsDir]
+    while (stack.length) {
+      const dir = stack.pop()
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          stack.push(path.join(dir, entry.name))
+        } else if (entry.name.toLowerCase().includes('cfbridge')) {
+          systemPolluted = `${sub}: ${path.join(dir, entry.name)}`
+          break
+        }
+      }
+      if (systemPolluted) break
+    }
+    if (systemPolluted) break
+  }
+}
+check('DSH system presets have no cfbridge', !systemPolluted, systemPolluted || '')
+
+// === 11. Git remote ===
 let hasRemote = false
 try {
   const remote = execSync('git remote -v', { cwd: ROOT, encoding: 'utf8' }).trim()
