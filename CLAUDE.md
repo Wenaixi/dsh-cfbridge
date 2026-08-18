@@ -64,6 +64,28 @@ v0.2.0 重构后，它通过 DSH 原生的 Agent Preset 路径分发，
 - `.env.example`、`LICENSE`、`.gitignore`、`.gitattributes`、`README.md`。
 - `CLAUDE.md`：本文件。
 
+## 隔离边界（2026-08-18 复审）
+
+v0.2.0 设计原则是**完全按需加载**，不污染全局。检查发现 v0.1.0 时代曾在
+`%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml` 留下过 `mcp-cloudflare` 条目，
+v0.2.0 已清理并写入自动化断言。
+
+| 检查项 | 状态 |
+| --- | --- |
+| `agent.cordis.yml` 含 `mcp-cloudflare`（应在的位置） | ✅ |
+| `agent.cordis.yml` 含 `cf-persona`、`skill-filesystem` | ✅ |
+| `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml` 不含 cloudflare | ✅（v0.1.0 残留已清理） |
+| `%USERPROFILE%\.dsh\.agent-presets\cfbridge\skills\` 仅含 cfbridge skill | ✅ |
+| DSH 系统预设目录（standard/code/cordis/minimal）未被 cfbridge 污染 | ✅ |
+| `process.env` 未引入 `CFBRIDGE_*` 命名空间 | ✅ |
+| 仅引用官方 `CLOUDFLARE_API_TOKEN` | ✅ |
+| 当前 PowerShell 进程无 cfbridge 相关 env | ✅ |
+| `npm run check` 32/32 通过（含全局污染断言） | ✅ |
+
+cfbridge 不会触碰 web profile 的其它 MCP（context7、exa），也不会改动系统的
+四个内置 preset。重启 DSH 后，选择「Cloudflare 模式」才会加载 Cloudflare 工具
+；选择「标准模式」「Code 模式」等其它 preset 时，Cloudflare 工具**不可见**。
+
 ## 最新验证记录（2026-08-18）
 
 - `npm run install:preset` 已成功把 preset 复制到 `%USERPROFILE%\.dsh\.agent-presets\cfbridge\`。
@@ -79,5 +101,6 @@ v0.2.0 重构后，它通过 DSH 原生的 Agent Preset 路径分发，
 - 默认分支 `main`。
 - v0.1.0 基线提交：`4184753`（`chore: initialize cfbridge v0.1.0`）。
 - v0.1.1 CLI 提交：`3c3180c`（`feat: add secure local Wrangler CLI`）。
-- v0.2.0 待提交（重构为 Agent Preset + Skill + install 脚本）。
+- v0.2.0 Preset 提交：`81ad382`（`feat: ship v0.2.0 as DSH Agent Preset with bundled Skill and install tooling`）。
+- v0.2.1 隔离清理提交：`22849ee`（`feat: extend check.js to assert no global pollution; also remove cloudflare residue from web profile`）。
 - 尚未配置远程仓库，不会在未授权时 push。

@@ -31,13 +31,17 @@ function hasMcpCloudflareRow(text) {
 }
 
 function hasTokenLeak(text) {
-  // 拒绝 Cloudflare token 前缀、典型 OAuth token、sk-
+  // 拒绝 Cloudflare token 前缀、典型 OAuth token、sk-、AWS、GitHub、Google API key
   const patterns = [
     /cfat_[A-Za-z0-9]{16,}/,
     /cfut_[A-Za-z0-9]{16,}/,
     /cfoat_[A-Za-z0-9]{16,}/,
     /sk-[A-Za-z0-9-]{16,}/,
     /Bearer\s+[A-Za-z0-9_-]{40,}/,
+    /gh[pousr]_[A-Za-z0-9]{30,}/,
+    /AKIA[0-9A-Z]{16}/,
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+    /AIza[0-9A-Za-z_-]{35}/,
   ]
   return patterns.some((re) => re.test(text))
 }

@@ -68,6 +68,10 @@ function hasTokenLeak(text) {
     /cfoat_[A-Za-z0-9]{16,}/,
     /sk-[A-Za-z0-9-]{16,}/,
     /Bearer\s+[A-Za-z0-9_-]{40,}/,
+    /gh[pousr]_[A-Za-z0-9]{30,}/,
+    /AKIA[0-9A-Z]{16}/,
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+    /AIza[0-9A-Za-z_-]{35}/,
   ]
   return patterns.some((re) => re.test(text))
 }
@@ -99,9 +103,16 @@ for (const s of SCRIPTS) {
 // === 7. gitignore ===
 const gitignore = readText(path.join(ROOT, '.gitignore'))
 check('.env is ignored', /^\.env$/m.test(gitignore) || /^\.env\b/m.test(gitignore))
+check('.env.example IS tracked', /^\!\.env\.example$/m.test(gitignore))
 check('PEM files are ignored', /\.pem$/m.test(gitignore))
+check('private key header files are ignored', /-----BEGIN|m\.key|m\.pem/i.test(gitignore) || /\.key$|\.pem$/m.test(gitignore))
+check('secrets/credentials directories are ignored', /secrets\/|credentials\//.test(gitignore))
 check('node_modules is ignored', /^node_modules\/?$/m.test(gitignore) || /^node_modules\b/m.test(gitignore))
 check('package-lock.json IS tracked', !/^package-lock\.json$/m.test(gitignore))
+check('.wrangler directory is ignored', /\.wrangler/.test(gitignore))
+check('.dev.vars is ignored', /\.dev\.vars/.test(gitignore))
+check('.dsh/ is ignored', /\.dsh\//.test(gitignore))
+check('IDE/temp files ignored', /\.vscode|\.idea|\.swp|\.DS_Store/.test(gitignore))
 
 // === 8. 所有跟踪文件 token 扫描 ===
 function listTracked() {
