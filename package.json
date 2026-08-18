@@ -1,8 +1,8 @@
 {
-  "name": "cfbridge",
-  "version": "0.1.0",
+  "name": "@wenaixi/cfbridge",
+  "version": "0.2.0",
   "private": true,
-  "description": "Cloudflare Code Mode MCP bridge configuration for DeepSeek Harness.",
+  "description": "Cloudflare Code Mode MCP 插件，封装 MCP、Skill 与 Wrangler CLI，按需加载到 DSH。",
   "author": "Wenaixi <wenxiloveyou@gmail.com>",
   "license": "MIT",
   "type": "commonjs",
@@ -15,16 +15,37 @@
     "mcp",
     "deepseek-harness",
     "dsh",
-    "cordis"
+    "cordis",
+    "agent-preset",
+    "skill"
+  ],
+  "files": [
+    "preset.yml",
+    "agent.cordis.yml",
+    "skills/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "check": "node scripts/check.js",
+    "install:preset": "node scripts/install-preset.js",
+    "uninstall:preset": "node scripts/uninstall-preset.js",
+    "validate:preset": "node scripts/validate-preset.js",
+    "test": "node scripts/test.js",
+    "test:mcp": "node scripts/test-mcp.js",
+    "test:wrangler": "node scripts/test-wrangler.js",
     "wrangler": "node scripts/wrangler.js",
     "wrangler:version": "node scripts/wrangler.js --version",
     "wrangler:whoami": "node scripts/wrangler.js whoami",
     "wrangler:d1:list": "node scripts/wrangler.js d1 list --json",
     "wrangler:workers:list": "node scripts/wrangler.js deployments list --name vmail --json",
     "wrangler:pages:list": "node scripts/wrangler.js pages project list --json"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-mcp-client": "*",
+    "@deepseek-ai/dsh-skill-filesystem": "*",
+    "@deepseek-ai/dsh-tool-skill": "*"
   },
   "devDependencies": {
     "wrangler": "^4.123.0"

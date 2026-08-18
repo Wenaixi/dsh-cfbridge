@@ -1,0 +1,79 @@
+# cfbridge Agent Preset — Cloudflare 资源管理专用 Agent
+#
+# 这是一个 AGENT-PLANE 组合（Agent Preset），不是 host 组合。
+# 它会被 mount 到选择「Cloudflare 模式」的那个 DSH 会话中。
+#
+# 设计目标：
+# 1. 提供 Cloudflare Code Mode MCP（docs/search/execute 三工具）
+# 2. 提供 Wrangler CLI 相关的本地工具（通过 npm 脚本）
+# 3. 提供 Cloudflare 操作专属的 Skill
+# 4. 在 cloudflare 任务的系统提示中追加专属指导
+#
+# 安全规则：
+# - token 仅从 %USERPROFILE%\.dsh\.env 的 CLOUDFLARE_API_TOKEN 读取
+# - 任何写操作（deploy/secret put/dns/kv/d1 execute）都必须先获得用户明确确认
+#
+# 部署位置：
+# 安装后位于 %USERPROFILE%\.dsh\.agent-presets\cfbridge\
+
+# ── 身份 / 人设 ────────────────────────────────────────────────────────
+# 覆盖标准模式的 persona，注入 Cloudflare 场景专属定位
+- id: cf-persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      You are a coding agent powered by the {{model}} model, working in {{cwd}}.
+
+      You have been equipped with the **Cloudflare 模式** (cfbridge v0.2.0). When the user
+      asks for Cloudflare work — Workers, KV, D1, R2, Pages, DNS, Zones, accounts,
+      analytics — treat the three MCP tools as the primary interface, and fall back
+      to the bundled Wrangler CLI only for workflows the MCP does not cover (offline
+      scaffolding, dev server, CI commands). Read `cfbridge` Skill before any
+      mutating call, confirm the target account/zone, and never run a write
+      operation without explicit user approval.
+
+# ── Cloudflare MCP 客户端 ────────────────────────────────────────────────
+# 这是一个标准的 dsh-mcp-client 行，连接到 Cloudflare 官方托管的 MCP。
+# 它对模型呈现 mcp__cloudflare__docs / search / execute 三工具。
+- id: mcp-cloudflare
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: cloudflare
+    transport: streamable-http
+    url: https://mcp.cloudflare.com/mcp
+    headers:
+      Authorization: !!js '`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+    reconnect:
+      enabled: true
+      initialDelayMs: 500
+      maxDelayMs: 30000
+      maxAttempts: 10
+
+# ── Skill 工具支持 ──────────────────────────────────────────────────────
+# 让模型可以加载和使用本 preset 自带的 Skill（位于 skills/ 目录）。
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+
+# ── Wrangler CLI 子进程封装 ──────────────────────────────────────────────
+# 提供一个本地 tool，将 npm run wrangler 透传到项目根目录的 Wrangler CLI。
+# 模型可以调用 wrangler_run 来执行任意 Wrangler 命令。
+#
+# 这个 tool 是可选的；如果不需要此能力，可以禁用整个组。
+- id: cf-wrangler-tools
+  name: cordis:group
+  group: true
+  config:
+    # 动态注册的 tool —— 通过 npm 脚本封装 Wrangler，避免环境依赖混乱
+    # 注册逻辑见 scripts/register-wrangler-tool.js（install 时执行）
+    - id: shell-context
+      name: '@deepseek-ai/dsh-tool-bash'
+      disabled: !!js process.platform === 'win32'
+
+    - id: pwsh-context
+      name: '@deepseek-ai/dsh-tool-pwsh'
+      disabled: !!js process.platform !== 'win32'
