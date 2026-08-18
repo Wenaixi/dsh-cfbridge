@@ -15,10 +15,13 @@
 #
 # 部署位置：
 # 安装后位于 %USERPROFILE%\.dsh\.agent-presets\cfbridge\
+#
+# 结构对齐：完全复用 standard preset 的框架，只在 persona 和 mcp-cloudflare
+# 两处有差异；其它行保持一致以避免引入 isolate/服务注册的差异。
 
 # ── 身份 / 人设 ────────────────────────────────────────────────────────
-# 覆盖标准模式的 persona，注入 Cloudflare 场景专属定位
-- id: cf-persona
+# 覆盖标准模式的 persona，注入 Cloudflare 场景专属定位。
+- id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: >-
@@ -26,15 +29,58 @@
 
       You have been equipped with the **Cloudflare 模式** (cfbridge v0.2.0). When the user
       asks for Cloudflare work — Workers, KV, D1, R2, Pages, DNS, Zones, accounts,
-      analytics — treat the three MCP tools as the primary interface, and fall back
-      to the bundled Wrangler CLI only for workflows the MCP does not cover (offline
-      scaffolding, dev server, CI commands). Read `cfbridge` Skill before any
-      mutating call, confirm the target account/zone, and never run a write
-      operation without explicit user approval.
+      analytics — treat the three MCP tools (`mcp__cloudflare__docs`,
+      `mcp__cloudflare__search`, `mcp__cloudflare__execute`) as the primary interface.
+      Fall back to the bundled Wrangler CLI only for workflows the MCP does not
+      cover (offline scaffolding, dev server, CI commands). Read the `cfbridge`
+      Skill before any mutating call, confirm the target account/zone, and never
+      run a write operation without explicit user approval.
 
-# ── Cloudflare MCP 客户端 ────────────────────────────────────────────────
-# 这是一个标准的 dsh-mcp-client 行，连接到 Cloudflare 官方托管的 MCP。
-# 它对模型呈现 mcp__cloudflare__docs / search / execute 三工具。
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
+
+# ── shell ──────────────────────────────────────────────────────────────
+# 与 standard preset 一致；`shell-env` 留在 host composition，tool-bash /
+# tool-pwsh 只注册到 host tools registry，不发布 service，因此不需要 realm。
+- id: tool-bash
+  name: '@deepseek-ai/dsh-tool-bash'
+  disabled: !!js process.platform === 'win32'
+
+- id: tool-pwsh
+  name: '@deepseek-ai/dsh-tool-pwsh'
+  disabled: !!js process.platform !== 'win32'
+
+# ── filesystem ──────────────────────────────────────────────────────────
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+# ── background jobs ─────────────────────────────────────────────────────
+- id: tool-jobs
+  name: '@deepseek-ai/dsh-tool-jobs'
+
+# ── skills ─────────────────────────────────────────────────────────────
+# 与 standard preset 一致：skill 注册器在 host，但本 preset 在自己的层
+# 注册 contribution，所以不需要 realm。
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+
+# ── goals ──────────────────────────────────────────────────────────────
+- id: tool-goal
+  name: '@deepseek-ai/dsh-tool-goal'
+
+# ── Cloudflare MCP 客户端 ──────────────────────────────────────────────
+# dsh-mcp-client 只把 mcp__cloudflare__* 工具注册到 host tools registry，
+# 不发布 service；与 mcp-memory 示例一致，直接放在顶层即可。
 - id: mcp-cloudflare
   name: '@deepseek-ai/dsh-mcp-client'
   config:
@@ -51,29 +97,26 @@
       maxDelayMs: 30000
       maxAttempts: 10
 
-# ── Skill 工具支持 ──────────────────────────────────────────────────────
-# 让模型可以加载和使用本 preset 自带的 Skill（位于 skills/ 目录）。
-- id: skill-filesystem
-  name: '@deepseek-ai/dsh-skill-filesystem'
-
-- id: tool-skill
-  name: '@deepseek-ai/dsh-tool-skill'
-
-# ── Wrangler CLI 子进程封装 ──────────────────────────────────────────────
-# 提供一个本地 tool，将 npm run wrangler 透传到项目根目录的 Wrangler CLI。
-# 模型可以调用 wrangler_run 来执行任意 Wrangler 命令。
-#
-# 这个 tool 是可选的；如果不需要此能力，可以禁用整个组。
-- id: cf-wrangler-tools
+# ── plan mode ──────────────────────────────────────────────────────────
+# 与 standard preset 一致；plan 状态本来就是 per-agent。
+- id: planning
   name: cordis:group
   group: true
+  isolate:
+    planMode: true
   config:
-    # 动态注册的 tool —— 通过 npm 脚本封装 Wrangler，避免环境依赖混乱
-    # 注册逻辑见 scripts/register-wrangler-tool.js（install 时执行）
-    - id: shell-context
-      name: '@deepseek-ai/dsh-tool-bash'
-      disabled: !!js process.platform === 'win32'
+    - id: plan-mode
+      name: '@deepseek-ai/dsh-plan-mode'
+      config:
+        section: |
+          You are in plan mode. Stay in plan mode until exit_plan_mode succeeds or the user switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
 
-    - id: pwsh-context
-      name: '@deepseek-ai/dsh-tool-pwsh'
-      disabled: !!js process.platform !== 'win32'
+          Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+          The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+          Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+          Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+          When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.

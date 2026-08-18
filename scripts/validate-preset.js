@@ -76,11 +76,20 @@ function main() {
     if (hasMcpCloudflareRow(text)) pass('agent.cordis.yml has mcp-cloudflare row')
     else fail('agent.cordis.yml has mcp-cloudflare row', 'missing one of: id/serverName/url/Authorization template')
 
-    if (/-\s*id:\s*cf-persona\b/.test(text)) pass('agent.cordis.yml has cf-persona row')
-    else fail('agent.cordis.yml has cf-persona row', 'missing')
+    if (/-\s*id:\s*persona\b/.test(text)) pass('agent.cordis.yml has persona row')
+    else fail('agent.cordis.yml has persona row', 'missing')
+
+    if (/-\s*id:\s*mcp-cloudflare\b/.test(text)) pass('agent.cordis.yml has mcp-cloudflare row')
+    else fail('agent.cordis.yml has mcp-cloudflare row', 'missing')
 
     if (/-\s*id:\s*skill-filesystem\b/.test(text)) pass('agent.cordis.yml registers skills')
     else fail('agent.cordis.yml registers skills', 'missing skill-filesystem')
+
+    if (/-\s*id:\s*tool-fs\b/.test(text)) pass('agent.cordis.yml has filesystem tools')
+    else fail('agent.cordis.yml has filesystem tools', 'missing tool-fs')
+
+    if (/-\s*id:\s*tool-pwsh\b/.test(text)) pass('agent.cordis.yml has pwsh tool')
+    else fail('agent.cordis.yml has pwsh tool', 'missing tool-pwsh')
 
     // 4. 不含 token 硬编码
     if (!hasTokenLeak(text)) pass('agent.cordis.yml has no hardcoded token')

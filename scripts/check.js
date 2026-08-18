@@ -82,6 +82,8 @@ check('agent.cordis.yml uses DSH MCP client', agentYml.includes('@deepseek-ai/ds
 check('agent.cordis.yml targets Cloudflare MCP', agentYml.includes('mcp.cloudflare.com/mcp'))
 check('agent.cordis.yml reads token from environment', agentYml.includes('process.env.CLOUDFLARE_API_TOKEN'))
 check('agent.cordis.yml has no literal Cloudflare token', !hasTokenLeak(agentYml))
+check('agent.cordis.yml has persona row', /-\s*id:\s*persona\b/.test(agentYml))
+check('agent.cordis.yml has skill-filesystem row', /-\s*id:\s*skill-filesystem\b/.test(agentYml))
 
 // === 4. preset.yml ===
 const presetYml = readText(path.join(ROOT, 'preset.yml'))

@@ -103,4 +103,5 @@ cfbridge 不会触碰 web profile 的其它 MCP（context7、exa），也不会�
 - v0.1.1 CLI 提交：`3c3180c`（`feat: add secure local Wrangler CLI`）。
 - v0.2.0 Preset 提交：`81ad382`（`feat: ship v0.2.0 as DSH Agent Preset with bundled Skill and install tooling`）。
 - v0.2.1 隔离清理提交：`22849ee`（`feat: extend check.js to assert no global pollution; also remove cloudflare residue from web profile`）。
+- v0.2.2 gitignore 加固提交：`f0c5b45`（`feat: expand gitignore coverage and broaden token leak detector (Cloudflare/AWS/GitHub/private key/Google)`）。
 - 尚未配置远程仓库，不会在未授权时 push。
