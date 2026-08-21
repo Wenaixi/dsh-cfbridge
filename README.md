@@ -2,10 +2,13 @@
 
 > Cloudflare 官方 Code Mode MCP 在 DeepSeek Harness（DSH）中的**全局 Bundle 桥接**。
 
-[![版本](https://img.shields.io/badge/version-0.3.0-2563eb)](./package.json)
+[![npm](https://img.shields.io/npm/v/@wenaixi/cfbridge?color=cb3837)](https://www.npmjs.com/package/@wenaixi/cfbridge)
+[![版本](https://img.shields.io/badge/version-0.1.0-2563eb)](#版本与维护)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
 cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile <name> add` 安装到任意 DSH profile 后，**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 Skill，配合项目本地 Wrangler CLI 透传。
+
+> 仓库：**[Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge)** · npm 包：**[@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)**
 
 ## 它是什么
 
@@ -49,19 +52,36 @@ CLOUDFLARE_API_TOKEN=请替换为你的token
 
 ### 2. 安装 Bundle
 
+**方式 A — npm 直装（推荐，免 clone）**
+
 ```powershell
-git clone https://github.com/Wenaixi/cfbridge
-cd cfbridge
+dsh plugin --profile web add @wenaixi/cfbridge
+```
+
+**方式 B — GitHub 直装（免构建，零本地依赖）**
+
+```powershell
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
+# 锁定版本更稳妥：
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.0
+```
+
+> 直装前提：仓库含 `dsh.bundle` 声明且无 TypeScript 编译步骤（本仓库满足 —— 纯 JS + YAML + Markdown，GitHub 拉到的就是可运行形态，无需 `prepare`/`allowBuilds`）。
+
+**方式 C — clone 后本地安装**
+
+```powershell
+git clone https://github.com/Wenaixi/dsh-cfbridge.git
+cd dsh-cfbridge
 npm install
 npm run install:bundle            # 默认装到 web profile
 # 其他 profile：npm run install:bundle -- --profile tui
 ```
 
-`install:bundle` 内部做了三件事：
+`install:bundle` 内部做了两件事：
 
 1. 调 `dsh plugin --profile <name> add .`，让 DSH 自动把 `@wenaixi/cfbridge` 加进 `dsh.profile.bundles`。
-2. 把仓库内的 `skills/cfbridge/` 软链到 `$DSH_HOME/skills/cfbridge/`，让 host 已有的 `dsh-skill-filesystem` 默认根（`user-dsh`）自动收录。
-3. 调 `dsh --profile <name> --dump-config` 验证 `cfbridge` 层出现。
+2. 调 `dsh --profile <name> --dump-config` 验证 `cfbridge` 层及两行（`mcp-cloudflare` / `cfbridge-skill`）出现。
 
 ### 3. 重启 DSH
 
@@ -74,7 +94,7 @@ dsh --profile web
 ## 验证
 
 ```powershell
-# 仓库配置 + 安全检查（v0.3.0：bundle 入口 + 反转 web patch 校验 + deprecated shim）
+# 仓库配置 + 安全检查（bundle 入口 + 反转 web patch 校验 + deprecated shim）
 npm run check
 
 # Bundle manifest + 结构校验（cordis.patch.yml / SKILL.md / token 痕迹）
@@ -96,15 +116,18 @@ npm run dump:config
 ### A. 官方 CLI 启用/停用（推荐）
 
 ```powershell
-# 启用
-npm run install:bundle -- --profile web
+# 启用（npm 包）
+dsh plugin --profile web add @wenaixi/cfbridge
+
+# 启用（GitHub 直装）
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.0
 
 # 停用
-npm run uninstall:bundle -- --profile web
-# 等价：dsh plugin --profile web remove @wenaixi/cfbridge
+dsh plugin --profile web remove @wenaixi/cfbridge
+# 或：npm run uninstall:bundle -- --profile web
 ```
 
-`uninstall:bundle` 会清理：DSH profile 中的 dependency、`dsh.profile.bundles` 层、`$DSH_HOME/skills/cfbridge/` 软链。
+`uninstall:bundle` 会清理：DSH profile 中的 dependency、`dsh.profile.bundles` 层及旧版残留的 skill 软链（如有）。
 
 ### B. disabled 覆写（热切换，不卸载）
 
@@ -148,14 +171,14 @@ npm run uninstall:bundle -- --profile web
 | 层级 | 内容 |
 | --- | --- |
 | DSH MCP | docs / search / execute 三工具，账号 / Zone / Workers / KV / D1 / Pages / GraphQL 只读调用 |
-| Skill | `cfbridge` Skill 在所有会话的可用 skill 列表里可见 |
+| Skill | `cfbridge` Skill 在所有会话的可用 skill 列表里可见（`source: runtime`） |
 | 本地 Wrangler | 版本、whoami、D1 列表、Worker 部署列表、Pages 项目列表 |
-| 安全 | 追踪文件与历史均无 token；无 remote；`.env` 与证书被忽略 |
+| 安全 | 追踪文件与历史均无 token；无 remote 泄露风险；`.env` 与证书被忽略 |
 
 ## 版本与维护
 
-- 当前版本：**v0.3.0**（重构为全局 Bundle，原 Agent Preset 形态归档到 `deprecated/preset/`）。
+- 当前版本：**v0.1.0**（首个公开发布；Bundle 形态，运行时 Skill，全局可见）。
 - 作者：**Wenaixi**
 - 许可证：MIT
-- v0.3.0 决策与历史记录见 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/plan-v0.3.0-global-bundle.md`](./docs/plan-v0.3.0-global-bundle.md)
+- 决策与历史记录见 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/plan-v0.3.0-global-bundle.md`](./docs/plan-v0.3.0-global-bundle.md)
 - 相关链接：[Cloudflare MCP](https://github.com/cloudflare/mcp) · [Wrangler 文档](https://developers.cloudflare.com/workers/wrangler/) · [DSH Bundle 文档](https://github.com/deepseek-ai/deepseek-harness)

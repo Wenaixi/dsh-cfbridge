@@ -1,14 +1,17 @@
 {
   "name": "@wenaixi/cfbridge",
-  "version": "0.3.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Cloudflare Code Mode MCP 全局 Bundle，安装后所有 DSH 会话自动获得 docs/search/execute 三工具与 cfbridge Skill，配合项目本地 Wrangler CLI 透传。",
   "author": "Wenaixi <wenxiloveyou@gmail.com>",
   "license": "MIT",
   "type": "commonjs",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Wenaixi/cfbridge.git"
+    "url": "https://github.com/Wenaixi/dsh-cfbridge.git"
+  },
+  "homepage": "https://github.com/Wenaixi/dsh-cfbridge#readme",
+  "bugs": {
+    "url": "https://github.com/Wenaixi/dsh-cfbridge/issues"
   },
   "keywords": [
     "cloudflare",
@@ -23,6 +26,7 @@
   "main": "cordis.patch.yml",
   "files": [
     "cordis.patch.yml",
+    "src/",
     "skills/",
     "scripts/",
     "README.md",
@@ -30,6 +34,10 @@
     ".env.example",
     "deprecated/"
   ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "check": "node scripts/check.js",
     "install:bundle": "node scripts/install-bundle.js",

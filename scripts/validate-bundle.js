@@ -57,11 +57,17 @@ function main() {
 
     if (pkg.name === '@wenaixi/cfbridge') pass('package name is @wenaixi/cfbridge')
     else fail('package name is @wenaixi/cfbridge', pkg.name)
-    if (pkg.version === '0.3.0') pass('package version is 0.3.0')
-    else fail('package version is 0.3.0', pkg.version)
+    if (pkg.version === '0.1.0') pass('package version is 0.1.0')
+    else fail('package version is 0.1.0', pkg.version)
+    if (pkg.private !== true) pass('package is not private (npm publishable)')
+    else fail('package is not private (npm publishable)', 'private must be absent/false')
+    if (pkg.publishConfig && pkg.publishConfig.access === 'public') pass('publishConfig.access is public')
+    else fail('publishConfig.access is public', `got: ${pkg.publishConfig && pkg.publishConfig.access}`)
+    if (/github\.com\/Wenaixi\/dsh-cfbridge(\.git)?$/i.test((pkg.repository && pkg.repository.url) || '')) pass('repository points to Wenaixi/dsh-cfbridge')
+    else fail('repository points to Wenaixi/dsh-cfbridge', pkg.repository && pkg.repository.url)
 
     const files = Array.isArray(pkg.files) ? pkg.files : []
-    const need = ['cordis.patch.yml', 'skills/', 'scripts/', 'README.md', 'LICENSE']
+    const need = ['cordis.patch.yml', 'src/', 'skills/', 'scripts/', 'README.md', 'LICENSE']
     for (const entry of need) {
       if (files.includes(entry)) pass(`files[] includes ${entry}`)
       else fail(`files[] includes ${entry}`, `missing in package.json files`)
@@ -92,6 +98,12 @@ function main() {
     if (!hasTokenLeak(patchText)) pass('cordis.patch.yml has no hardcoded token')
     else fail('cordis.patch.yml has no hardcoded token', 'token pattern found in patch')
 
+    // 运行时 Skill 行
+    if (/^\s*-\s+id:\s*cfbridge-skill\b/m.test(patchText)) pass('cordis.patch.yml has cfbridge-skill row')
+    else fail('cordis.patch.yml has cfbridge-skill row', 'missing id: cfbridge-skill')
+    if (/cfbridge-skill\.js/.test(patchText)) pass('cordis.patch.yml cfbridge-skill references cfbridge-skill.js')
+    else fail('cordis.patch.yml cfbridge-skill references cfbridge-skill.js', 'missing file reference')
+
     // 不应再注入 agent 栈行（plan §4.1）。
     const banned = ['persona', 'agent-instructions', 'tool-bash', 'tool-pwsh', 'tool-fs', 'skill-filesystem', 'tool-skill', 'planning']
     for (const k of banned) {
@@ -101,6 +113,23 @@ function main() {
     pass('cordis.patch.yml does not redeclare agent-stack rows (persona/tools/skills/planning)')
   } else {
     fail('cordis.patch.yml exists', 'file missing')
+  }
+
+  // 2a. src/cfbridge-skill.js 运行时 Skill 插件
+  const runtimeSkillJs = path.join(ROOT, 'src', 'cfbridge-skill.js')
+  if (fs.existsSync(runtimeSkillJs)) {
+    pass('src/cfbridge-skill.js exists')
+    const t = readText(runtimeSkillJs)
+    if (/inject\s*=\s*\['skills'\]/.test(t)) pass('src/cfbridge-skill.js injects skills')
+    else fail('src/cfbridge-skill.js injects skills', 'inject must include skills')
+    if (/ctx\.skills\.register/.test(t)) pass('src/cfbridge-skill.js registers via ctx.skills.register')
+    else fail('src/cfbridge-skill.js registers via ctx.skills.register', 'missing ctx.skills.register call')
+    if (/name:\s*'cfbridge'/.test(t) || /name:\s*"cfbridge"/.test(t)) pass('src/cfbridge-skill.js names skill cfbridge')
+    else fail('src/cfbridge-skill.js names skill cfbridge', 'skill name should be cfbridge')
+    if (!hasTokenLeak(t)) pass('src/cfbridge-skill.js has no hardcoded token')
+    else fail('src/cfbridge-skill.js has no hardcoded token', 'token pattern found')
+  } else {
+    fail('src/cfbridge-skill.js exists', 'file missing')
   }
 
   // 3. Skill 文件
@@ -114,6 +143,12 @@ function main() {
     else fail('SKILL.md has no hardcoded token', 'token pattern in skill body')
   } else {
     fail('skills/cfbridge/SKILL.md exists', 'file missing')
+  }
+
+  // 3a. package.json files[] must include src/
+  if (pkg && Array.isArray(pkg.files)) {
+    if (pkg.files.includes('src/') || pkg.files.includes('src/cfbridge-skill.js')) pass('package files[] includes runtime skill source')
+    else fail('package files[] includes runtime skill source', 'need src/ or src/cfbridge-skill.js in files[]')
   }
 
   // 4. 关键脚本

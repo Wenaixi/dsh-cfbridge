@@ -42,7 +42,10 @@ function hasTokenLeak(text) {
 const pkg = readJson(path.join(ROOT, 'package.json'))
 if (pkg) {
   check('package name is @wenaixi/cfbridge', pkg.name === '@wenaixi/cfbridge', `got: ${pkg.name}`)
-  check('package version is 0.3.0', pkg.version === '0.3.0', `got: ${pkg.version}`)
+  check('package version is 0.1.0', pkg.version === '0.1.0', `got: ${pkg.version}`)
+  check('package is not private', pkg.private !== true, pkg.private ? 'package.json must not be private for npm publish' : '')
+  check('package publishConfig.access is public', pkg.publishConfig?.access === 'public', `got: ${pkg.publishConfig?.access}`)
+  check('package repository points to Wenaixi/dsh-cfbridge', /github\.com\/Wenaixi\/dsh-cfbridge(\.git)?$/i.test(pkg.repository?.url || ''), `got: ${pkg.repository?.url}`)
   check('package author is Wenaixi', /Wenaixi/.test(pkg.author || ''), `got: ${pkg.author}`)
   check('package license is MIT', pkg.license === 'MIT', `got: ${pkg.license}`)
   check('package declares dsh.bundle.patch', !!pkg.dsh?.bundle?.patch)
@@ -83,6 +86,9 @@ if (patchText) {
     /Authorization:\s*!!js\s+'`Bearer \$\{process\.env\.CLOUDFLARE_API_TOKEN\}`'/.test(patchText))
   check('cordis.patch.yml keeps failOnStartupError: false',
     /failOnStartupError:\s*false\b/.test(patchText))
+  check('cordis.patch.yml has cfbridge-skill id', /^\s*-\s+id:\s*cfbridge-skill\b/m.test(patchText))
+  check('cordis.patch.yml cfbridge-skill references src/cfbridge-skill.js',
+    /cfbridge-skill\.js/.test(patchText))
 
   // 不应再注入 agent 栈行（plan §4.1）；重复注入会与 host 冲突。
   const banned = ['persona', 'agent-instructions', 'tool-bash', 'tool-pwsh', 'tool-fs', 'skill-filesystem', 'tool-skill', 'planning', 'tool-goal', 'tool-web']
@@ -91,6 +97,13 @@ if (patchText) {
     if (re.test(patchText)) check(`cordis.patch.yml does NOT redeclare ${k}`, false, 'host composition already provides this row')
   }
   check('cordis.patch.yml does not redeclare agent-stack rows', true, 'banned keys absent or already failed individually')
+}
+// 运行时 Skill 插件
+const runtimeSkillJs = readText(path.join(ROOT, 'src', 'cfbridge-skill.js'))
+check('src/cfbridge-skill.js exists', fileExists(path.join(ROOT, 'src', 'cfbridge-skill.js')))
+if (runtimeSkillJs) {
+  check('src/cfbridge-skill.js injects skills', /inject\s*=\s*\['skills'\]/.test(runtimeSkillJs))
+  check('src/cfbridge-skill.js registers via ctx.skills.register', /ctx\.skills\.register/.test(runtimeSkillJs))
 }
 
 // === 4. Skill 文件 ===
@@ -221,8 +234,11 @@ if (fs.existsSync(legacyPreset)) {
 
 // === 11. Git remote ===
 let hasRemote = false
-try { hasRemote = String(execSync('git remote -v', { cwd: ROOT, encoding: 'utf8' })).trim().length > 0 } catch {}
-check('no Git remote configured (no auto-push risk)', !hasRemote)
+let remoteText = ''
+try { remoteText = String(execSync('git remote -v', { cwd: ROOT, encoding: 'utf8' })).trim(); hasRemote = remoteText.length > 0 } catch {}
+const remoteOk = !hasRemote || /github\.com[:/]Wenaixi\/dsh-cfbridge(\.git)?/i.test(remoteText)
+check('git remote points to Wenaixi/dsh-cfbridge (or not yet configured)', remoteOk,
+  hasRemote ? remoteText.split('\n')[0] : 'no remote yet (ok before publish)')
 
 // === 12. deprecated/ 归档 ===
 check('deprecated/preset/preset.yml archived', fileExists(path.join(ROOT, 'deprecated', 'preset', 'preset.yml')))

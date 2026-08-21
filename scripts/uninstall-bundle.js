@@ -3,10 +3,9 @@
 // 流程：
 // 1. 调用 `dsh plugin --profile <name> remove @wenaixi/cfbridge`，DSH 会
 //    自动从 dsh.profile.bundles 移除本层并清理 node_modules。
-// 2. 清理 install-bundle.js 创建的 skill 软链 $DSH_HOME/skills/cfbridge/。
+// 2. 清理旧版本残留的软链 $DSH_HOME/skills/cfbridge/（若存在）。
 // 3. 调 `dsh --profile <name> --dump-config` 验证层不再出现 cfbridge。
-// 4. 可选：若发现 v0.2.0 时代残留的 ~/.dsh/.agent-presets/cfbridge/，
-//    打印一行 hint 引导用户跑 migrate-from-preset。
+// 4. 提示 v0.2.0 旧 preset 残留的可选清理。
 //
 // 使用：
 //   npm run uninstall:bundle
@@ -58,15 +57,14 @@ function runCapture(cmd, args, opts = {}) {
 }
 
 function removeSkillLink() {
-  if (!fs.existsSync(SKILL_LINK) && !(fs.lstatSync && fs.existsSync(SKILL_LINK))) {
-    log('info', `No skill link at ${SKILL_LINK}; nothing to remove.`)
-    return
-  }
   try {
+    const stat = fs.lstatSync(SKILL_LINK)
+    if (!stat.isSymbolicLink() && !stat.isDirectory()) return
     fs.rmSync(SKILL_LINK, { recursive: true, force: true })
-    log('ok', `Removed skill link: ${SKILL_LINK}`)
+    log('ok', `Removed skill link (legacy): ${SKILL_LINK}`)
   } catch (e) {
-    log('warn', `Failed to remove ${SKILL_LINK}: ${e.message}`)
+    if (e.code === 'ENOENT') log('info', `No skill link at ${SKILL_LINK}; nothing to remove.`)
+    else log('warn', `Failed to remove ${SKILL_LINK}: ${e.message}`)
   }
 }
 
@@ -86,7 +84,6 @@ function dumpConfig(profile) {
 }
 
 function confirm(question) {
-  // 简单 stdin 提示；--yes 时跳过。
   if (process.env.CI === 'true' || process.env.NONINTERACTIVE === 'true') return true
   return new Promise((resolve) => {
     const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout })
