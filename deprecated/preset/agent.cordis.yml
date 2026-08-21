@@ -1,3 +1,7 @@
+# DEPRECATED since v0.3.0 — cfbridge 现在以 DSH Bundle (cordis.patch.yml) 形态分发。
+# 本文件仅作为 v0.2.x 的历史快照保留；DSH 不会加载它。
+# 详见 docs/plan-v0.3.0-global-bundle.md 与 README.md。
+
 # cfbridge Agent Preset — Cloudflare 资源管理专用 Agent
 #
 # 这是一个 AGENT-PLANE 组合（Agent Preset），不是 host 组合。

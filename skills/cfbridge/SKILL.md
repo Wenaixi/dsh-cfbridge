@@ -1,8 +1,8 @@
-# cfbridge — Cloudflare 模式操作指南
+# cfbridge — Cloudflare 全局 Bridge 操作指南
 
-本 Skill 加载后只对当前 Agent 可见。它提供 Cloudflare Code Mode MCP 的最佳实践、典型工作流和写操作审批规范。
+本 Skill 由 cfbridge v0.3.0 Bundle 提供；安装并启用后，**所有** DSH 会话都会自动看到本 Skill —— 不需要选任何 preset，也不需要切换模式。
 
-> 触发：DSH 中选择了「Cloudflare 模式」preset 后，模型会自动感知本 Skill。任何涉及 Cloudflare API 的请求，都应先调用 `mcp__cloudflare__docs` 或 `mcp__cloudflare__search` 来确认端点与参数，再调用 `mcp__cloudflare__execute` 来执行。
+> 触发：安装 `cfbridge` Bundle 后（即 `npm run install:bundle` 完成且 DSH 重启），模型在所有会话中均可感知本 Skill。任何涉及 Cloudflare API 的请求，都应先调用 `mcp__cloudflare__docs` 或 `mcp__cloudflare__search` 来确认端点与参数，再调用 `mcp__cloudflare__execute` 来执行。
 
 ## 三工具速查
 
@@ -155,7 +155,7 @@ Wrangler 启动器（`scripts/wrangler.js`）会从 `%USERPROFILE%\.dsh\.env` �
 
 | 现象 | 排查 |
 | --- | --- |
-| `mcp__cloudflare__*` 工具不可见 | DSH 未启动 Cloudflare 模式；切换 preset 后重启会话 |
+| `mcp__cloudflare__*` 工具不可见 | cfbridge bundle 未启用；运行 `npm run install:bundle -- --profile <你的 profile>`，然后重启 DSH |
 | 调用返回 `Bearer token required` | `%USERPROFILE%\.dsh\.env` 没有 `CLOUDFLARE_API_TOKEN` |
 | 调用返回 401/403 | token 过期；去 Cloudflare Dashboard 重新生成 |
 | `execute` 超时 | 网络受限；DSH 内 MCP 客户端会自动重连 |

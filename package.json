@@ -1,8 +1,8 @@
 {
   "name": "@wenaixi/cfbridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Cloudflare Code Mode MCP 插件，封装 MCP、Skill 与 Wrangler CLI，按需加载到 DSH。",
+  "description": "Cloudflare Code Mode MCP 全局 Bundle，安装后所有 DSH 会话自动获得 docs/search/execute 三工具与 cfbridge Skill，配合项目本地 Wrangler CLI 透传。",
   "author": "Wenaixi <wenxiloveyou@gmail.com>",
   "license": "MIT",
   "type": "commonjs",
@@ -16,24 +16,29 @@
     "deepseek-harness",
     "dsh",
     "cordis",
-    "agent-preset",
+    "bundle",
+    "dsh-bundle",
     "skill"
   ],
+  "main": "cordis.patch.yml",
   "files": [
-    "preset.yml",
-    "agent.cordis.yml",
+    "cordis.patch.yml",
     "skills/",
     "scripts/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    ".env.example",
+    "deprecated/"
   ],
   "scripts": {
     "check": "node scripts/check.js",
-    "install:preset": "node scripts/install-preset.js",
-    "uninstall:preset": "node scripts/uninstall-preset.js",
-    "validate:preset": "node scripts/validate-preset.js",
+    "install:bundle": "node scripts/install-bundle.js",
+    "uninstall:bundle": "node scripts/uninstall-bundle.js",
+    "validate:bundle": "node scripts/validate-bundle.js",
+    "migrate:from-preset": "node scripts/migrate-from-preset.js",
+    "dump:config": "node scripts/dump-config.js",
     "test": "node scripts/test.js",
-    "test:mcp": "node scripts/test-mcp.js",
+    "test:bundle": "node scripts/validate-bundle.js",
     "test:wrangler": "node scripts/test-wrangler.js",
     "wrangler": "node scripts/wrangler.js",
     "wrangler:version": "node scripts/wrangler.js --version",
@@ -46,6 +51,11 @@
     "@deepseek-ai/dsh-mcp-client": "*",
     "@deepseek-ai/dsh-skill-filesystem": "*",
     "@deepseek-ai/dsh-tool-skill": "*"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
   },
   "devDependencies": {
     "wrangler": "^4.123.0"

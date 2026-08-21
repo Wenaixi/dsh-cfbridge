@@ -1,5 +1,0 @@
-# cfbridge Agent Preset 元数据
-# 显示在 DSH 模式选择器中
-name: Cloudflare 模式
-description: 集成 Cloudflare 官方 Code Mode MCP（docs/search/execute 三工具 ≈ 2500 API），附带 Wrangler CLI 封装和 Cloudflare 操作技能。专为按需管理 Cloudflare 资源设计。
-order: 10
