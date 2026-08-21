@@ -43,7 +43,7 @@ jobs:
           fi
 
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish --access public --provenance 2>&1 || npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
