@@ -42,7 +42,7 @@ function hasTokenLeak(text) {
 const pkg = readJson(path.join(ROOT, 'package.json'))
 if (pkg) {
   check('package name is @wenaixi/cfbridge', pkg.name === '@wenaixi/cfbridge', `got: ${pkg.name}`)
-  check('package version is 0.1.1', pkg.version === '0.1.1', `got: ${pkg.version}`)
+  check('package version is 0.1.2', pkg.version === '0.1.2', `got: ${pkg.version}`)
   check('package is not private', pkg.private !== true, pkg.private ? 'package.json must not be private for npm publish' : '')
   check('package publishConfig.access is public', pkg.publishConfig?.access === 'public', `got: ${pkg.publishConfig?.access}`)
   check('package repository points to Wenaixi/dsh-cfbridge', /github\.com\/Wenaixi\/dsh-cfbridge(\.git)?$/i.test(pkg.repository?.url || ''), `got: ${pkg.repository?.url}`)
