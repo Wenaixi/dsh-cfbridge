@@ -1,0 +1,97 @@
+﻿# === 密钥、本地环境与凭证 ===
+# 永远不要提交真实的 token、密码或私有凭证。
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.keystore
+*.jks
+secrets/
+credentials/
+**/secrets/
+**/credentials/
+*.credentials.*
+*.secret.*
+
+# Cloudflare 与 Wrangler  本地认证状态
+.wrangler/
+.wrangler.toml.local
+.dev.vars
+.dev.vars.*
+.dev.vars.example
+
+# === DSH 运行时状态、profile 镜像与动态插件残留 ===
+# 这些路径属于本地 DSH 安装的临时状态或历史诊断文件，
+# 不应进入仓库；正式架构只跟踪 preset.yml / agent.cordis.yml / skills/。
+.dsh/
+profiles/
+cordis.local.yml
+cordis.local.yaml
+*.credentials.yaml
+**/.dsh-state/
+**/dsh-state/
+
+# === Node / 包管理器 ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# === 构建产物与诊断转储 ===
+coverage/
+dist/
+build/
+.tmp/
+tmp/
+*.log
+*.pid
+*.spill
+*.tmp
+
+# === 编辑器与操作系统 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+~$*
+*.bak
+*.orig
+*.rej
+
+# === 历史动态插件与一次性生成器（v0.1.0 之前） ===
+# 当前正式架构使用 MCP 组合行与 Agent Preset；保留这些规则避免旧文件再次混入。
+cfbridge-host-*.js
+cfbridge-host-*.json
+make-v*.js
+check-v*.js
+dump-v*.js
+probe-cf-*.js
+probe-cf-*.json
+dsh-cloudflare-bridge-plan*.md
+dsh-cloudflare-bridge-plan*.json
+*plan*.json
+*-plan-*.md
+*-plan-*.json
+
+# === 本地测试与回放数据 ===
+playwright-report/
+test-results/
+.artifacts/
+**/__snapshots__/*.actual.*
+coverage/lcov.info
+junit.xml
+
+# === 本地记忆库（仅本机，不进仓库） ===
+# CLAUDE.md 是本项目的本地记忆库，含本机验证记录与演进笔记，仅保留在本地。
+CLAUDE.md
+

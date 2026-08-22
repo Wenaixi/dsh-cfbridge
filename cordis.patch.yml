@@ -1,0 +1,38 @@
+# @wenaixi/cfbridge — DSH Bundle Patch (host composition, v0.1.2)
+#
+# 安装后作为 web profile 的一个 bundle 层全局生效；所有会话均自动看到
+# Cloudflare Code Mode MCP 三工具（docs / search / execute）与 cfbridge Skill。
+#
+# 设计要点：
+# 1. mcp-cloudflare：走 dsh-mcp-client，把 `mcp__cloudflare__*` 工具注册到
+#    host 的 tools registry，所有 agent 直接可见。
+# 2. cfbridge-skill：运行时注册 Skill（ctx.skills.register），随 bundle 全局
+#    挂载。资源基座指向 bundle 内的 skills/cfbridge/，跟随 vision-toolkit 的
+#    运行时 Skill 实践，不再依赖 install 阶段对 $DSH_HOME/skills 的软链。
+# 3. 不在 patch 中再声明 persona / agent-instructions / tool-fs /
+#    skill-filesystem / tool-skill / planning 等 agent 栈行——它们由
+#    dsh-base / dsh-web-app 在 host 层提供，重复声明会触发层冲突。
+# 4. Authorization 必须用 `!!js` 模板动态引用 process.env.CLOUDFLARE_API_TOKEN；
+#    token 仍仅放在被忽略的 %USERPROFILE%\.dsh\.env。
+# 5. failOnStartupError 保持 false：无 token 时不阻断 DSH 启动，工具调用时
+#    才报错并提示用户配置 token。
+
+- insert:
+    - id: mcp-cloudflare
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: cloudflare
+        transport: streamable-http
+        url: https://mcp.cloudflare.com/mcp
+        headers:
+          Authorization: !!js '`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 30000
+          maxAttempts: 10
+
+    - id: cfbridge-skill
+      name: '@wenaixi/cfbridge/src/cfbridge-skill.js'

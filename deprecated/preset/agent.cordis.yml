@@ -1,0 +1,126 @@
+# DEPRECATED since v0.3.0 — cfbridge 现在以 DSH Bundle (cordis.patch.yml) 形态分发。
+# 本文件仅作为 v0.2.x 的历史快照保留；DSH 不会加载它。
+# 详见 docs/plan-v0.3.0-global-bundle.md 与 README.md。
+
+# cfbridge Agent Preset — Cloudflare 资源管理专用 Agent
+#
+# 这是一个 AGENT-PLANE 组合（Agent Preset），不是 host 组合。
+# 它会被 mount 到选择「Cloudflare 模式」的那个 DSH 会话中。
+#
+# 设计目标：
+# 1. 提供 Cloudflare Code Mode MCP（docs/search/execute 三工具）
+# 2. 提供 Wrangler CLI 相关的本地工具（通过 npm 脚本）
+# 3. 提供 Cloudflare 操作专属的 Skill
+# 4. 在 cloudflare 任务的系统提示中追加专属指导
+#
+# 安全规则：
+# - token 仅从 %USERPROFILE%\.dsh\.env 的 CLOUDFLARE_API_TOKEN 读取
+# - 任何写操作（deploy/secret put/dns/kv/d1 execute）都必须先获得用户明确确认
+#
+# 部署位置：
+# 安装后位于 %USERPROFILE%\.dsh\.agent-presets\cfbridge\
+#
+# 结构对齐：完全复用 standard preset 的框架，只在 persona 和 mcp-cloudflare
+# 两处有差异；其它行保持一致以避免引入 isolate/服务注册的差异。
+
+# ── 身份 / 人设 ────────────────────────────────────────────────────────
+# 覆盖标准模式的 persona，注入 Cloudflare 场景专属定位。
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      You are a coding agent powered by the {{model}} model, working in {{cwd}}.
+
+      You have been equipped with the **Cloudflare 模式** (cfbridge v0.2.0). When the user
+      asks for Cloudflare work — Workers, KV, D1, R2, Pages, DNS, Zones, accounts,
+      analytics — treat the three MCP tools (`mcp__cloudflare__docs`,
+      `mcp__cloudflare__search`, `mcp__cloudflare__execute`) as the primary interface.
+      Fall back to the bundled Wrangler CLI only for workflows the MCP does not
+      cover (offline scaffolding, dev server, CI commands). Read the `cfbridge`
+      Skill before any mutating call, confirm the target account/zone, and never
+      run a write operation without explicit user approval.
+
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
+
+# ── shell ──────────────────────────────────────────────────────────────
+# 与 standard preset 一致；`shell-env` 留在 host composition，tool-bash /
+# tool-pwsh 只注册到 host tools registry，不发布 service，因此不需要 realm。
+- id: tool-bash
+  name: '@deepseek-ai/dsh-tool-bash'
+  disabled: !!js process.platform === 'win32'
+
+- id: tool-pwsh
+  name: '@deepseek-ai/dsh-tool-pwsh'
+  disabled: !!js process.platform !== 'win32'
+
+# ── filesystem ──────────────────────────────────────────────────────────
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+# ── background jobs ─────────────────────────────────────────────────────
+- id: tool-jobs
+  name: '@deepseek-ai/dsh-tool-jobs'
+
+# ── skills ─────────────────────────────────────────────────────────────
+# 与 standard preset 一致：skill 注册器在 host，但本 preset 在自己的层
+# 注册 contribution，所以不需要 realm。
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+
+# ── goals ──────────────────────────────────────────────────────────────
+- id: tool-goal
+  name: '@deepseek-ai/dsh-tool-goal'
+
+# ── Cloudflare MCP 客户端 ──────────────────────────────────────────────
+# dsh-mcp-client 只把 mcp__cloudflare__* 工具注册到 host tools registry，
+# 不发布 service；与 mcp-memory 示例一致，直接放在顶层即可。
+- id: mcp-cloudflare
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: cloudflare
+    transport: streamable-http
+    url: https://mcp.cloudflare.com/mcp
+    headers:
+      Authorization: !!js '`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+    reconnect:
+      enabled: true
+      initialDelayMs: 500
+      maxDelayMs: 30000
+      maxAttempts: 10
+
+# ── plan mode ──────────────────────────────────────────────────────────
+# 与 standard preset 一致；plan 状态本来就是 per-agent。
+- id: planning
+  name: cordis:group
+  group: true
+  isolate:
+    planMode: true
+  config:
+    - id: plan-mode
+      name: '@deepseek-ai/dsh-plan-mode'
+      config:
+        section: |
+          You are in plan mode. Stay in plan mode until exit_plan_mode succeeds or the user switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
+
+          Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+          The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+          Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+          Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+          When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.

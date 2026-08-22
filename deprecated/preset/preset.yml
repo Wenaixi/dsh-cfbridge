@@ -1,0 +1,10 @@
+# DEPRECATED since v0.3.0 — cfbridge 现在以 DSH Bundle 形态分发，
+# 通过 `npm run install:bundle` 装到 web profile 后所有会话全局可见。
+# 本文件仅作为 v0.2.x 的历史快照保留，DSH 不会再加载它。
+# 详见 docs/plan-v0.3.0-global-bundle.md 与 README.md。
+
+# cfbridge Agent Preset 元数据
+# 显示在 DSH 模式选择器中
+name: Cloudflare 模式 (DEPRECATED — v0.3.0+)
+description: 集成 Cloudflare 官方 Code Mode MCP（docs/search/execute 三工具 ≈ 2500 API），附带 Wrangler CLI 封装和 Cloudflare 操作技能。专为按需管理 Cloudflare 资源设计。
+order: 10

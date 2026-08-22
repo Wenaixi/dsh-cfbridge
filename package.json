@@ -1,0 +1,74 @@
+{
+  "name": "@wenaixi/cfbridge",
+  "version": "0.2.0",
+  "description": "Cloudflare Code Mode MCP 全局 Bundle，安装后所有 DSH 会话自动获得 docs/search/execute 三工具与 cfbridge Skill，配合项目本地 Wrangler CLI 透传。",
+  "author": "Wenaixi <wenxiloveyou@gmail.com>",
+  "license": "MIT",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Wenaixi/dsh-cfbridge.git"
+  },
+  "homepage": "https://github.com/Wenaixi/dsh-cfbridge#readme",
+  "bugs": {
+    "url": "https://github.com/Wenaixi/dsh-cfbridge/issues"
+  },
+  "keywords": [
+    "cloudflare",
+    "mcp",
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "bundle",
+    "dsh-bundle",
+    "skill"
+  ],
+  "main": "cordis.patch.yml",
+  "files": [
+    "cordis.patch.yml",
+    "src/",
+    "skills/",
+    "scripts/",
+    "README.md",
+    "LICENSE",
+    ".env.example",
+    "deprecated/"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "check": "node scripts/check.js",
+    "install:bundle": "node scripts/install-bundle.js",
+    "uninstall:bundle": "node scripts/uninstall-bundle.js",
+    "validate:bundle": "node scripts/validate-bundle.js",
+    "migrate:from-preset": "node scripts/migrate-from-preset.js",
+    "dump:config": "node scripts/dump-config.js",
+    "test": "node scripts/test.js",
+    "test:bundle": "node scripts/validate-bundle.js",
+    "test:wrangler": "node scripts/test-wrangler.js",
+    "wrangler": "node scripts/wrangler.js",
+    "wrangler:version": "node scripts/wrangler.js --version",
+    "wrangler:whoami": "node scripts/wrangler.js whoami",
+    "wrangler:d1:list": "node scripts/wrangler.js d1 list --json",
+    "wrangler:workers:list": "node scripts/wrangler.js deployments list --name vmail --json",
+    "wrangler:pages:list": "node scripts/wrangler.js pages project list --json"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-mcp-client": "*",
+    "@deepseek-ai/dsh-skill-filesystem": "*",
+    "@deepseek-ai/dsh-tool-skill": "*"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "devDependencies": {
+    "wrangler": "^4.123.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
