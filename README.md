@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/@wenaixi/cfbridge?color=cb3837)](https://www.npmjs.com/package/@wenaixi/cfbridge)
 [![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
-[![版本](https://img.shields.io/badge/version-0.1.0-2563eb)](#版本与维护)
+[![版本](https://img.shields.io/badge/version-0.1.1-2563eb)](#版本与维护)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
 cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile web add` 装到 **web** profile 后，**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 Skill，配合项目本地 Wrangler CLI 透传。走 `dsh.bundle` 原生分发，无需 `prepare` 构建。
@@ -18,7 +18,7 @@ cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile 
 dsh plugin --profile web add @wenaixi/cfbridge
 
 # 方式 B — GitHub 直装（免构建）
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.1
 
 # 验证
 dsh --profile web --dump-config | Select-String "cfbridge"
@@ -79,7 +79,7 @@ dsh plugin --profile web add @wenaixi/cfbridge
 ```powershell
 dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
 # 锁定版本更稳妥：
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.1
 ```
 
 > 直装前提：仓库含 `dsh.bundle` 声明且无 TypeScript 编译步骤（本仓库满足 —— 纯 JS + YAML + Markdown，GitHub 拉到的就是可运行形态，无需 `prepare`/`allowBuilds`）。
@@ -136,7 +136,7 @@ npm run dump:config
 dsh plugin --profile web add @wenaixi/cfbridge
 
 # 启用（GitHub 直装）
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.1
 
 # 停用
 dsh plugin --profile web remove @wenaixi/cfbridge
@@ -193,7 +193,7 @@ dsh plugin --profile web remove @wenaixi/cfbridge
 
 ## 版本与维护
 
-- 当前版本：**v0.1.0**（首个公开发布；Bundle 形态，运行时 Skill，全局可见）。
+- 当前版本：**v0.1.1**（首个公开发布；Bundle 形态，运行时 Skill，全局可见）。
 - 作者：**Wenaixi**
 - 许可证：MIT
 - 决策与历史记录见 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/plan-v0.3.0-global-bundle.md`](./docs/plan-v0.3.0-global-bundle.md)

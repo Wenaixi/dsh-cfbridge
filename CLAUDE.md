@@ -1,6 +1,6 @@
 # cfbridge 项目记忆库
 
-- 当前版本：**v0.1.0**（首个公开发布，Bundle 形态，运行时 Skill，全局可见）
+- 当前版本：**v0.1.1**（首个公开发布，Bundle 形态，运行时 Skill，全局可见）
 - 上游本地版本：v0.3.0 演进线（未发布）→ v0.1.0 重置为公开起点
 - 作者：**Wenaixi**（wenxiloveyou@gmail.com）
 - 许可证：MIT
@@ -10,7 +10,7 @@
 ## 产品定位
 
 cfbridge 是 DeepSeek Harness（DSH）的 **Cloudflare 全局 Bundle**。
-v0.1.0 以 DSH 原生 Bundle 路径分发，按 `dsh plugin add` 装到任意
+v0.1.1 以 DSH 原生 Bundle 路径分发，按 `dsh plugin add` 装到任意
 profile（如 `web`）后，**所有会话全局可见**：
 
 - `mcp__cloudflare__docs / search / execute`：Cloudflare 官方 Code Mode MCP 三工具；
@@ -18,16 +18,16 @@ profile（如 `web`）后，**所有会话全局可见**：
 - `npm run wrangler ...`：项目本地 Wrangler CLI 透传。
 
 **对比 v0.2.0**：v0.2.0 是 Agent Preset，仅当用户选择「Cloudflare 模式」preset 时挂载。
-v0.1.0（公开线）改为 Bundle，**装完即得**，所有会话全局可用，按 DSH 原生命令 `add/remove` 或
+v0.1.1（公开线）改为 Bundle，**装完即得**，所有会话全局可用，按 DSH 原生命令 `add/remove` 或
 `disabled` 覆写一键开关。
 
 ## 关键配置与安全规则
 
-- 包名：`@wenaixi/cfbridge`，版本 `v0.1.0`，路径 `D:\newC\stick2\cfbridge`。
+- 包名：`@wenaixi/cfbridge`，版本 `v0.1.1`，路径 `D:\newC\stick2\cfbridge`。
 - 包形态：`dsh.bundle`（`package.json#dsh.bundle.patch = "./cordis.patch.yml"`），`publishConfig.access=public`，无构建步骤。
 - 安装入口：支持三种等效路径
   - npm：`dsh plugin --profile <name> add @wenaixi/cfbridge`
-  - GitHub 直装：`dsh plugin --profile <name> add github:Wenaixi/dsh-cfbridge#v0.1.0`（仓库即为可运行形态，无 `prepare`/`allowBuilds`）
+  - GitHub 直装：`dsh plugin --profile <name> add github:Wenaixi/dsh-cfbridge#v0.1.1`（仓库即为可运行形态，无 `prepare`/`allowBuilds`）
   - 本地：`npm run install:bundle`（封装 `dsh plugin --profile <name> add .`）
 - `cordis.patch.yml` 必须使用 `!!js '`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`'`；
   **不得写入 token 明文**。
@@ -85,10 +85,10 @@ v0.1.0（公开线）改为 Bundle，**装完即得**，所有会话全局可用
 6. **不复制 API 端点**：Code Mode MCP 保持官方最新；本地副本会过时。
 7. **不自动推送**：本地 commit 是检查点；只有用户明确授权才 push。
 
-## 目标形态（v0.1.0）
+## 目标形态（v0.1.1）
 
 ```text
-cfbridge v0.1.0 — DSH Bundle（全局，运行时 Skill，无构建）
+cfbridge v0.1.1 — DSH Bundle（全局，运行时 Skill，无构建）
 ├─ package.json              # 声明 dsh.bundle.patch = "./cordis.patch.yml"，publishConfig.access=public
 ├─ cordis.patch.yml          # 2 行：mcp-cloudflare + cfbridge-skill（host 组合）
 ├─ src/cfbridge-skill.js     # 运行时 Skill 注册插件（inject: ['skills'] + ctx.skills.register, source: runtime）
@@ -99,7 +99,7 @@ cfbridge v0.1.0 — DSH Bundle（全局，运行时 Skill，无构建）
 │   ├─ validate-bundle.js     # 校验 dsh.bundle 声明、两 patch 行、token 引用、运行时 Skill 插件
 │   ├─ migrate-from-preset.js # 检测并清理旧 ~/.dsh/.agent-presets/cfbridge
 │   ├─ dump-config.js         # 封装 dsh --profile <name> --dump-config
-│   ├─ check.js               # 仓库静态 + 本机环境断言（含 0.1.0 发布形态断言）
+│   ├─ check.js               # 仓库静态 + 本机环境断言（含 0.1.1 发布形态断言）
 │   ├─ test.js                # 综合入口（check + bundle + wrangler）
 │   ├─ test-wrangler.js       # Wrangler 只读冒烟
 │   ├─ wrangler.js            # Wrangler 安全启动器
@@ -108,7 +108,7 @@ cfbridge v0.1.0 — DSH Bundle（全局，运行时 Skill，无构建）
 └─ Wrangler 透传不变（scripts/wrangler.js + wrangler@4.x）
 ```
 
-### DSH 层序（v0.1.0 行为）
+### DSH 层序（v0.1.1 行为）
 
 DSH 加载 profile 时按以下顺序应用 patch（后层按行胜出）：
 
@@ -123,7 +123,7 @@ patch 的 `disabled: true` 整行重写临时禁用（README 启停控制 B）�
 ## 当前维护文件
 
 - `cordis.patch.yml`：DSH Bundle 的 Host 组合主入口（单 insert，含 `mcp-cloudflare` + `cfbridge-skill` 两行）。
-- `package.json` + `package-lock.json`：版本 0.1.0，dsh.bundle.patch 声明，publishConfig public，无 private，files 含 `src/` + `skills/`。
+- `package.json` + `package-lock.json`：版本 0.1.1，dsh.bundle.patch 声明，publishConfig public，无 private，files 含 `src/` + `skills/`。
 - `src/cfbridge-skill.js`：运行时 Skill 插件（`inject: ['skills']` + `ctx.skills.register`, source: runtime），资源基座指向 `skills/cfbridge/`，跟随 `dsh-vision-toolkit` 实践。
 - `skills/cfbridge/SKILL.md`：随 bundle 发布，不再单独软链；由 `cfbridge-skill` 行在 host 层运行时注册。
 - `scripts/install-bundle.js`：封装 `dsh plugin --profile <name> add <绝对路径>`，仅清理旧软链残留。
@@ -131,7 +131,7 @@ patch 的 `disabled: true` 整行重写临时禁用（README 启停控制 B）�
 - `scripts/validate-bundle.js`：静态校验 dsh.bundle 声明、两 patch 行、token 引用、运行时 Skill 插件、发布形态。
 - `scripts/migrate-from-preset.js`：检测并清理旧 v0.2.0 preset 残留。
 - `scripts/dump-config.js`：封装 `dsh --profile <name> --dump-config`，默认过滤 cfbridge 层。
-- `scripts/check.js`：仓库静态 + 本机环境断言（v0.1.0 重构，含运行时 Skill 与 publish 形态断言）。
+- `scripts/check.js`：仓库静态 + 本机环境断言（v0.1.1 重构，含运行时 Skill 与 publish 形态断言）。
 - `scripts/test.js`：综合入口（check + bundle + wrangler）。
 - `scripts/wrangler.js`：Wrangler 透传（仅在缺 token 时从 `$DSH_HOME/.env` 加载）。
 - `scripts/test-wrangler.js`：Wrangler 只读冒烟。
@@ -141,9 +141,9 @@ patch 的 `disabled: true` 整行重写临时禁用（README 启停控制 B）�
 - `docs/plan-v0.3.0-global-bundle.md`：v0.3.0 重构计划草案（历史参考）。
 - `CLAUDE.md`：本文件。
 
-## 隔离边界（v0.1.0）
+## 隔离边界（v0.1.1）
 
-v0.1.0 设计原则是 **全局常驻、按需开关**，不再像 v0.2.0 那样“完全按需加载”。
+v0.1.1 设计原则是 **全局常驻、按需开关**，不再像 v0.2.0 那样“完全按需加载”。
 
 | 检查项 | 状态 |
 | --- | --- |
@@ -171,10 +171,10 @@ bundle 不会触碰 web profile 的其它 MCP（context7、exa），也不会改
 四个内置 preset（standard/code/cordis/minimal）。重启 DSH 后，所有会话自动获得
 Cloudflare 工具与 Skill；卸载或 disabled 覆写后即时消失。
 
-## 最新验证记录（v0.1.0）
+## 最新验证记录（v0.1.1）
 
-- `npm run check` 70/70 全部通过（含 0.1.0 发布形态与运行时 Skill 断言）。
-- `npm run validate:bundle` 49/49 全部通过。
+- `npm run check` 73/73 全部通过（含 0.1.1 发布形态与运行时 Skill 断言）。
+- `npm run validate:bundle` 53/53 全部通过。
 - `dsh --profile web --dump-config` 含 `# == @wenaixi/cfbridge` 层及 `mcp-cloudflare` + `cfbridge-skill` 两行（已用隔离 probe 验证运行时 `source: runtime` Skill 可见）。
 - `src/cfbridge-skill.js` 已改为运行时注册，不再依赖 `$DSH_HOME/skills` 软链；旧软链在 `install-bundle`/`uninstall-bundle` 中作兼容清理。
 - v0.2.0 旧 preset 文件归档到 `deprecated/preset/`，shim 脚本打印 deprecation 警告。
