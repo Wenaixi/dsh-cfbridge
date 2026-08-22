@@ -90,3 +90,7 @@ test-results/
 **/__snapshots__/*.actual.*
 coverage/lcov.info
 junit.xml
+
+# === 本地记忆库（仅本机，不进仓库） ===
+# CLAUDE.md 是本项目的本地记忆库，含本机验证记录与演进笔记，仅保留在本地。
+CLAUDE.md
