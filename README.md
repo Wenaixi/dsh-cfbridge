@@ -3,12 +3,28 @@
 > Cloudflare 官方 Code Mode MCP 在 DeepSeek Harness（DSH）中的**全局 Bundle 桥接**。
 
 [![npm](https://img.shields.io/npm/v/@wenaixi/cfbridge?color=cb3837)](https://www.npmjs.com/package/@wenaixi/cfbridge)
+[![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
 [![版本](https://img.shields.io/badge/version-0.1.0-2563eb)](#版本与维护)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
-cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile <name> add` 安装到任意 DSH profile 后，**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 Skill，配合项目本地 Wrangler CLI 透传。
+cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile web add` 装到 **web** profile 后，**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 Skill，配合项目本地 Wrangler CLI 透传。走 `dsh.bundle` 原生分发，无需 `prepare` 构建。
 
 > 仓库：**[Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge)** · npm 包：**[@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)**
+
+## 一键安装（装到 web）
+
+```powershell
+# 方式 A — npm（推荐）
+dsh plugin --profile web add @wenaixi/cfbridge
+
+# 方式 B — GitHub 直装（免构建）
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.1.0
+
+# 验证
+dsh --profile web --dump-config | Select-String "cfbridge"
+```
+
+装完重启 `dsh --profile web`，任意新会话即可看到 `mcp__cloudflare__*` 与 `cfbridge` Skill。其他 profile 把 `web` 换成对应名字即可。
 
 ## 它是什么
 
