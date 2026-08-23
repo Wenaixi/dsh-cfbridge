@@ -39,11 +39,11 @@ DSH Bundle（全局常驻，按需开关）
        └─ npm run wrangler ...      ← 项目本地 Wrangler CLI 透传
 ```
 
-## 官方 Skills 入口：cloudflare 总入口（与 cfbridge 互补）
+## 官方 Skills 入口：cloudflare Skill（与 cfbridge 互补）
 
-> cfbridge 是"薄桥"：只把 Cloudflare 官方 Code Mode MCP 的 `docs/search/execute` 三工具挂到 DSH。领域知识由 https://github.com/cloudflare/skills 的 `cloudflare` 总入口 Skill 按需提供——**需要领域知识时先加载 `cloudflare`，它内含决策树与 Product Index，会指引你再按需加载 `wrangler` 等子 Skill**。
+> cfbridge 是"薄桥"：只把 Cloudflare 官方 Code Mode MCP 的 `docs/search/execute` 三工具挂到 DSH。领域知识由 https://github.com/cloudflare/skills 的 `cloudflare` Skill 按需提供——**需要领域知识时先加载 `cloudflare`，它内含决策树与 Product Index，会指引你再按需加载 `wrangler` 等子 Skill**。
 
-**何时加载 `cloudflare` 总入口：**
+**何时加载 `cloudflare` Skill：**
 - 不确定该用哪个 Cloudflare 产品（存数据选 KV / D1 / R2？跑代码选 Workers / Pages？）
 - 需要 30+ 产品的决策树或 `references/` 索引
 - 需要判断该加载哪个子 Skill（`wrangler` / `agents-sdk` / `cloudflare-one` 等）
@@ -51,9 +51,16 @@ DSH Bundle（全局常驻，按需开关）
 
 | Skill | 何时加载 | 说明 | 官方 SKILL.md |
 |-------|---------|------|---------------|
-| cloudflare | 见上“何时加载 cloudflare 总入口” | 总入口/平台选型，内含分流到其余子 Skill 的决策树 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/SKILL.md |
+| cloudflare | 见上“何时加载 cloudflare Skill” | Skill 入口/平台选型，内含分流到其余子 Skill 的决策树 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/SKILL.md |
 
 > 其余子 Skill（`wrangler` / `agents-sdk` / `durable-objects` / `cloudflare-one` 等 12 个）由 `cloudflare` 按需指引，本表不再逐一展开；本包已 vendoring 13 个 SKILL.md 到 `skills/<name>/`（离线可用，索引仅 name/description，全文按需加载）。
+
+| Agent | 命令 |
+|-------|------|
+| Claude Code | `/plugin marketplace add cloudflare/skills` → `/plugin install cloudflare@cloudflare` |
+| Cursor | Settings → Rules → Add Rule → Remote Rule (Github) → `cloudflare/skills` |
+| 任意 Agent | `npx skills add https://github.com/cloudflare/skills` |
+| 手动 | 克隆后按 https://github.com/cloudflare/skills#clone--copy 拷到对应目录 |
 
 安装（任选其一，与 cfbridge 共存）：`npx skills add https://github.com/cloudflare/skills` · Claude Code `plugin marketplace add cloudflare/skills` · 或按 https://github.com/cloudflare/skills#installing 手动拷贝。
 
