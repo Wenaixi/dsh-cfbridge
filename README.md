@@ -38,25 +38,25 @@ DSH Bundle（全局常驻，按需开关）
        └─ npm run wrangler ...      ← 项目本地 Wrangler CLI 透传
 ```
 
-## 使用教程：只需提 Cloudflare，LLM 自动调度
+## 使用教程：手动调用 cfbridge，其余交给 LLM
 
-> **你只需做一件事：像平时一样提需求，提到 Cloudflare 就行。** 模型会自动加载 `cfbridge`，再按需加载 `cloudflare` 总入口及子 Skill，最后用 `search → execute` 落地——你不需要手动指定任何 skill 名。
+> **你只需做一件事：显式让模型加载 `cfbridge`。** 对话中说一句“用 `cfbridge` …”“加载 `cfbridge` 处理 …”“走 `cfbridge` 查一下 …”即可触发；是否再加载 `cloudflare` Skill、再指引到 `wrangler` 等子 Skill、何时 `search → execute`，全部由 LLM 自主决策，你不需要手动指定。
 
-**你这样说，LLM 这样做：**
+**你这样说（手动触发 cfbridge），LLM 这样接管后续：**
 
-| 你说 | LLM 自动做的事（你无需干预） |
+| 你（显式触发 cfbridge） | LLM 自动决策后续（你无需干预） |
 |------|-----------------------------|
-| “查一下我账号下有哪些 Zone / D1 / KV” | 加载 `cfbridge` → `search` 找端点 → `execute` 只读调用 |
-| “帮我写一个 Durable Object 聊天室” | `cfbridge` → 检测到需要领域知识 → 加载 `cloudflare` 总入口 → 决策树指向 `durable-objects` → 生成代码 → `wrangler` 校验 |
-| “用 Workers 部署这个脚本” | `cfbridge` → 视情况加载 `cloudflare` → 再按需加载 `wrangler` → `wrangler deploy`（写操作前会先复述并征求确认） |
-| “帮我选存储方案，KV 还是 D1 还是 R2？” | `cfbridge` → 加载 `cloudflare` → 走“Need storage?”决策树 → 给出建议 |
+| “用 cfbridge 查一下我账号下有哪些 Zone / D1 / KV” | `cfbridge` 已加载 → `search` 找端点 → `execute` 只读调用 |
+| “加载 cfbridge，帮我写一个 Durable Object 聊天室” | `cfbridge` → 判定需要领域知识 → 加载 `cloudflare` Skill → 决策树指向 `durable-objects` → 生成代码 → `wrangler` 校验 |
+| “走 cfbridge 用 Workers 部署这个脚本” | `cfbridge` → 视情况加载 `cloudflare` → 再按需加载 `wrangler` → `wrangler deploy`（写操作前会先复述并征求确认） |
+| “用 cfbridge 帮我选存储方案，KV 还是 D1 还是 R2？” | `cfbridge` → 加载 `cloudflare` → 走“Need storage?”决策树 → 给出建议 |
 
 **规则（已写入 Skill，LLM 会遵守）：**
 - 任何 Cloudflare API 调用前必须先 `search`/`docs` 再 `execute`（检索优于记忆）。
 - 写操作（deploy / KV-D1-R2 写 / DNS 改 / secret）会先复述“对 YY 资源做 XX，结果是 ZZ”并等待你确认；不可逆操作会二次确认。
 - 索引阶段仅注入每个 Skill 的 `name/description/whenToUse`（约 1.7k tok），全文仅在需要时单篇加载，不会一次性灌 38k。
 
-**一句话心智模型：** `cfbridge` 是薄桥（挂三工具 + 审批规范），`cloudflare` 是总入口（决策树 → 指引到 `wrangler` 等 12 个子 Skill）。你只管提需求，路由交给模型。
+**一句话心智模型：** 你负责一句话触发 `cfbridge`；`cfbridge` 是薄桥（挂三工具 + 审批规范），`cloudflare` 是总入口（决策树 → 指引到 `wrangler` 等 12 个子 Skill），后续路由全由模型决策。
 
 
 ## 官方 Skills 入口：cloudflare Skill（与 cfbridge 互补）
