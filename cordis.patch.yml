@@ -1,14 +1,16 @@
-# @wenaixi/cfbridge — DSH Bundle Patch (host composition, v0.1.2)
+# @wenaixi/cfbridge — DSH Bundle Patch (host composition, v0.3.0)
 #
 # 安装后作为 web profile 的一个 bundle 层全局生效；所有会话均自动看到
-# Cloudflare Code Mode MCP 三工具（docs / search / execute）与 cfbridge Skill。
+# Cloudflare Code Mode MCP 三工具（docs / search / execute）与 14 个 Skills。
 #
 # 设计要点：
 # 1. mcp-cloudflare：走 dsh-mcp-client，把 `mcp__cloudflare__*` 工具注册到
 #    host 的 tools registry，所有 agent 直接可见。
-# 2. cfbridge-skill：运行时注册 Skill（ctx.skills.register），随 bundle 全局
-#    挂载。资源基座指向 bundle 内的 skills/cfbridge/，跟随 vision-toolkit 的
+# 2. cfbridge-skill + 13 vendored skills：运行时注册 Skill（ctx.skills.register），随 bundle 全局
+#    挂载。资源基座分别指向 bundle 内的 skills/<name>/，跟随 vision-toolkit 的
 #    运行时 Skill 实践，不再依赖 install 阶段对 $DSH_HOME/skills 的软链。
+#    主 cfbridge 仍为薄桥（search-then-execute 指引）；13 个 vendored skill 原样来自
+#    https://github.com/cloudflare/skills，可离线可用，全文按需加载（索引仅 1.7k tok）。
 # 3. 不在 patch 中再声明 persona / agent-instructions / tool-fs /
 #    skill-filesystem / tool-skill / planning 等 agent 栈行——它们由
 #    dsh-base / dsh-web-app 在 host 层提供，重复声明会触发层冲突。
@@ -36,3 +38,42 @@
 
     - id: cfbridge-skill
       name: '@wenaixi/cfbridge/src/cfbridge-skill.js'
+
+    - id: cloudflare-skill
+      name: '@wenaixi/cfbridge/src/cloudflare-skill.js'
+
+    - id: wrangler-skill
+      name: '@wenaixi/cfbridge/src/wrangler-skill.js'
+
+    - id: agents-sdk-skill
+      name: '@wenaixi/cfbridge/src/agents-sdk-skill.js'
+
+    - id: durable-objects-skill
+      name: '@wenaixi/cfbridge/src/durable-objects-skill.js'
+
+    - id: cloudflare-one-skill
+      name: '@wenaixi/cfbridge/src/cloudflare-one-skill.js'
+
+    - id: cloudflare-one-migrations-skill
+      name: '@wenaixi/cfbridge/src/cloudflare-one-migrations-skill.js'
+
+    - id: cloudflare-email-service-skill
+      name: '@wenaixi/cfbridge/src/cloudflare-email-service-skill.js'
+
+    - id: sandbox-next-skill
+      name: '@wenaixi/cfbridge/src/sandbox-next-skill.js'
+
+    - id: sandbox-stable-skill
+      name: '@wenaixi/cfbridge/src/sandbox-stable-skill.js'
+
+    - id: sandbox-migrate-to-next-skill
+      name: '@wenaixi/cfbridge/src/sandbox-migrate-to-next-skill.js'
+
+    - id: turnstile-spin-skill
+      name: '@wenaixi/cfbridge/src/turnstile-spin-skill.js'
+
+    - id: web-perf-skill
+      name: '@wenaixi/cfbridge/src/web-perf-skill.js'
+
+    - id: workers-best-practices-skill
+      name: '@wenaixi/cfbridge/src/workers-best-practices-skill.js'

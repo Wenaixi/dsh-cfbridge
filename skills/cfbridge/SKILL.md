@@ -1,6 +1,6 @@
 # cfbridge — Cloudflare 全局 Bridge 操作指南
 
-本 Skill 由 cfbridge v0.2.0 Bundle 提供；安装并启用后，**所有** DSH 会话都会自动看到本 Skill —— 不需要选任何 preset，也不需要切换模式。
+本 Skill 由 cfbridge v0.3.0 Bundle 提供；安装并启用后，**所有** DSH 会话都会自动看到本 Skill —— 不需要选任何 preset，也不需要切换模式。
 
 > 触发：安装 `cfbridge` Bundle 后（即 `npm run install:bundle` 完成且 DSH 重启），模型在所有会话中均可感知本 Skill。任何涉及 Cloudflare API 的请求，都应先调用 `mcp__cloudflare__docs` 或 `mcp__cloudflare__search` 来确认端点与参数，再调用 `mcp__cloudflare__execute` 来执行。
 

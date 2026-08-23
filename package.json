@@ -1,6 +1,6 @@
 {
   "name": "@wenaixi/cfbridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Cloudflare Code Mode MCP 全局 Bundle，安装后所有 DSH 会话自动获得 docs/search/execute 三工具与 cfbridge Skill，配合项目本地 Wrangler CLI 透传。",
   "author": "Wenaixi <wenxiloveyou@gmail.com>",
   "license": "MIT",
@@ -53,7 +53,11 @@
     "wrangler:whoami": "node scripts/wrangler.js whoami",
     "wrangler:d1:list": "node scripts/wrangler.js d1 list --json",
     "wrangler:workers:list": "node scripts/wrangler.js deployments list --name vmail --json",
-    "wrangler:pages:list": "node scripts/wrangler.js pages project list --json"
+    "wrangler:pages:list": "node scripts/wrangler.js pages project list --json",
+    "sync:vendor": "node scripts/sync-vendor-skills.js",
+    "sync:vendor:force": "node scripts/sync-vendor-skills.js --force",
+    "gen:wrappers": "node scripts/gen-wrappers.js",
+    "verify:wrappers": "node scripts/verify-wrappers.js"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-mcp-client": "*",

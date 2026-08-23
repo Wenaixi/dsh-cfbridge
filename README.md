@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/@wenaixi/cfbridge?color=cb3837)](https://www.npmjs.com/package/@wenaixi/cfbridge)
 [![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
-[![版本](https://img.shields.io/badge/version-0.2.0-2563eb)](#版本与维护)
+[![版本](https://img.shields.io/badge/version-0.3.0-2563eb)](#版本与维护)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
 cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile web add` 装到 **web** profile 后，**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 Skill，配合项目本地 Wrangler CLI 透传。走 `dsh.bundle` 原生分发，无需 `prepare` 构建。
@@ -18,7 +18,7 @@ cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile 
 dsh plugin --profile web add @wenaixi/cfbridge
 
 # 方式 B — GitHub 直装（免构建）
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.2.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.0
 
 # 验证
 dsh --profile web --dump-config | Select-String "cfbridge"
@@ -34,7 +34,8 @@ DSH Bundle（全局常驻，按需开关）
        ├─ mcp__cloudflare__docs     ← Cloudflare 文档语义搜索
        ├─ mcp__cloudflare__search   ← OpenAPI 端点检索
        ├─ mcp__cloudflare__execute  ← 官方隔离 sandbox 内执行
-       ├─ cfbridge Skill            ← MCP 最佳实践、写操作审批规范
+       ├─ cfbridge Skill            ← 薄桥：search-then-execute、写操作审批、Token 边界
+       ├─ 13 vendored Skills        ← cloudflare/wrangler/agents-sdk/... 原样离线可用
        └─ npm run wrangler ...      ← 项目本地 Wrangler CLI 透传
 ```
 
@@ -119,7 +120,7 @@ dsh plugin --profile web add @wenaixi/cfbridge
 ```powershell
 dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
 # 锁定版本更稳妥：
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.2.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.0
 ```
 
 > 直装前提：仓库含 `dsh.bundle` 声明且无 TypeScript 编译步骤（本仓库满足 —— 纯 JS + YAML + Markdown，GitHub 拉到的就是可运行形态，无需 `prepare`/`allowBuilds`）。
@@ -176,7 +177,7 @@ npm run dump:config
 dsh plugin --profile web add @wenaixi/cfbridge
 
 # 启用（GitHub 直装）
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.2.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.0
 
 # 停用
 dsh plugin --profile web remove @wenaixi/cfbridge
@@ -231,9 +232,20 @@ dsh plugin --profile web remove @wenaixi/cfbridge
 | 本地 Wrangler | 版本、whoami、D1 列表、Worker 部署列表、Pages 项目列表 |
 | 安全 | 追踪文件与历史均无 token；无 remote 泄露风险；`.env` 与证书被忽略 |
 
+## 同步官方 Skills（按需更新快照）
+
+vendored 的 13 个 SKILL.md 为快照，官方更新后可一键同步：
+
+```powershell
+npm run sync:vendor         # 仅补缺失（幂等）
+npm run sync:vendor:force  # 强制全量刷新
+```
+
+快照头部含 `vendored from cloudflare/skills@main on YYYY-MM-DD` 注释，便于追溯；`skills/cfbridge/SKILL.md` 内的 `https://raw.githubusercontent.com/cloudflare/skills/main/skills/<name>/SKILL.md` 链接作为“永远最新”兜底保留。
+
 ## 版本与维护
 
-- 当前版本：**v0.2.0**（新增官方 13 Skills 轻量路由指引，不 Vendoring，检索优于记忆）。
+- 当前版本：**v0.3.0**（Vendoring 13 个 cloudflare/skills 官方 SKILL.md，原样入包离线可用；共 14 个 skill，索引仅 1.7k tok，全文按需加载）。
 - 作者：**Wenaixi**
 - 许可证：MIT
 - 决策与历史记录见 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/plan-v0.3.0-global-bundle.md`](./docs/plan-v0.3.0-global-bundle.md)

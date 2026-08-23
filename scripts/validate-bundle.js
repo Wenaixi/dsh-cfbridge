@@ -57,8 +57,8 @@ function main() {
 
     if (pkg.name === '@wenaixi/cfbridge') pass('package name is @wenaixi/cfbridge')
     else fail('package name is @wenaixi/cfbridge', pkg.name)
-    if (pkg.version === '0.2.0') pass('package version is 0.2.0')
-    else fail('package version is 0.2.0', pkg.version)
+    if (pkg.version === '0.3.0') pass('package version is 0.3.0')
+    else fail('package version is 0.3.0', pkg.version)
     if (pkg.private !== true) pass('package is not private (npm publishable)')
     else fail('package is not private (npm publishable)', 'private must be absent/false')
     if (pkg.publishConfig && pkg.publishConfig.access === 'public') pass('publishConfig.access is public')
@@ -221,6 +221,21 @@ function main() {
     const missing = required.filter(n => !md.includes('name: ' + n));
     if (missing.length) fail('router covers 13 official skills', 'missing: ' + missing.join(', '));
     else pass('router covers 13 official skills', '13/13');
+  }
+
+  // 9. vendored skills 存在性与 patch 行数（strict-router 下检查 vendoring 完整性）
+  if (process.argv.includes('--strict-router')) {
+    const vendored = ['cloudflare','wrangler','agents-sdk','durable-objects','cloudflare-one','cloudflare-one-migrations','cloudflare-email-service','sandbox-next','sandbox-stable','sandbox-migrate-to-next','turnstile-spin','web-perf','workers-best-practices'];
+    const missFiles = vendored.filter(n => !fs.existsSync(path.join(ROOT, 'skills', n, 'SKILL.md')));
+    if (missFiles.length) fail('vendored skills present', 'missing SKILL.md: ' + missFiles.join(', '));
+    else pass('vendored skills present', '13/13');
+    const patchText = readText(path.join(ROOT, 'cordis.patch.yml'));
+    const missPatch = vendored.filter(n => !patchText.includes('id: ' + n + '-skill'));
+    if (missPatch.length) fail('cordis.patch.yml registers 13 vendored skills', 'missing: ' + missPatch.join(', '));
+    else pass('cordis.patch.yml registers 13 vendored skills', '13/13 + cfbridge = 14');
+    const missWrapper = vendored.filter(n => !fs.existsSync(path.join(ROOT, 'src', n + '-skill.js')));
+    if (missWrapper.length) fail('vendored wrappers present', 'missing: ' + missWrapper.join(', '));
+    else pass('vendored wrappers present', '13/13');
   }
 
   // 输出
