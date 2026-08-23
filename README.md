@@ -63,6 +63,21 @@ DSH Bundle（全局常驻，按需开关）
 决策：只需调单个端点 → 直接 `search → execute`；需最佳实践/脚手架 → 先加载对应官方 Skill 再用 cfbridge 落地；不确定 → 先加载 `cloudflare` 总入口。
 
 
+## 形态说明：Bundle / Preset / 动态插件
+
+cfbridge 在 DSH 中有三种形态，选型如下：
+
+| 形态 | 安装位置 | 生效粒度 | 安装命令 | 何时选 |
+|------|---------|---------|---------|-------|
+| **Bundle（主推，Host 组合）** | `dsh.profile.bundles`（profile 级） | 装到 `web` 后所有会话全局可见 | `dsh plugin --profile web add @wenaixi/cfbridge` | 需要 `mcp__cloudflare__*` 常驻，推荐默认 |
+| **Agent Preset（按需）** | `$DSH_HOME/.agent-presets/<id>/` | 仅选中该 preset 的会话可见 | 从 shipped `standard` `copy()` 出 `cfbridge` preset，把 `cordis.patch.yml` 的 14 行移入其 `agent.cordis.yml` | 只想在特定项目/会话用 Cloudflare，不想全局常驻 |
+| **动态 Cordis Plugin（临时探针）** | `cordis_define` / `cordis_run` 运行时 | 随插件卸载消失 | JS `code.host`/`code.client` 动态注册 | 临时演示 / A-B 对比，不适合持久 skill |
+
+> 约束（遵循 dsh-plugin-dev）：Bundle 的 `cordis.patch.yml` 不声明 `persona` / `agent-instructions` / `tool-fs` 等 host 已有层；`failOnStartupError: false`；`Authorization` 用 `!!js` 模板动态引 `process.env.CLOUDFLARE_API_TOKEN`；同一能力不要同时以 Bundle + Preset 重复注册 `mcp__cloudflare__*`。
+
+**Skill 加载真相：** DSH 的 skill 索引仅注入每个 skill 的 `name/description/whenToUse`（约 120-180 tok/skill，14 个合计约 1.7-2.5k tok）；仅当模型判定需要该领域知识时，才通过 `tool-skill` 按需加载单个 `SKILL.md` 全文（如 `wrangler` 约 4.5k tok），不会一次性加载全部 38k tok。
+
+
 ## 它不是什么
 
 - **不是按 preset 选择** —— 安装后**所有会话**都自动可见，不需要选「Cloudflare 模式」。
