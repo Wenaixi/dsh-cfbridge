@@ -4,7 +4,6 @@
 
 [![npm](https://img.shields.io/npm/v/@wenaixi/cfbridge?color=cb3837)](https://www.npmjs.com/package/@wenaixi/cfbridge)
 [![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
-[![版本](https://img.shields.io/badge/version-0.3.1-2563eb)](#版本与维护)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
 cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile web add` 装到 **web** profile 后，**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 Skill，配合项目本地 Wrangler CLI 透传。走 `dsh.bundle` 原生分发，无需 `prepare` 构建。
@@ -18,7 +17,7 @@ cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile 
 dsh plugin --profile web add @wenaixi/cfbridge
 
 # 方式 B — GitHub 直装（免构建）
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.1
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
 
 # 验证
 dsh --profile web --dump-config | Select-String "cfbridge"
@@ -38,6 +37,27 @@ DSH Bundle（全局常驻，按需开关）
        ├─ 13 vendored Skills        ← cloudflare/wrangler/agents-sdk/... 原样离线可用
        └─ npm run wrangler ...      ← 项目本地 Wrangler CLI 透传
 ```
+
+## 使用教程：只需提 Cloudflare，LLM 自动调度
+
+> **你只需做一件事：像平时一样提需求，提到 Cloudflare 就行。** 模型会自动加载 `cfbridge`，再按需加载 `cloudflare` 总入口及子 Skill，最后用 `search → execute` 落地——你不需要手动指定任何 skill 名。
+
+**你这样说，LLM 这样做：**
+
+| 你说 | LLM 自动做的事（你无需干预） |
+|------|-----------------------------|
+| “查一下我账号下有哪些 Zone / D1 / KV” | 加载 `cfbridge` → `search` 找端点 → `execute` 只读调用 |
+| “帮我写一个 Durable Object 聊天室” | `cfbridge` → 检测到需要领域知识 → 加载 `cloudflare` 总入口 → 决策树指向 `durable-objects` → 生成代码 → `wrangler` 校验 |
+| “用 Workers 部署这个脚本” | `cfbridge` → 视情况加载 `cloudflare` → 再按需加载 `wrangler` → `wrangler deploy`（写操作前会先复述并征求确认） |
+| “帮我选存储方案，KV 还是 D1 还是 R2？” | `cfbridge` → 加载 `cloudflare` → 走“Need storage?”决策树 → 给出建议 |
+
+**规则（已写入 Skill，LLM 会遵守）：**
+- 任何 Cloudflare API 调用前必须先 `search`/`docs` 再 `execute`（检索优于记忆）。
+- 写操作（deploy / KV-D1-R2 写 / DNS 改 / secret）会先复述“对 YY 资源做 XX，结果是 ZZ”并等待你确认；不可逆操作会二次确认。
+- 索引阶段仅注入每个 Skill 的 `name/description/whenToUse`（约 1.7k tok），全文仅在需要时单篇加载，不会一次性灌 38k。
+
+**一句话心智模型：** `cfbridge` 是薄桥（挂三工具 + 审批规范），`cloudflare` 是总入口（决策树 → 指引到 `wrangler` 等 12 个子 Skill）。你只管提需求，路由交给模型。
+
 
 ## 官方 Skills 入口：cloudflare Skill（与 cfbridge 互补）
 
@@ -91,7 +111,7 @@ cfbridge 在 DSH 中有三种形态，选型如下：
 
 ### 前提
 
-- DSH 已安装并可启动（`dsh --profile web`），版本 ≥ 0.1.1-rc.2。
+- DSH 已安装并可启动（`dsh --profile web`），版本较新（建议保持 latest）。
 - 已安装 pnpm（DSH 的 `dsh plugin` 子命令透传给 pnpm）。
 - 已生成 Cloudflare API token。
   - 推荐 account token（`cfat_`），需带 `Account Resources: Read`。
@@ -120,8 +140,7 @@ dsh plugin --profile web add @wenaixi/cfbridge
 
 ```powershell
 dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
-# 锁定版本更稳妥：
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.1
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
 ```
 
 > 直装前提：仓库含 `dsh.bundle` 声明且无 TypeScript 编译步骤（本仓库满足 —— 纯 JS + YAML + Markdown，GitHub 拉到的就是可运行形态，无需 `prepare`/`allowBuilds`）。
@@ -178,7 +197,7 @@ npm run dump:config
 dsh plugin --profile web add @wenaixi/cfbridge
 
 # 启用（GitHub 直装）
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.1
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
 
 # 停用
 dsh plugin --profile web remove @wenaixi/cfbridge
@@ -222,7 +241,7 @@ dsh plugin --profile web remove @wenaixi/cfbridge
 2. 不写入 `cordis.patch.yml`、scripts、commit 或 issue；不打印到日志。
 3. 使用最小权限 token；DNS 单独用 Zone 范围的用户 token。
 4. 不再使用或泄漏时立即在 Cloudflare Dashboard 撤销。
-5. **不要把 bundle 与旧 v0.2.0 preset 同时启用** —— 同一 `serverName: cloudflare` 会导致 `mcp__cloudflare__*` 被注册两次，行为未定义。若发现旧的 `~/.dsh/.agent-presets/cfbridge/`，运行 `npm run migrate:from-preset -- --yes` 清理。
+5. **不要把 bundle 与旧 preset 同时启用** —— 同一 `serverName: cloudflare` 会导致 `mcp__cloudflare__*` 被注册两次，行为未定义。若发现旧的 `~/.dsh/.agent-presets/cfbridge/`，运行 `npm run migrate:from-preset -- --yes` 清理。
 
 ## 已验证能力
 
@@ -246,8 +265,8 @@ npm run sync:vendor:force  # 强制全量刷新
 
 ## 版本与维护
 
-- 当前版本：**v0.3.1**（Vendoring 13 个 cloudflare/skills 官方 SKILL.md，原样入包离线可用；共 14 个 skill，索引仅 1.7k tok，全文按需加载）。
+- 版本跟随 npm `latest` 即最新；本地 `package.json` 的 `version` 为权威。
 - 作者：**Wenaixi**
 - 许可证：MIT
-- 决策与历史记录见 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/plan-v0.3.0-global-bundle.md`](./docs/plan-v0.3.0-global-bundle.md)
+- 决策与历史记录见 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/superpowers/`](./docs/superpowers/plans/)
 - 相关链接：[Cloudflare MCP](https://github.com/cloudflare/mcp) · [Wrangler 文档](https://developers.cloudflare.com/workers/wrangler/) · [DSH Bundle 文档](https://github.com/deepseek-ai/deepseek-harness)
