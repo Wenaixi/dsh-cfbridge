@@ -57,8 +57,8 @@ function main() {
 
     if (pkg.name === '@wenaixi/cfbridge') pass('package name is @wenaixi/cfbridge')
     else fail('package name is @wenaixi/cfbridge', pkg.name)
-    if (pkg.version === '0.3.0') pass('package version is 0.3.0')
-    else fail('package version is 0.3.0', pkg.version)
+    if (pkg.version === '0.3.1') pass('package version is 0.3.1')
+    else fail('package version is 0.3.1', pkg.version)
     if (pkg.private !== true) pass('package is not private (npm publishable)')
     else fail('package is not private (npm publishable)', 'private must be absent/false')
     if (pkg.publishConfig && pkg.publishConfig.access === 'public') pass('publishConfig.access is public')
@@ -215,12 +215,12 @@ function main() {
   else fail('no token-like content in tracked bundle sources', `found in: ${hits.join(', ')}`)
 
   // 8. 路由表完整性（--strict-router，可选校验，不阻断默认流程）
+  // 0.3.1 精简：cfbridge 路由节仅保留 cloudflare 总入口，其余由 cloudflare 指引
   if (process.argv.includes('--strict-router')) {
     const md = readText(path.join(ROOT, 'skills/cfbridge/SKILL.md'));
-    const required = ['cloudflare','wrangler','agents-sdk','durable-objects','cloudflare-one','cloudflare-one-migrations','cloudflare-email-service','sandbox-next','sandbox-stable','sandbox-migrate-to-next','turnstile-spin','web-perf','workers-best-practices'];
-    const missing = required.filter(n => !md.includes('name: ' + n));
-    if (missing.length) fail('router covers 13 official skills', 'missing: ' + missing.join(', '));
-    else pass('router covers 13 official skills', '13/13');
+    const hasEntry = md.includes('name: cloudflare') && md.includes('官方 Skills 入口：cloudflare');
+    if (!hasEntry) fail('router has cloudflare entry (slim)', 'missing cloudflare entry section');
+    else pass('router has cloudflare entry (slim)', 'cloudflare entry present');
   }
 
   // 9. vendored skills 存在性与 patch 行数（strict-router 下检查 vendoring 完整性）

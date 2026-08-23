@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/@wenaixi/cfbridge?color=cb3837)](https://www.npmjs.com/package/@wenaixi/cfbridge)
 [![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
-[![版本](https://img.shields.io/badge/version-0.3.0-2563eb)](#版本与维护)
+[![版本](https://img.shields.io/badge/version-0.3.1-2563eb)](#版本与维护)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
 cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile web add` 装到 **web** profile 后，**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 Skill，配合项目本地 Wrangler CLI 透传。走 `dsh.bundle` 原生分发，无需 `prepare` 构建。
@@ -18,7 +18,7 @@ cfbridge 是一个 **DSH Bundle（组合包）**，通过 `dsh plugin --profile 
 dsh plugin --profile web add @wenaixi/cfbridge
 
 # 方式 B — GitHub 直装（免构建）
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.1
 
 # 验证
 dsh --profile web --dump-config | Select-String "cfbridge"
@@ -39,29 +39,23 @@ DSH Bundle（全局常驻，按需开关）
        └─ npm run wrangler ...      ← 项目本地 Wrangler CLI 透传
 ```
 
-## 官方 Skills 路由（与 cfbridge 互补，按需另装）
+## 官方 Skills 入口：cloudflare 总入口（与 cfbridge 互补）
 
-> cfbridge 是"薄桥"：只把 Cloudflare 官方 Code Mode MCP 的 `docs/search/execute` 三工具挂到 DSH。领域知识由 https://github.com/cloudflare/skills 的 13 个官方 Skill 按需提供——**按需另装，用时再加载**，不要把官方 SKILL.md 拷进 cfbridge。
+> cfbridge 是"薄桥"：只把 Cloudflare 官方 Code Mode MCP 的 `docs/search/execute` 三工具挂到 DSH。领域知识由 https://github.com/cloudflare/skills 的 `cloudflare` 总入口 Skill 按需提供——**需要领域知识时先加载 `cloudflare`，它内含决策树与 Product Index，会指引你再按需加载 `wrangler` 等子 Skill**。
 
-| Skill | 何时加载 | 一句话 | 官方 SKILL.md |
-|-------|---------|--------|---------------|
-| cloudflare | 不确定选什么产品、需要 30+ 产品决策树 | 总入口/平台选型 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/SKILL.md |
-| wrangler | 写/审 `wrangler.jsonc`、跑 dev/deploy | 本地 CLI 手册 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/wrangler/SKILL.md |
-| agents-sdk | 有状态 AI Agent、Agent 类/state/callable | Agents SDK | https://raw.githubusercontent.com/cloudflare/skills/main/skills/agents-sdk/SKILL.md |
-| durable-objects | 聊天室/游戏房间等强一致协调 | Durable Objects | https://raw.githubusercontent.com/cloudflare/skills/main/skills/durable-objects/SKILL.md |
-| cloudflare-one | Zero Trust/SASE 架构与排障 | Cloudflare One | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare-one/SKILL.md |
-| cloudflare-one-migrations | 从 Zscaler/Palo Alto 迁移到 One | 迁移顾问 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare-one-migrations/SKILL.md |
-| cloudflare-email-service | Workers send_email / Email Routing | 收发邮件 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare-email-service/SKILL.md |
-| sandbox-next | 新项目 `@cloudflare/sandbox@next` | 沙箱 @next | https://raw.githubusercontent.com/cloudflare/skills/main/skills/sandbox-next/SKILL.md |
-| sandbox-stable | 现有项目稳定版 sandbox | 沙箱稳定版 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/sandbox-stable/SKILL.md |
-| sandbox-migrate-to-next | 稳定版迁 @next | 沙箱升级向导 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/sandbox-migrate-to-next/SKILL.md |
-| turnstile-spin | Turnstile 人机验证端到端 | Turnstile | https://raw.githubusercontent.com/cloudflare/skills/main/skills/turnstile-spin/SKILL.md |
-| web-perf | Core Web Vitals 审计 | 网页性能 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/web-perf/SKILL.md |
-| workers-best-practices | Workers 代码审查红线 | 最佳实践审查 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/workers-best-practices/SKILL.md |
+**何时加载 `cloudflare` 总入口：**
+- 不确定该用哪个 Cloudflare 产品（存数据选 KV / D1 / R2？跑代码选 Workers / Pages？）
+- 需要 30+ 产品的决策树或 `references/` 索引
+- 需要判断该加载哪个子 Skill（`wrangler` / `agents-sdk` / `cloudflare-one` 等）
+- 任何 Cloudflare 开发任务的起点
+
+| Skill | 何时加载 | 说明 | 官方 SKILL.md |
+|-------|---------|------|---------------|
+| cloudflare | 见上“何时加载 cloudflare 总入口” | 总入口/平台选型，内含分流到其余子 Skill 的决策树 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/SKILL.md |
+
+> 其余子 Skill（`wrangler` / `agents-sdk` / `durable-objects` / `cloudflare-one` 等 12 个）由 `cloudflare` 按需指引，本表不再逐一展开；本包已 vendoring 13 个 SKILL.md 到 `skills/<name>/`（离线可用，索引仅 name/description，全文按需加载）。
 
 安装（任选其一，与 cfbridge 共存）：`npx skills add https://github.com/cloudflare/skills` · Claude Code `plugin marketplace add cloudflare/skills` · 或按 https://github.com/cloudflare/skills#installing 手动拷贝。
-
-决策：只需调单个端点 → 直接 `search → execute`；需最佳实践/脚手架 → 先加载对应官方 Skill 再用 cfbridge 落地；不确定 → 先加载 `cloudflare` 总入口。
 
 
 ## 形态说明：Bundle / Preset / 动态插件
@@ -120,7 +114,7 @@ dsh plugin --profile web add @wenaixi/cfbridge
 ```powershell
 dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
 # 锁定版本更稳妥：
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.1
 ```
 
 > 直装前提：仓库含 `dsh.bundle` 声明且无 TypeScript 编译步骤（本仓库满足 —— 纯 JS + YAML + Markdown，GitHub 拉到的就是可运行形态，无需 `prepare`/`allowBuilds`）。
@@ -177,7 +171,7 @@ npm run dump:config
 dsh plugin --profile web add @wenaixi/cfbridge
 
 # 启用（GitHub 直装）
-dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.0
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge#v0.3.1
 
 # 停用
 dsh plugin --profile web remove @wenaixi/cfbridge
@@ -245,7 +239,7 @@ npm run sync:vendor:force  # 强制全量刷新
 
 ## 版本与维护
 
-- 当前版本：**v0.3.0**（Vendoring 13 个 cloudflare/skills 官方 SKILL.md，原样入包离线可用；共 14 个 skill，索引仅 1.7k tok，全文按需加载）。
+- 当前版本：**v0.3.1**（Vendoring 13 个 cloudflare/skills 官方 SKILL.md，原样入包离线可用；共 14 个 skill，索引仅 1.7k tok，全文按需加载）。
 - 作者：**Wenaixi**
 - 许可证：MIT
 - 决策与历史记录见 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/plan-v0.3.0-global-bundle.md`](./docs/plan-v0.3.0-global-bundle.md)

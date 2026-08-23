@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 — 2026-08-23
+- docs(skill): 精简 cfbridge 路由节为单一 cloudflare 总入口（其余由 cloudflare 指引），保留薄桥主体与 13 vendored skills 离线文件；README 同款精简，形态说明保留
+- chore: package.json 0.3.0 -> 0.3.1，validate 校验适配 slim 入口
+
 ## 0.3.0 — 2026-08-23
 - feat(vendor): Vendoring 13 个 cloudflare/skills 官方 SKILL.md 原样入包，离线可用；`scripts/sync-vendor-skills.js` 幂等同步（来源注释 + front-matter 校验）
 - feat(skill): 新增 13 个运行时薄包装 `src/<name>-skill.js`（复用 cfbridge-skill.js 的 ctx.skills.register 模式），与主 cfbridge 共 14 个 skill；索引仅 1.7k tok，全文按需单篇加载

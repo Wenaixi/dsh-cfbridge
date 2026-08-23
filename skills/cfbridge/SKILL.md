@@ -1,6 +1,6 @@
 # cfbridge — Cloudflare 全局 Bridge 操作指南
 
-本 Skill 由 cfbridge v0.3.0 Bundle 提供；安装并启用后，**所有** DSH 会话都会自动看到本 Skill —— 不需要选任何 preset，也不需要切换模式。
+本 Skill 由 cfbridge v0.3.1 Bundle 提供；安装并启用后，**所有** DSH 会话都会自动看到本 Skill —— 不需要选任何 preset，也不需要切换模式。
 
 > 触发：安装 `cfbridge` Bundle 后（即 `npm run install:bundle` 完成且 DSH 重启），模型在所有会话中均可感知本 Skill。任何涉及 Cloudflare API 的请求，都应先调用 `mcp__cloudflare__docs` 或 `mcp__cloudflare__search` 来确认端点与参数，再调用 `mcp__cloudflare__execute` 来执行。
 
@@ -216,11 +216,11 @@ Wrangler 启动器（`scripts/wrangler.js`）优先读取当前进程的 `CLOUDF
 
 在这些场景下，直接回答问题或调用本地工具即可，不要触碰 Cloudflare MCP。
 
-## 官方 Skills 路由（按需加载，不 Vendoring）
+## 官方 Skills 入口：cloudflare 总入口（按需加载）
 
-> cfbridge 是"薄桥"：负责把 Cloudflare 官方 Code Mode MCP 的 `docs/search/execute` 三工具全局挂到 DSH；领域知识由 https://github.com/cloudflare/skills 的 13 个官方 Skill 按需提供。**不要把官方 SKILL.md 全文拷进 cfbridge**——按需另装，用时再加载，永远检索最新 docs。
+> cfbridge 是"薄桥"：负责把 Cloudflare 官方 Code Mode MCP 的 `docs/search/execute` 三工具全局挂到 DSH；领域知识由 https://github.com/cloudflare/skills 的 `cloudflare` 总入口 Skill 按需提供。**不要把官方 SKILL.md 全文都展开在 cfbridge 的路由节里**——需要领域知识时先加载 `cloudflare`，它内含 Quick Decision Trees 与 Product Index，会指引你按需再加载 `wrangler` / `agents-sdk` / `durable-objects` 等子 Skill，最后用 cfbridge 的 `search`/`execute` 落地。
 
-// ponytail: 全量 Vendoring 镜像（13-in-1 bundle）已评估，约 +400KB / ~38k tokens，维护漂移大；仅当用户反馈"内网离线必须可用"时再考虑把 13 个 SKILL.md 原样拷入 skills/cloudflare-xxx/ 并注册 13 个 skill。
+// ponytail: 全量 Vendoring 镜像（13-in-1 bundle）已在 0.3.0 落地到 skills/<name>/ 与 14 行 patch；路由节保持精简，仅保留 cloudflare 入口，避免在索引阶段注入 13 行描述。
 
 ### 安装（与 cfbridge 互补）
 
@@ -231,36 +231,24 @@ Wrangler 启动器（`scripts/wrangler.js`）优先读取当前进程的 `CLOUDF
 | 任意 Agent | `npx skills add https://github.com/cloudflare/skills` |
 | 手动 | 克隆后按 https://github.com/cloudflare/skills#clone--copy 拷到对应目录 |
 
-装好后 cfbridge 的三工具与官方 Skill 协同工作：Skill 教"怎么做"，cfbridge 教"怎么调 API"。
+> 本包已 vendoring 13 个官方 SKILL.md 到 `skills/<name>/`（离线可用）；在线时亦可按上表另装官方源。两种来源的 `cloudflare` 内容一致。
 
-### 何时用谁 决策树
+### 何时加载 cloudflare 总入口
 
-```
-需要调 Cloudflare API？
-├─ 只需查/调单个端点（列 Zone、查 D1、调 /workers/scripts）→ 直接 cfbridge：search → execute（何时只用 cfbridge）
-├─ 需要领域最佳实践/脚手架（选 KV 还是 D1、写 Durable Object、配 Wrangler）→ 先加载官方 Skill，再用其"检索 sources"指引，最后用 cfbridge 的 search/execute 落地（何时先加载官方 Skill）
-└─ 不确定 → 先加载 cloudflare 总入口 Skill 的决策树，再分流
-```
+- 不确定该用哪个 Cloudflare 产品（存数据选 KV / D1 / R2 / Hyperdrive？跑代码选 Workers / Pages / Containers / Workflows？）
+- 需要 30+ 产品的决策树或 `references/` 索引（workers / pages / d1 / durable-objects / workers-ai / vectorize 等）
+- 需要判断该加载哪个子 Skill（`wrangler` / `agents-sdk` / `cloudflare-one` / `sandbox-*` / `web-perf` 等）
+- 任何 Cloudflare 开发任务的起点（`cloudflare` 的 description：Comprehensive platform skill ... Use for any Cloudflare development task. Biases towards retrieval from Cloudflare docs over pre-trained knowledge.）
 
-> 检索优于记忆：引用阈值/签名/限额时务必先用 `mcp__cloudflare__docs` 或 `mcp__cloudflare__search` 检索最新。
+加载后：跟随 `cloudflare` 的决策树与 Product Index，按指引再加载对应的子 Skill；阈值/签名/限额等以 `mcp__cloudflare__docs` 或 `mcp__cloudflare__search` 检索最新为准（检索优于记忆）。
 
-### 13 Skills 路由表
+### 入口
 
-| Skill（name） | 何时加载 | 一句话 | 官方 SKILL.md |
-|-------|---------|--------|---------------|
-| name: cloudflare | 不确定选什么产品、需要 30+ 产品决策树与 references 索引 | 总入口/平台选型 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/SKILL.md |
-| name: wrangler | 写/审 `wrangler.jsonc`、跑 `dev/deploy/types/tail`、配 KV/R2/D1 绑定 | 本地 CLI 手册 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/wrangler/SKILL.md |
-| name: agents-sdk | 构建有状态 AI Agent、Agent 类/state/callable/schedule/workflows | Agents SDK | https://raw.githubusercontent.com/cloudflare/skills/main/skills/agents-sdk/SKILL.md |
-| name: durable-objects | 聊天室/游戏房间/预约等强一致协调、SQLite/alarm/WebSocket | Durable Objects | https://raw.githubusercontent.com/cloudflare/skills/main/skills/durable-objects/SKILL.md |
-| name: cloudflare-one | Zero Trust/SASE 架构、Access/Gateway/WARP/Tunnel 排障 | Cloudflare One | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare-one/SKILL.md |
-| name: cloudflare-one-migrations | 从 Zscaler/Palo Alto/旧 VPN 迁移到 Cloudflare One | 迁移顾问 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare-one-migrations/SKILL.md |
-| name: cloudflare-email-service | Workers `send_email` 绑定、REST 发信、Email Routing、SPF/DKIM | 收发邮件 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare-email-service/SKILL.md |
-| name: sandbox-next | 新项目用 `@cloudflare/sandbox@next` 预览版 | 沙箱 @next | https://raw.githubusercontent.com/cloudflare/skills/main/skills/sandbox-next/SKILL.md |
-| name: sandbox-stable | 现有项目用稳定版 `@cloudflare/sandbox` | 沙箱稳定版 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/sandbox-stable/SKILL.md |
-| name: sandbox-migrate-to-next | 把稳定版沙箱迁到 @next | 沙箱升级向导 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/sandbox-migrate-to-next/SKILL.md |
-| name: turnstile-spin | 加 Turnstile 人机验证、widget + siteverify 端到端 | Turnstile | https://raw.githubusercontent.com/cloudflare/skills/main/skills/turnstile-spin/SKILL.md |
-| name: web-perf | 审 Core Web Vitals、LCP/CLS/TBT 链路与优化 | 网页性能 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/web-perf/SKILL.md |
-| name: workers-best-practices | 审 Workers 代码、兼容日期、streaming/waitUntil/secrets 红线 | 最佳实践审查 | https://raw.githubusercontent.com/cloudflare/skills/main/skills/workers-best-practices/SKILL.md |
+| Skill（name） | 何时加载 | 说明 | 官方 SKILL.md |
+|-------|---------|------|---------------|
+| name: cloudflare | 见上“何时加载 cloudflare 总入口” | 总入口/平台选型，内含分流到其余子 Skill 的决策树与 Product Index | https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/SKILL.md |
+
+> 子 Skill 清单（`wrangler` / `agents-sdk` / `durable-objects` / `cloudflare-one` / `cloudflare-one-migrations` / `cloudflare-email-service` / `sandbox-next` / `sandbox-stable` / `sandbox-migrate-to-next` / `turnstile-spin` / `web-perf` / `workers-best-practices`）由 `cloudflare` 总入口按需指引，本节不再逐一展开；离线时亦可直接通过本包已 vendored 的 `skills/<name>/SKILL.md` 按需加载（索引仅 name/description/whenToUse，全文按需）。
 
 
 ## 相关链接
