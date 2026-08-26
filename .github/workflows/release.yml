@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run validate:bundle
+      - name: Wrangler smoke (best-effort, no token in CI)
+        run: npm run test:wrangler || echo "::warning::wrangler smoke skipped — no CLOUDFLARE_API_TOKEN in CI"
+      - run: npm pack --dry-run
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "package.json: $PKG_VERSION"
+          echo "git tag:      $TAG_VERSION"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      # npm provenance 需要在 npmjs 上配置 Trusted Publisher (OIDC) 才可用。
+      # 当前用经典 NPM_TOKEN 发布，--provenance 会因 OIDC 未就绪或 token 含非法头字符而报
+      # "is not a legal HTTP header value"。因此此处仅做普通发布；如需 provenance，
+      # 请在 npmjs 侧为 @wenaixi/cfbridge 配置 GitHub Trusted Publisher 后，再改回
+      # `npm publish --access public --provenance` 并移除 NPM_TOKEN。
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  create-github-release:
+    needs: publish-npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build release notes from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          NOTES_FILE="RELEASE_NOTES_${TAG}.md"
+          CHANGELOG_LINK="https://github.com/Wenaixi/dsh-cfbridge/blob/main/CHANGELOG.md"
+
+          echo "Tag: $TAG  Version: $VERSION"
+
+          if [ -f CHANGELOG.md ] && grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "Found CHANGELOG.md section for $VERSION, extracting..."
+            awk "/^## \[$VERSION\]/{flag=1;print;next} /^## \[/{if(flag) exit} flag" CHANGELOG.md > "$NOTES_FILE"
+            {
+              echo ""
+              echo "---"
+              echo "完整更新日志见 [CHANGELOG.md]($CHANGELOG_LINK)"
+            } >> "$NOTES_FILE"
+          else
+            echo "::warning::CHANGELOG.md has no section for $VERSION, falling back to tag message"
+            git log -1 --pretty=%B > "$NOTES_FILE" 2>/dev/null || echo "Release $TAG" > "$NOTES_FILE"
+            {
+              echo ""
+              echo "---"
+              echo "完整更新日志见 [CHANGELOG.md]($CHANGELOG_LINK)"
+            } >> "$NOTES_FILE"
+          fi
+
+          echo "--- Release notes preview ---"
+          cat "$NOTES_FILE"
+          echo "--- end preview ---"
+
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes-file "$NOTES_FILE" \
+            --verify-tag 2>/dev/null || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES_FILE" --generate-notes
