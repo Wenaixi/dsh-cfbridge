@@ -240,4 +240,4 @@ Wrangler 启动器（`scripts/wrangler.js`）优先读取当前进程的 `CLOUDF
 
 - [Cloudflare Code Mode MCP](https://github.com/cloudflare/mcp)
 - [Wrangler CLI 文档](https://developers.cloudflare.com/workers/wrangler/)
-- [cfbridge 项目仓库](https://github.com/Wenaixi/cfbridge)
+- [cfbridge 项目仓库](https://github.com/Wenaixi/dsh-cfbridge)

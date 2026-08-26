@@ -55,9 +55,7 @@
     "wrangler:workers:list": "node scripts/wrangler.js deployments list --name vmail --json",
     "wrangler:pages:list": "node scripts/wrangler.js pages project list --json",
     "sync:vendor": "node scripts/sync-vendor-skills.js",
-    "sync:vendor:force": "node scripts/sync-vendor-skills.js --force",
-    "gen:wrappers": "node scripts/gen-wrappers.js",
-    "verify:wrappers": "node scripts/verify-wrappers.js"
+    "sync:vendor:force": "node scripts/sync-vendor-skills.js --force"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-mcp-client": "*",
