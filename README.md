@@ -150,4 +150,4 @@ dsh plugin --profile web remove @wenaixi/cfbridge
 - **同步官方 Skills 快照**：`npm run sync:vendor`（仅补缺失）/ `sync:vendor:force`（强制刷新）。快照头部含 `vendored from cloudflare/skills@main on YYYY-MM-DD` 注释；SKILL.md 内的 raw.githubusercontent.com 链接作为“永远最新”兜底。
 - **版本**：本地 `package.json` 为权威，跟随 npm `latest`。发布流程：改 version → 补 CHANGELOG.md 小节 → 打 `vX.Y.Z` tag 推送，CI 自动测试 + npm publish + GitHub Release。
 - **已验证能力**：MCP 三工具（账号/Zone/Workers/KV/D1/Pages/GraphQL 只读调用）；`cfbridge` Skill 全会话可见（`source: runtime`）；本地 Wrangler（version/whoami/D1/Worker/Pages）；追踪文件与历史均无 token。
-- 作者 **Wenaixi** · MIT · 决策记录见 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/superpowers/plans/`](./docs/superpowers/plans/) · 相关：[Cloudflare MCP](https://github.com/cloudflare/mcp) · [Wrangler 文档](https://developers.cloudflare.com/workers/wrangler/) · [DSH Bundle 文档](https://github.com/deepseek-ai/deepseek-harness)
+- 作者 **Wenaixi** · MIT · 设计文档见 [`docs/superpowers/`](./docs/superpowers/) · 相关：[Cloudflare MCP](https://github.com/cloudflare/mcp) · [Wrangler 文档](https://developers.cloudflare.com/workers/wrangler/) · [DSH Bundle 文档](https://github.com/deepseek-ai/deepseek-harness)

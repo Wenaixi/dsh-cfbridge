@@ -75,9 +75,18 @@ jobs:
 
           echo "Tag: $TAG  Version: $VERSION"
 
-          if [ -f CHANGELOG.md ] && grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+          # 兼容 "## [x.y.z]" 与 "## x.y.z" 两种 CHANGELOG 标题风格
+          if [ -f CHANGELOG.md ] && grep -qE "^## \\[$VERSION\\]|^## $VERSION( |$)" CHANGELOG.md; then
             echo "Found CHANGELOG.md section for $VERSION, extracting..."
-            awk "/^## \[$VERSION\]/{flag=1;print;next} /^## \[/{if(flag) exit} flag" CHANGELOG.md > "$NOTES_FILE"
+            awk -v pv="$VERSION" '
+              /^## /{
+                if (started) exit
+                title=$0; gsub(/^## +/, "", title)
+                if (title == pv || index(title, pv " ") == 1 || title == "[" pv "]") { started = 1; print; next }
+                next
+              }
+              started { print }
+            ' CHANGELOG.md > "$NOTES_FILE"
             {
               echo ""
               echo "---"

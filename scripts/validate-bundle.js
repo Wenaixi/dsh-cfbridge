@@ -57,8 +57,8 @@ function main() {
 
     if (pkg.name === '@wenaixi/cfbridge') pass('package name is @wenaixi/cfbridge')
     else fail('package name is @wenaixi/cfbridge', pkg.name)
-    if (pkg.version === '0.3.1') pass('package version is 0.3.1')
-    else fail('package version is 0.3.1', pkg.version)
+    if (pkg.version === '0.3.2') pass('package version is 0.3.2')
+    else fail('package version is 0.3.2', pkg.version)
     if (pkg.private !== true) pass('package is not private (npm publishable)')
     else fail('package is not private (npm publishable)', 'private must be absent/false')
     if (pkg.publishConfig && pkg.publishConfig.access === 'public') pass('publishConfig.access is public')

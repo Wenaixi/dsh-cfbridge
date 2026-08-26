@@ -1,6 +1,6 @@
 {
   "name": "@wenaixi/cfbridge",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Cloudflare Code Mode MCP 全局 Bundle，安装后所有 DSH 会话自动获得 docs/search/execute 三工具与 cfbridge Skill，配合项目本地 Wrangler CLI 透传。",
   "author": "Wenaixi <wenxiloveyou@gmail.com>",
   "license": "MIT",

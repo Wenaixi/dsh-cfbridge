@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 — 2026-08-26
+- fix(ci): release.yml 的 Release Notes 提取正则改为兼容 "## [x.y.z]" 与 "## x.y.z" 两种标题风格（旧正则永远 fallback 到 tag message）
+- fix(docs): README 移除指向本地 CLAUDE.md 的 404 链接；deprecated/preset/README.md 的 v0.3.0 Skill 发现方式修正为运行时注册
+- chore: 删除 package.json 中指向不存在脚本的 gen:wrappers / verify:wrappers；cfbridge SKILL.md 仓库链接修正
+- feat(vendor): 13 个 vendored SKILL.md 快照头部与 sync 脚本模板追加 references 仅在线可用声明
+
 ## 0.3.1 — 2026-08-23
 - docs(skill): 精简 cfbridge 路由节为单一 cloudflare 总入口（其余由 cloudflare 指引），保留薄桥主体与 13 vendored skills 离线文件；README 同款精简，形态说明保留
 - chore: package.json 0.3.0 -> 0.3.1，validate 校验适配 slim 入口

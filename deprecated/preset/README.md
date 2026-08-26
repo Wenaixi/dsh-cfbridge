@@ -16,7 +16,7 @@
 | 可见性 | 仅「Cloudflare 模式」会话 | 所有会话全局 |
 | 安装位置 | `~/.dsh/.agent-presets/cfbridge/` | `~/.dsh/profiles/<name>/node_modules/@wenaixi/cfbridge/` |
 | 加载入口 | `dsh-agent-presets` picker | `dsh.profile.bundles` 层 |
-| Skill 发现 | preset 层 `skill-filesystem` | 软链到 `$DSH_HOME/skills/cfbridge/` |
+| Skill 发现 | preset 层 `skill-filesystem` | 运行时注册（`ctx.skills.register`） |
 | 启停方式 | 切换 preset | `dsh plugin add/remove` 或 disabled 覆写 |
 
 ## 回滚路径
