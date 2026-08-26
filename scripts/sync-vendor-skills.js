@@ -1,4 +1,4 @@
-﻿// scripts/sync-vendor-skills.js — 幂等拉取 cloudflare/skills 13 个 SKILL.md 快照
+// scripts/sync-vendor-skills.js — 幂等拉取 cloudflare/skills 13 个 SKILL.md 快照
 // 用法: node scripts/sync-vendor-skills.js [--force]
 // 行为: 访问 https://raw.githubusercontent.com/cloudflare/skills/main/skills/<name>/SKILL.md
 //       写入 skills/<name>/SKILL.md，头部追加 vendored 注释，校验 front-matter 含 name: <name>
@@ -43,7 +43,9 @@ async function main(){
       const content = await fetchWithRetry(url, 3);
       if(!content.startsWith('---') || !content.includes('name: '+name)) throw new Error('front-matter missing name: '+name);
       fs.mkdirSync(dir, {recursive:true});
-      const header = '<!-- vendored from cloudflare/skills@main on '+new Date().toISOString().slice(0,10)+' via scripts/sync-vendor-skills.js -->\n';
+      // 仅 vendor SKILL.md 单文件；正文引用的 references/<name>/ 子目录不入包，
+      // 离线时不可用，需走官方 raw URL 在线读取 —— 此声明必须随快照头部写入。
+      const header = '<!-- vendored from cloudflare/skills@main on '+new Date().toISOString().slice(0,10)+' via scripts/sync-vendor-skills.js -->\n<!-- NOTE: only SKILL.md is vendored; references/ subdirectories are NOT included. Resolve referenced files online (raw.githubusercontent.com/cloudflare/skills) when offline access to them is needed. -->\n';
       fs.writeFileSync(dst, header+content, 'utf8');
       console.log('  -> '+name+' '+content.length+' chars');
       ok++;

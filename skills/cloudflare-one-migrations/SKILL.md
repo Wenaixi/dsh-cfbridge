@@ -1,3 +1,4 @@
+<!-- NOTE: only SKILL.md is vendored; references/ subdirectories are NOT included. Resolve referenced files online (raw.githubusercontent.com/cloudflare/skills) when offline access to them is needed. -->
 ﻿<!-- vendored from cloudflare/skills@snapshot on 2026-08-23 via sync-vendor-skills.js -->
 ---
 name: cloudflare-one-migrations
