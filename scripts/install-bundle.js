@@ -119,9 +119,9 @@ function dumpConfig(profile) {
   log('ok', 'cfbridge layer present in composed profile tree.')
   const mcpLine = out.split('\n').find((l) => /id:\s*mcp-cloudflare\b/.test(l))
   if (mcpLine) log('ok', `Found bundle row: ${mcpLine.trim()}`)
-  const skillLine = out.split('\n').find((l) => /id:\s*cfbridge-skill\b/.test(l))
+  const skillLine = out.split('\n').find((l) => /id:\s*skills-bundle\b/.test(l))
   if (skillLine) log('ok', `Found bundle row: ${skillLine.trim()}`)
-  else log('warn', 'cfbridge-skill row not found in dump-config; bundle may be outdated. Run `npm install` or verify cordis.patch.yml.')
+  else log('warn', 'skills-bundle row not found in dump-config; bundle may be outdated. Run `npm install` or verify cordis.patch.yml.')
 }
 
 function main() {

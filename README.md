@@ -34,7 +34,7 @@ npm install
 npm run install:bundle            # 默认装到 web；其他 profile 加 -- --profile <name>
 ```
 
-`install:bundle` 内部做两件事：调 `dsh plugin --profile <name> add .` 把包加入 `dsh.profile.bundles`；再 `--dump-config` 验证 `cfbridge` 层与 `mcp-cloudflare` / `cfbridge-skill` 两行出现。
+`install:bundle` 内部做两件事：调 `dsh plugin --profile <name> add .` 把包加入 `dsh.profile.bundles`；再 `--dump-config` 验证 `cfbridge` 层与 `mcp-cloudflare` / `skills-bundle` 两行出现。
 
 **第 3 步 — 重启并验证**：重启 `dsh --profile web` 后任意新会话应看到 `mcp__cloudflare__docs/search/execute` 与 `cfbridge` Skill；也可用 `dsh --profile web --dump-config | Select-String "cfbridge"` 检查。
 
@@ -86,7 +86,7 @@ DSH Bundle（全局常驻，按需开关）
 | 形态 | 生效粒度 | 何时选 |
 |------|---------|-------|
 | **Bundle（主推）** | 装到 profile 后所有会话全局可见 | 需要 `mcp__cloudflare__*` 常驻，推荐默认 |
-| **Agent Preset** | 仅选中该 preset 的会话可见 | 只想在特定项目用，不想全局常驻（从 shipped `standard` copy 后移入 14 行） |
+| **Agent Preset** | 仅选中该 preset 的会话可见 | 只想在特定项目用，不想全局常驻（从 shipped `standard` copy 后移入） |
 | **动态 Cordis Plugin** | 运行时注册，卸载即消失 | 临时演示 / A-B 对比 |
 
 > 约束（遵循 dsh-plugin-dev）：Bundle 的 `cordis.patch.yml` 不声明 `persona` / `agent-instructions` / `tool-fs` 等 host 已有层；`failOnStartupError: false`；Authorization 用 `!!js` 动态引 `process.env.CLOUDFLARE_API_TOKEN`；勿与 Preset 同时注册 `mcp__cloudflare__*`。

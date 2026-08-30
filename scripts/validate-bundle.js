@@ -57,8 +57,8 @@ function main() {
 
     if (pkg.name === '@wenaixi/cfbridge') pass('package name is @wenaixi/cfbridge')
     else fail('package name is @wenaixi/cfbridge', pkg.name)
-    if (pkg.version === '0.3.2') pass('package version is 0.3.2')
-    else fail('package version is 0.3.2', pkg.version)
+    if (pkg.version === '0.4.0') pass('package version is 0.4.0')
+    else fail('package version is 0.4.0', pkg.version)
     if (pkg.private !== true) pass('package is not private (npm publishable)')
     else fail('package is not private (npm publishable)', 'private must be absent/false')
     if (pkg.publishConfig && pkg.publishConfig.access === 'public') pass('publishConfig.access is public')
@@ -98,11 +98,15 @@ function main() {
     if (!hasTokenLeak(patchText)) pass('cordis.patch.yml has no hardcoded token')
     else fail('cordis.patch.yml has no hardcoded token', 'token pattern found in patch')
 
-    // 运行时 Skill 行
-    if (/^\s*-\s+id:\s*cfbridge-skill\b/m.test(patchText)) pass('cordis.patch.yml has cfbridge-skill row')
-    else fail('cordis.patch.yml has cfbridge-skill row', 'missing id: cfbridge-skill')
-    if (/cfbridge-skill\.js/.test(patchText)) pass('cordis.patch.yml cfbridge-skill references cfbridge-skill.js')
-    else fail('cordis.patch.yml cfbridge-skill references cfbridge-skill.js', 'missing file reference')
+    // 运行时 Skill 行（v0.4.0 合并入口）
+    if (/^\s*-\s+id:\s*skills-bundle\b/m.test(patchText)) pass('cordis.patch.yml has skills-bundle row')
+    else fail('cordis.patch.yml has skills-bundle row', 'missing id: skills-bundle')
+    if (/skills-bundle\.js/.test(patchText)) pass('cordis.patch.yml skills-bundle references src/skills-bundle.js')
+    else fail('cordis.patch.yml skills-bundle references src/skills-bundle.js', 'missing file reference')
+    // v0.4.0 合并后 patch 只有 2 行：mcp-cloudflare + skills-bundle，不再有 14 个独立包装器行
+    const entryIds = [...patchText.matchAll(/^\s*-\s+id:\s*([^\s'"]+)/gm)].map(m => m[1])
+    if (entryIds.length === 2 && entryIds[0] === 'mcp-cloudflare' && entryIds[1] === 'skills-bundle') pass('cordis.patch.yml has exactly 2 rows (mcp-cloudflare + skills-bundle)')
+    else fail('cordis.patch.yml has exactly 2 rows (mcp-cloudflare + skills-bundle)', `got: ${entryIds.join(', ')}`)
 
     // 不应再注入 agent 栈行（plan §4.1）。
     const banned = ['persona', 'agent-instructions', 'tool-bash', 'tool-pwsh', 'tool-fs', 'skill-filesystem', 'tool-skill', 'planning']
@@ -115,21 +119,31 @@ function main() {
     fail('cordis.patch.yml exists', 'file missing')
   }
 
-  // 2a. src/cfbridge-skill.js 运行时 Skill 插件
-  const runtimeSkillJs = path.join(ROOT, 'src', 'cfbridge-skill.js')
+  // 2a. src/skills-bundle.js 合并运行时 Skill 注册插件
+  const runtimeSkillJs = path.join(ROOT, 'src', 'skills-bundle.js')
   if (fs.existsSync(runtimeSkillJs)) {
-    pass('src/cfbridge-skill.js exists')
+    pass('src/skills-bundle.js exists')
     const t = readText(runtimeSkillJs)
-    if (/inject\s*=\s*\['skills'\]/.test(t)) pass('src/cfbridge-skill.js injects skills')
-    else fail('src/cfbridge-skill.js injects skills', 'inject must include skills')
-    if (/ctx\.skills\.register/.test(t)) pass('src/cfbridge-skill.js registers via ctx.skills.register')
-    else fail('src/cfbridge-skill.js registers via ctx.skills.register', 'missing ctx.skills.register call')
-    if (/name:\s*'cfbridge'/.test(t) || /name:\s*"cfbridge"/.test(t)) pass('src/cfbridge-skill.js names skill cfbridge')
-    else fail('src/cfbridge-skill.js names skill cfbridge', 'skill name should be cfbridge')
-    if (!hasTokenLeak(t)) pass('src/cfbridge-skill.js has no hardcoded token')
-    else fail('src/cfbridge-skill.js has no hardcoded token', 'token pattern found')
+    if (/inject\s*=\s*\['skills'\]/.test(t)) pass('src/skills-bundle.js injects skills')
+    else fail('src/skills-bundle.js injects skills', 'inject must include skills')
+    if (/ctx\.skills\.register/.test(t)) pass('src/skills-bundle.js registers via ctx.skills.register')
+    else fail('src/skills-bundle.js registers via ctx.skills.register', 'missing ctx.skills.register call')
+    if (/name:\s*'cfbridge'/.test(t) || /name:\s*"cfbridge"/.test(t)) pass('src/skills-bundle.js names skill cfbridge')
+    else fail('src/skills-bundle.js names skill cfbridge', 'skill name should be cfbridge')
+    // v0.4.0：合并入口必须覆盖全部 14 个 Skill（cfbridge + 13 vendored）
+    const vendored = ['cloudflare','wrangler','agents-sdk','durable-objects','cloudflare-one','cloudflare-one-migrations','cloudflare-email-service','sandbox-next','sandbox-stable','sandbox-migrate-to-next','turnstile-spin','web-perf','workers-best-practices']
+    const allNames = ['cfbridge', ...vendored]
+    const missing = allNames.filter(n => !new RegExp(`name: '${n}'`).test(t))
+    if (missing.length === 0) pass('src/skills-bundle.js covers all 14 skills')
+    else fail('src/skills-bundle.js covers all 14 skills', 'missing: ' + missing.join(', '))
+    if (!hasTokenLeak(t)) pass('src/skills-bundle.js has no hardcoded token')
+    else fail('src/skills-bundle.js has no hardcoded token', 'token pattern found')
+    // v0.4.0：旧 14 个独立包装器必须删除
+    const stale = allNames.map(n => path.join(ROOT, 'src', n + '-skill.js')).filter(p => fs.existsSync(p))
+    if (stale.length === 0) pass('old per-skill wrappers removed')
+    else fail('old per-skill wrappers removed', 'still present: ' + stale.join(', '))
   } else {
-    fail('src/cfbridge-skill.js exists', 'file missing')
+    fail('src/skills-bundle.js exists', 'file missing')
   }
 
   // 3. Skill 文件
@@ -229,13 +243,13 @@ function main() {
     const missFiles = vendored.filter(n => !fs.existsSync(path.join(ROOT, 'skills', n, 'SKILL.md')));
     if (missFiles.length) fail('vendored skills present', 'missing SKILL.md: ' + missFiles.join(', '));
     else pass('vendored skills present', '13/13');
-    const patchText = readText(path.join(ROOT, 'cordis.patch.yml'));
-    const missPatch = vendored.filter(n => !patchText.includes('id: ' + n + '-skill'));
-    if (missPatch.length) fail('cordis.patch.yml registers 13 vendored skills', 'missing: ' + missPatch.join(', '));
-    else pass('cordis.patch.yml registers 13 vendored skills', '13/13 + cfbridge = 14');
+    const bundleSrc = readText(path.join(ROOT, 'src', 'skills-bundle.js'));
+    const missPatch = vendored.filter(n => !bundleSrc.includes(`name: '${n}'`));
+    if (missPatch.length) fail('skills-bundle.js registers 13 vendored skills', 'missing: ' + missPatch.join(', '));
+    else pass('skills-bundle.js registers 13 vendored skills', '13/13 + cfbridge = 14');
     const missWrapper = vendored.filter(n => !fs.existsSync(path.join(ROOT, 'src', n + '-skill.js')));
-    if (missWrapper.length) fail('vendored wrappers present', 'missing: ' + missWrapper.join(', '));
-    else pass('vendored wrappers present', '13/13');
+    if (missWrapper.length) fail('old per-skill wrappers removed', 'still present: ' + missWrapper.join(', '));
+    else pass('old per-skill wrappers removed', '13/13');
   }
 
   // 输出

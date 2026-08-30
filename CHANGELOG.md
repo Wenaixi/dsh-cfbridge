@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 — 2026-08-27
+- feat(bundle): 14 个独立 Skill 包装器（src/*-skill.js）合并为单一入口 src/skills-bundle.js；cordis.patch.yml 由 15 行缩为 2 行（mcp-cloudflare + skills-bundle）
+- feat(ux): DSH 插件面板不再显示 14 个 @wenaixi/cfbridge/src/*-skill.js 条目，收束为 1 行 @wenaixi/cfbridge/src/skills-bundle.js；行为不变（14 个 Skill 全部照常注册）
+- refactor: 删除 src/ 下 14 个旧包装器；validate-bundle.js / check.js / install-bundle.js 断言同步改为 skills-bundle 入口与「恰 2 行 patch」校验
+- docs: README 安装验证段与形态说明同步 v0.4.0 两行描述
+
 ## 0.3.2 — 2026-08-26
 - fix(ci): release.yml 的 Release Notes 提取正则改为兼容 "## [x.y.z]" 与 "## x.y.z" 两种标题风格（旧正则永远 fallback 到 tag message）
 - fix(docs): README 移除指向本地 CLAUDE.md 的 404 链接；deprecated/preset/README.md 的 v0.3.0 Skill 发现方式修正为运行时注册

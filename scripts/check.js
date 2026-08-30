@@ -42,7 +42,7 @@ function hasTokenLeak(text) {
 const pkg = readJson(path.join(ROOT, 'package.json'))
 if (pkg) {
   check('package name is @wenaixi/cfbridge', pkg.name === '@wenaixi/cfbridge', `got: ${pkg.name}`)
-  check('package version is 0.3.2', pkg.version === '0.3.2', `got: ${pkg.version}`)
+  check('package version is 0.4.0', pkg.version === '0.4.0', `got: ${pkg.version}`)
   check('package is not private', pkg.private !== true, pkg.private ? 'package.json must not be private for npm publish' : '')
   check('package publishConfig.access is public', pkg.publishConfig?.access === 'public', `got: ${pkg.publishConfig?.access}`)
   check('package repository points to Wenaixi/dsh-cfbridge', /github\.com\/Wenaixi\/dsh-cfbridge(\.git)?$/i.test(pkg.repository?.url || ''), `got: ${pkg.repository?.url}`)
@@ -86,9 +86,9 @@ if (patchText) {
     /Authorization:\s*!!js\s+'`Bearer \$\{process\.env\.CLOUDFLARE_API_TOKEN\}`'/.test(patchText))
   check('cordis.patch.yml keeps failOnStartupError: false',
     /failOnStartupError:\s*false\b/.test(patchText))
-  check('cordis.patch.yml has cfbridge-skill id', /^\s*-\s+id:\s*cfbridge-skill\b/m.test(patchText))
-  check('cordis.patch.yml cfbridge-skill references src/cfbridge-skill.js',
-    /cfbridge-skill\.js/.test(patchText))
+  check('cordis.patch.yml has skills-bundle id', /^\s*-\s+id:\s*skills-bundle\b/m.test(patchText))
+  check('cordis.patch.yml skills-bundle references src/skills-bundle.js',
+    /skills-bundle\.js/.test(patchText))
 
   // 不应再注入 agent 栈行（plan §4.1）；重复注入会与 host 冲突。
   const banned = ['persona', 'agent-instructions', 'tool-bash', 'tool-pwsh', 'tool-fs', 'skill-filesystem', 'tool-skill', 'planning', 'tool-goal', 'tool-web']
@@ -98,12 +98,15 @@ if (patchText) {
   }
   check('cordis.patch.yml does not redeclare agent-stack rows', true, 'banned keys absent or already failed individually')
 }
-// 运行时 Skill 插件
-const runtimeSkillJs = readText(path.join(ROOT, 'src', 'cfbridge-skill.js'))
-check('src/cfbridge-skill.js exists', fileExists(path.join(ROOT, 'src', 'cfbridge-skill.js')))
+// 运行时 Skill 插件（v0.4.0 合并入口）
+const runtimeSkillJs = readText(path.join(ROOT, 'src', 'skills-bundle.js'))
+check('src/skills-bundle.js exists', fileExists(path.join(ROOT, 'src', 'skills-bundle.js')))
 if (runtimeSkillJs) {
-  check('src/cfbridge-skill.js injects skills', /inject\s*=\s*\['skills'\]/.test(runtimeSkillJs))
-  check('src/cfbridge-skill.js registers via ctx.skills.register', /ctx\.skills\.register/.test(runtimeSkillJs))
+  check('src/skills-bundle.js injects skills', /inject\s*=\s*\['skills'\]/.test(runtimeSkillJs))
+  check('src/skills-bundle.js registers via ctx.skills.register', /ctx\.skills\.register/.test(runtimeSkillJs))
+  const vendored = ['cloudflare','wrangler','agents-sdk','durable-objects','cloudflare-one','cloudflare-one-migrations','cloudflare-email-service','sandbox-next','sandbox-stable','sandbox-migrate-to-next','turnstile-spin','web-perf','workers-best-practices']
+  const missing = ['cfbridge', ...vendored].filter(n => !new RegExp(`name: '${n}'`).test(runtimeSkillJs))
+  check('src/skills-bundle.js covers all 14 skills', missing.length === 0, missing.length ? 'missing: ' + missing.join(', ') : '')
 }
 
 // === 4. Skill 文件 ===
