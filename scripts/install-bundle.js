@@ -6,7 +6,7 @@
 // 3. 调用 `dsh plugin --profile <name> add <绝对路径>`：DSH plugin 转发器
 //    自动 reconcile dsh.profile.bundles，把本 bundle append 到末尾。
 // 4. 跑 `dsh --profile <name> --dump-config` 验证层出现
-//    `# == @wenaixi/cfbridge` 且含 mcp-cloudflare / cfbridge-skill 两行。
+//    `# == @wenaixi/cfbridge` 且含 mcp-cloudflare / skills-bundle 两行。
 // 5. 若发现旧软链 $DSH_HOME/skills/cfbridge 指向本 bundle 的 skills 目录，
 //    清理之（v0.3.0 之前版本残留；当前版本已改用运行时 Skill 注册）。
 //

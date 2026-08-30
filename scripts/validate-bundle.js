@@ -161,8 +161,8 @@ function main() {
 
   // 3a. package.json files[] must include src/
   if (pkg && Array.isArray(pkg.files)) {
-    if (pkg.files.includes('src/') || pkg.files.includes('src/cfbridge-skill.js')) pass('package files[] includes runtime skill source')
-    else fail('package files[] includes runtime skill source', 'need src/ or src/cfbridge-skill.js in files[]')
+    if (pkg.files.includes('src/') || pkg.files.includes('src/skills-bundle.js')) pass('package files[] includes runtime skill source')
+    else fail('package files[] includes runtime skill source', 'need src/ or src/skills-bundle.js in files[]')
   }
 
   // 4. 关键脚本
