@@ -79,7 +79,6 @@ function main() {
   else fail('patch has exactly two plugin rows', 'unexpected row count: ' + pluginRows.length)
   if (!patchText.includes('skills-bundle') && !patchText.includes('src/')) pass('patch has no legacy skill paths')
   else fail('patch has no legacy skill paths', 'legacy path found')
-  else fail('patch has no legacy skill paths', 'legacy path found')
   if (!hasTokenLeak(patchText)) pass('patch has no hardcoded token')
   else fail('patch has no hardcoded token', 'token-like value found')
 
