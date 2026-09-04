@@ -24,7 +24,7 @@ export interface Config {
 
 export const Config = Schema.object({
   providerName: Schema.string().default(DEFAULT_PROVIDER_NAME),
-  skillDir: Schema.string(),
+  skillDir: Schema.string().default(DEFAULT_SKILL_DIR),
 }).description('@wenaixi/cfbridge Provider 配置')
 
 export const name = DEFAULT_PROVIDER_NAME
@@ -88,6 +88,32 @@ function optionalMetadata(data: Frontmatter): Record<string, Readonly<Record<str
     : {}
 }
 
+function openingFrontmatter(raw: string): { bodyStart: number } | undefined {
+  let lineStart = 0
+  let inComment = false
+  while (lineStart <= raw.length) {
+    const newline = raw.indexOf('\n', lineStart)
+    const lineEnd = newline < 0 ? raw.length : newline
+    let line = raw.slice(lineStart, lineEnd).replace(/\r$/, '')
+    if (line.charCodeAt(0) === 0xfeff) line = line.slice(1)
+    const trimmed = line.trim()
+    if (inComment) {
+      if (trimmed.endsWith('-->')) inComment = false
+    } else if (trimmed === '') {
+      // 允许 vendored 文件头部的空行。
+    } else if (trimmed === '---') {
+      return { bodyStart: newline < 0 ? raw.length : newline + 1 }
+    } else if (trimmed.startsWith('<!--')) {
+      inComment = !trimmed.endsWith('-->')
+    } else {
+      return undefined
+    }
+    if (newline < 0) return undefined
+    lineStart = newline + 1
+  }
+  return undefined
+}
+
 function closingFrontmatterLine(raw: string, start: number): { start: number; bodyStart: number } | undefined {
   let lineStart = start
   while (lineStart <= raw.length) {
@@ -103,12 +129,16 @@ function closingFrontmatterLine(raw: string, start: number): { start: number; bo
 }
 
 export function parseFrontmatter(raw: string): ParsedSkillFile | undefined {
-  if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1)
-  const firstNewline = raw.indexOf('\n')
-  if (firstNewline < 0 || raw.slice(0, firstNewline).replace(/\r$/, '') !== '---') return undefined
-  const closing = closingFrontmatterLine(raw, firstNewline + 1)
+  const opening = openingFrontmatter(raw)
+  if (opening === undefined) return undefined
+  const closing = closingFrontmatterLine(raw, opening.bodyStart)
   if (closing === undefined) return undefined
-  const data = parse(raw.slice(firstNewline + 1, closing.start))
+  let data: unknown
+  try {
+    data = parse(raw.slice(opening.bodyStart, closing.start))
+  } catch {
+    return undefined
+  }
   if (typeof data !== 'object' || data === null || Array.isArray(data)) return undefined
   return { data: data as Frontmatter, body: raw.slice(closing.bodyStart) }
 }
@@ -184,6 +214,7 @@ export function createProviderForTest(
         try {
           await stat(path)
           const parsed = parseFrontmatter(await readFile(path, { encoding: 'utf8', signal: options.signal }))
+          throwIfAborted(options)
           if (parsed === undefined) {
             logger.warn('[cfbridge] skip ' + path + ': missing or invalid frontmatter')
             continue
@@ -227,7 +258,13 @@ export function createProviderForTest(
         return undefined
       }
       if (parsed === undefined) return undefined
-      const definition = makeCandidate(parsed, locator, providerName)
+      let definition: SkillCandidate | undefined
+      try {
+        definition = makeCandidate(parsed, locator, providerName)
+      } catch (error) {
+        logger.warn('[cfbridge] get ' + candidate.name + ': invalid invocation frontmatter: ' + loggerMessage(error))
+        return undefined
+      }
       if (definition === undefined || definition.name !== candidate.name) return undefined
       return {
         ...definition,

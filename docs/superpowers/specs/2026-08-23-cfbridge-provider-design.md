@@ -1,7 +1,7 @@
 # cfbridge 0.5.0 Provider 形态设计
 
 > 日期：2026-08-23
-> 状态：已获用户批准，进入实现
+> 状态：已获用户批准并完成实现；当前代码以本设计为准
 
 ## 目标
 
@@ -9,7 +9,7 @@
 
 ## 现状问题
 
-当前 Bundle 的 patch 行把 `@wenaixi/cfbridge/src/skills-bundle.js` 作为插件名。DSH 插件面板因此把它当作本地子路径入口，无法以 `@wenaixi/cfbridge` 找到包的 `package.json`，最终显示 `? · 本地`。当前实现还在一个 apply 中直接执行多次 `ctx.skills.register()`，无法利用当前 `SkillProvider` 的按需发现与加载协议。
+历史 Bundle 的 patch 行曾把 `@wenaixi/cfbridge/src/skills-bundle.js` 作为插件名。DSH 插件面板因此把它当作本地子路径入口，无法以 `@wenaixi/cfbridge` 找到包的 `package.json`，最终显示 `? · 本地`。历史实现还在一个 apply 中直接执行多次 `ctx.skills.register()`，无法利用当前 `SkillProvider` 的按需发现与加载协议。
 
 ## 设计
 
@@ -57,6 +57,6 @@ Provider 扫描包内 `skills/*/SKILL.md`：
 
 1. `npm run check`、`npm run validate:bundle -- --strict-router`、`npm run test` 全部退出码为 0。
 2. `npm pack --dry-run` 包含 `lib/cfbridge.js`、`skills/`、`cordis.patch.yml`，不依赖 `src/` 才能运行。
-3. 独立 demo profile 以 `link:D:\newC\stick2\cfbridge` 安装后，`dsh --profile demo --dump-config` 中出现 `id: cfbridge` 与 `name: @wenaixi/cfbridge`，不出现 `skills-bundle` 或 14 个 wrapper 行。
-4. demo 启动后 `ctx.skills.list()` 能发现 14 个技能，`ctx.skills.get('wrangler')` 能按需返回正文，Provider 卸载后这些技能消失。
+3. 独立 demo profile 以 `link:D:\newC\stick2\cfbridge` 安装后，`dsh --profile demo --dump-config` 中出现 `id: cfbridge` 与 `name: @wenaixi/cfbridge`，不出现旧 Skill 行或 14 个 wrapper 行。
+4. demo 启动后 `ctx.skills.list()` 能发现 14 个技能，`ctx.skills.get('wrangler')` 能按需返回正文，Provider 卸载后这些技能消失；当前单测与隔离配置验证已覆盖核心行为。
 5. 面板或包元数据读取的是 `@wenaixi/cfbridge/package.json` 的 `0.5.0`，不再显示 `? · 本地`。

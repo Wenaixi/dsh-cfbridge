@@ -1,0 +1,7 @@
+# 独立 demo patch 示例
+# 实际安装后由 @wenaixi/cfbridge 自带的 cordis.patch.yml 提供 Bundle 层。
+# 本文件仅用于需要额外 patch 的独立 demo，不包含任何 token。
+- insert:
+    - id: cfbridge-demo-marker
+      name: '@wenaixi/cfbridge'
+      disabled: true

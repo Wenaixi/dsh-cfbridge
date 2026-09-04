@@ -6,11 +6,11 @@
 [![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
-DSH Bundle 组合包：装到 web profile 后**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 Skill，配合项目本地 Wrangler CLI 透传。走 `dsh.bundle` 原生分发，无需构建。仓库 [Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge) · npm [@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)。
+DSH Bundle 组合包：装到 web profile 后**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 SkillProvider，配合项目本地 Wrangler CLI 透传。当前本地重构版本为 `0.5.0`，入口是 TypeScript `src/cfbridge.ts` 的提交产物 `lib/cfbridge.js`；走 `dsh.bundle` 原生分发。仓库 [Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge) · npm [@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)。
 
 ## 安装
 
-**前提**：DSH 可启动（`dsh --profile web`）；已装 pnpm（`dsh plugin` 透传给它）；Cloudflare API token —— 推荐 account token（`cfat_`，带 `Account Resources: Read`），DNS 操作用 Zone 范围的用户 token（`cfut_`）。
+**前提**：DSH 可启动（`dsh --profile web`）；本次重构的本地验证请先阅读 [`demo/README.md`](./demo/README.md) 并使用独立 `DSH_HOME`；已装 pnpm（`dsh plugin` 透传给它）；Cloudflare API token —— 推荐 account token（`cfat_`，带 `Account Resources: Read`），DNS 操作用 Zone 范围的用户 token（`cfut_`）。
 
 **第 1 步 — 写入 token**（私有文件，git 忽略，勿写入任何被跟踪文件）：
 
@@ -25,7 +25,7 @@ CLOUDFLARE_API_TOKEN=请替换为你的token
 # 方式 A — npm（推荐）
 dsh plugin --profile web add @wenaixi/cfbridge
 
-# 方式 B — GitHub 直装（免构建：纯 JS + YAML + Markdown，无 prepare 步骤）
+# 方式 B — GitHub 直装（仓库已提交 lib/ 构建产物；若 pnpm 阻止 prepare，请允许本地构建脚本）
 dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
 
 # 方式 C — clone 后本地安装
@@ -34,7 +34,9 @@ npm install
 npm run install:bundle            # 默认装到 web；其他 profile 加 -- --profile <name>
 ```
 
-`install:bundle` 内部做两件事：调 `dsh plugin --profile <name> add .` 把包加入 `dsh.profile.bundles`；再 `--dump-config` 验证 `cfbridge` 层与 `mcp-cloudflare` / `cfbridge-skill` 两行出现。
+`install:bundle` 内部做两件事：调 `dsh plugin --profile <name> add .` 把包加入 `dsh.profile.bundles`；再 `--dump-config` 验证 `cfbridge` 层与 `mcp-cloudflare` / `cfbridge` 两行出现。
+
+本地重构版本采用 TypeScript：发布包包含 `lib/` 构建产物，源码改动后先执行 `npm run build`。安装后 Provider 会从 `skills/*/SKILL.md` 读取索引，并按需加载正文。
 
 **第 3 步 — 重启并验证**：重启 `dsh --profile web` 后任意新会话应看到 `mcp__cloudflare__docs/search/execute` 与 `cfbridge` Skill；也可用 `dsh --profile web --dump-config | Select-String "cfbridge"` 检查。
 
@@ -46,8 +48,9 @@ DSH Bundle（全局常驻，按需开关）
        ├─ mcp__cloudflare__docs     ← Cloudflare 文档语义搜索
        ├─ mcp__cloudflare__search   ← OpenAPI 端点检索
        ├─ mcp__cloudflare__execute  ← 官方隔离 sandbox 内执行
+       ├─ cfbridge SkillProvider     ← 14 个技能索引按需发现，正文按需读取
        ├─ cfbridge Skill            ← 薄桥：search-then-execute、写操作审批、Token 边界
-       ├─ 13 vendored Skills        ← cloudflare/wrangler/agents-sdk/... 原样离线可用
+       ├─ 13 vendored Skills        ← 其余官方 Cloudflare 技能原样离线可用
        └─ npm run wrangler ...      ← 项目本地 Wrangler CLI 透传
 ```
 
@@ -86,7 +89,7 @@ DSH Bundle（全局常驻，按需开关）
 | 形态 | 生效粒度 | 何时选 |
 |------|---------|-------|
 | **Bundle（主推）** | 装到 profile 后所有会话全局可见 | 需要 `mcp__cloudflare__*` 常驻，推荐默认 |
-| **Agent Preset** | 仅选中该 preset 的会话可见 | 只想在特定项目用，不想全局常驻（从 shipped `standard` copy 后移入 14 行） |
+| **Agent Preset** | 仅选中该 preset 的会话可见 | 只想在特定项目用，不想全局常驻（从 shipped `standard` copy 后移入对应 preset） |
 | **动态 Cordis Plugin** | 运行时注册，卸载即消失 | 临时演示 / A-B 对比 |
 
 > 约束（遵循 dsh-plugin-dev）：Bundle 的 `cordis.patch.yml` 不声明 `persona` / `agent-instructions` / `tool-fs` 等 host 已有层；`failOnStartupError: false`；Authorization 用 `!!js` 动态引 `process.env.CLOUDFLARE_API_TOKEN`；勿与 Preset 同时注册 `mcp__cloudflare__*`。
@@ -97,9 +100,9 @@ DSH Bundle（全局常驻，按需开关）
 
 ```powershell
 npm run check              # 仓库配置 + 安全检查（73 项）
-npm run validate:bundle    # manifest + 结构校验（53 项）
+npm run validate:bundle -- --strict-router  # manifest + 14 个技能结构校验（73 项）
 npm run test:wrangler      # Wrangler CLI 只读验证
-npm run test               # 跑全部
+npm run test               # 构建、类型检查、Provider、demo、静态校验与 Wrangler
 npm run dump:config        # 查看当前 profile 中 cfbridge 这一层（--raw 不过滤）
 ```
 
@@ -149,5 +152,5 @@ dsh plugin --profile web remove @wenaixi/cfbridge
 
 - **同步官方 Skills 快照**：`npm run sync:vendor`（仅补缺失）/ `sync:vendor:force`（强制刷新）。快照头部含 `vendored from cloudflare/skills@main on YYYY-MM-DD` 注释；SKILL.md 内的 raw.githubusercontent.com 链接作为“永远最新”兜底。
 - **版本**：本地 `package.json` 为权威，跟随 npm `latest`。发布流程：改 version → 补 CHANGELOG.md 小节 → 打 `vX.Y.Z` tag 推送，CI 自动测试 + npm publish + GitHub Release。
-- **已验证能力**：MCP 三工具（账号/Zone/Workers/KV/D1/Pages/GraphQL 只读调用）；`cfbridge` Skill 全会话可见（`source: runtime`）；本地 Wrangler（version/whoami/D1/Worker/Pages）；追踪文件与历史均无 token。
+- **已验证能力**：Provider 实测可发现 14 个技能并按需读取 `wrangler` 正文；MCP 三工具（账号/Zone/Workers/KV/D1/Pages/GraphQL 只读调用）；本地 Wrangler（version/whoami/D1/Worker/Pages）；追踪文件与历史均无 token。
 - 作者 **Wenaixi** · MIT · 设计文档见 [`docs/superpowers/`](./docs/superpowers/) · 相关：[Cloudflare MCP](https://github.com/cloudflare/mcp) · [Wrangler 文档](https://developers.cloudflare.com/workers/wrangler/) · [DSH Bundle 文档](https://github.com/deepseek-ai/deepseek-harness)

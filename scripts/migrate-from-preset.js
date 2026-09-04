@@ -1,4 +1,4 @@
-// 检测并清理 v0.2.0 时代的 Agent Preset 残留（~/.dsh/.agent-presets/cfbridge/）。
+// 检测并清理历史 Agent Preset 残留（~/.dsh/.agent-presets/cfbridge/）。
 //
 // 使用：
 //   npm run migrate:from-preset            # 仅检测，打印提示
@@ -56,7 +56,7 @@ function listFiles(dir) {
 function main() {
   const opts = parseArgs(process.argv.slice(2))
   log('info', `DSH home: ${DSH_HOME}`)
-  log('info', `Legacy v0.2.0 preset directory: ${LEGACY}`)
+  log('info', `Legacy preset directory: ${LEGACY}`)
 
   if (!fs.existsSync(LEGACY)) {
     log('ok', 'No legacy preset directory found. Nothing to migrate.')
@@ -69,8 +69,8 @@ function main() {
   if (files.length > 20) console.log(`       …and ${files.length - 20} more`)
 
   // 与 web patch 层共存可能造成 mcp 工具重复注册；建议清理。
-  log('info', 'Why clean it? In v0.3.0 the Cloudflare tools are registered globally via the bundle layer;')
-  log('info', 'leaving the v0.2.0 preset can cause duplicate `mcp__cloudflare__*` tool names. The new')
+  log('info', 'Why clean it? The current Bundle registers Cloudflare tools globally via its bundle layer;')
+  log('info', 'leaving the old preset can cause duplicate `mcp__cloudflare__*` tool names. The new')
   log('info', 'behavioral model (plan §5.2) recommends NOT coexisting. Cleaning also avoids the old')
   log('info', 'agent-plane rows from showing up in the preset picker.')
 

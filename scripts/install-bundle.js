@@ -1,4 +1,4 @@
-// 一键安装 cfbridge v0.3.0 Bundle 到指定 DSH profile。
+// 一键安装 cfbridge v0.5.0 Bundle 到指定 DSH profile。
 //
 // 流程：
 // 1. 解析参数（默认 profile=web，可通过 --profile <name> 覆盖）。
@@ -6,9 +6,9 @@
 // 3. 调用 `dsh plugin --profile <name> add <绝对路径>`：DSH plugin 转发器
 //    自动 reconcile dsh.profile.bundles，把本 bundle append 到末尾。
 // 4. 跑 `dsh --profile <name> --dump-config` 验证层出现
-//    `# == @wenaixi/cfbridge` 且含 mcp-cloudflare / cfbridge-skill 两行。
+//    `# == @wenaixi/cfbridge` 且含 mcp-cloudflare / cfbridge 两行。
 // 5. 若发现旧软链 $DSH_HOME/skills/cfbridge 指向本 bundle 的 skills 目录，
-//    清理之（v0.3.0 之前版本残留；当前版本已改用运行时 Skill 注册）。
+//    清理之（旧版本残留；当前版本已改用 SkillProvider 注册）。
 //
 // 使用：
 //   npm run install:bundle                # 默认 web profile
@@ -119,9 +119,9 @@ function dumpConfig(profile) {
   log('ok', 'cfbridge layer present in composed profile tree.')
   const mcpLine = out.split('\n').find((l) => /id:\s*mcp-cloudflare\b/.test(l))
   if (mcpLine) log('ok', `Found bundle row: ${mcpLine.trim()}`)
-  const skillLine = out.split('\n').find((l) => /id:\s*cfbridge-skill\b/.test(l))
-  if (skillLine) log('ok', `Found bundle row: ${skillLine.trim()}`)
-  else log('warn', 'cfbridge-skill row not found in dump-config; bundle may be outdated. Run `npm install` or verify cordis.patch.yml.')
+  const providerLine = out.split('\n').find((l) => /id:\s*cfbridge\b/.test(l))
+  if (providerLine) log('ok', `Found bundle row: ${providerLine.trim()}`)
+  else log('warn', 'cfbridge Provider row not found in dump-config; bundle may be outdated. Run `npm install` or verify cordis.patch.yml.')
 }
 
 function main() {

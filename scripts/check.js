@@ -1,11 +1,9 @@
 // 仓库配置与安全检查（零副作用）。
 //
-// v0.3.0 调整：
+// v0.5.0 调整：
 // 1. 主入口从 agent.cordis.yml 切到 cordis.patch.yml。
 // 2. 新增 bundle manifest 断言（dsh.bundle.patch、files[]）。
-// 3. 反转 web profile 污染断言：现在允许 disabled 覆写与全局 `mcp-cloudflare`
-//    行（来自 cfbridge bundle），但禁止用户手写重复启用；旧时代的 mcp-cloudflare
-//    残留仍应被清掉。
+// 3. web profile 允许 Bundle 提供的全局 `mcp-cloudflare`，不允许重复手写启用；旧残留仍应被清掉。
 // 4. 增加 deprecated/ 旧 preset 文件归档检查。
 //
 // 使用：npm run check
@@ -42,7 +40,7 @@ function hasTokenLeak(text) {
 const pkg = readJson(path.join(ROOT, 'package.json'))
 if (pkg) {
   check('package name is @wenaixi/cfbridge', pkg.name === '@wenaixi/cfbridge', `got: ${pkg.name}`)
-  check('package version is 0.3.2', pkg.version === '0.3.2', `got: ${pkg.version}`)
+  check('package version is 0.5.0', pkg.version === '0.5.0', `got: ${pkg.version}`)
   check('package is not private', pkg.private !== true, pkg.private ? 'package.json must not be private for npm publish' : '')
   check('package publishConfig.access is public', pkg.publishConfig?.access === 'public', `got: ${pkg.publishConfig?.access}`)
   check('package repository points to Wenaixi/dsh-cfbridge', /github\.com\/Wenaixi\/dsh-cfbridge(\.git)?$/i.test(pkg.repository?.url || ''), `got: ${pkg.repository?.url}`)
@@ -54,7 +52,7 @@ if (pkg) {
     check('dsh.bundle.patch target file exists', fileExists(abs), abs)
   }
   const files = Array.isArray(pkg.files) ? pkg.files : []
-  for (const entry of ['cordis.patch.yml', 'skills/', 'scripts/', 'README.md', 'LICENSE']) {
+  for (const entry of ['cordis.patch.yml', 'lib/', 'skills/', 'README.md', 'LICENSE']) {
     check(`package.files[] includes ${entry}`, files.includes(entry))
   }
   for (const s of ['install:bundle', 'uninstall:bundle', 'validate:bundle', 'migrate:from-preset', 'check', 'test']) {
@@ -73,7 +71,7 @@ if (wranglerPkg) {
   check('local Wrangler is installed', false, 'run npm ci first')
 }
 
-// === 3. cordis.patch.yml（v0.3.0 主入口） ===
+// === 3. cordis.patch.yml（v0.5.0 主入口） ===
 const patchText = readText(path.join(ROOT, 'cordis.patch.yml'))
 check('cordis.patch.yml exists', fileExists(path.join(ROOT, 'cordis.patch.yml')))
 if (patchText) {
@@ -86,9 +84,9 @@ if (patchText) {
     /Authorization:\s*!!js\s+'`Bearer \$\{process\.env\.CLOUDFLARE_API_TOKEN\}`'/.test(patchText))
   check('cordis.patch.yml keeps failOnStartupError: false',
     /failOnStartupError:\s*false\b/.test(patchText))
-  check('cordis.patch.yml has cfbridge-skill id', /^\s*-\s+id:\s*cfbridge-skill\b/m.test(patchText))
-  check('cordis.patch.yml cfbridge-skill references src/cfbridge-skill.js',
-    /cfbridge-skill\.js/.test(patchText))
+  check('cordis.patch.yml has cfbridge id', /^\s*-\s+id:\s*cfbridge\b/m.test(patchText))
+  check('cordis.patch.yml mounts @wenaixi/cfbridge package',
+    /name:\s*'@wenaixi\/cfbridge'/.test(patchText))
 
   // 不应再注入 agent 栈行（plan §4.1）；重复注入会与 host 冲突。
   const banned = ['persona', 'agent-instructions', 'tool-bash', 'tool-pwsh', 'tool-fs', 'skill-filesystem', 'tool-skill', 'planning', 'tool-goal', 'tool-web']
@@ -98,12 +96,13 @@ if (patchText) {
   }
   check('cordis.patch.yml does not redeclare agent-stack rows', true, 'banned keys absent or already failed individually')
 }
-// 运行时 Skill 插件
-const runtimeSkillJs = readText(path.join(ROOT, 'src', 'cfbridge-skill.js'))
-check('src/cfbridge-skill.js exists', fileExists(path.join(ROOT, 'src', 'cfbridge-skill.js')))
-if (runtimeSkillJs) {
-  check('src/cfbridge-skill.js injects skills', /inject\s*=\s*\['skills'\]/.test(runtimeSkillJs))
-  check('src/cfbridge-skill.js registers via ctx.skills.register', /ctx\.skills\.register/.test(runtimeSkillJs))
+// TypeScript Provider 入口
+const providerSource = readText(path.join(ROOT, 'src', 'cfbridge.ts'))
+check('src/cfbridge.ts exists', fileExists(path.join(ROOT, 'src', 'cfbridge.ts')))
+if (providerSource) {
+  check('Provider injects skills', /inject\s*=\s*\['skills'\]/.test(providerSource))
+  check('Provider registers through registerProvider', /ctx\.skills\.registerProvider/.test(providerSource))
+  check('Provider uses rank 550', /PROVIDER_RANK\s*=\s*550/.test(providerSource))
 }
 
 // === 4. Skill 文件 ===
@@ -113,6 +112,8 @@ if (skillMd) {
   check('SKILL.md has title', /^#\s+cfbridge\b/m.test(skillMd))
   check('SKILL.md has no token-like content', !hasTokenLeak(skillMd))
   check('SKILL.md mentions global bundle trigger', /全局|安装 cfbridge bundle|install:bundle/.test(skillMd))
+  check('SKILL.md has frontmatter', /^---\n[\s\S]*^name:\s*cfbridge\s*$/m.test(skillMd))
+  check('SKILL.md exposes Provider metadata', /^description:\s*.+$/m.test(skillMd) && /^whenToUse:\s*.+$/m.test(skillMd))
 }
 
 // === 5. 关键脚本 ===
@@ -170,7 +171,7 @@ for (const f of tracked) {
 }
 check('no tracked file contains token-like content', !tokenLeak, tokenLeak ? `found in ${tokenLeak}` : '')
 
-// === 8. web profile 状态（v0.3.0 翻转断言） ===
+// === 8. web profile 状态（v0.5.0 翻转断言） ===
 const dshHome = process.env.DSH_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '', '.dsh')
 const webProfile = path.join(dshHome, 'profiles', 'web')
 const webPatch = path.join(webProfile, 'cordis.patch.yml')
@@ -192,7 +193,7 @@ if (fs.existsSync(webPatch)) {
     check('web patch may optionally carry disabled: true mcp-cloudflare override (informational)', true,
       disabledOverride ? 'disabled override present' : 'no override (tools active)')
   } else {
-    // bundle 未装 → web patch 中不应有 cloudflare 残留（v0.2.0 时代的污染）
+    // bundle 未装 → web patch 中不应有 cloudflare 残留。
     const cloudflareResidue = /cloudflare|mcp-cloudflare|CLOUDFLARE_API_TOKEN|cfbridge/i.test(text)
     check('web patch has no cloudflare residue (bundle not installed)', !cloudflareResidue,
       cloudflareResidue ? 'found cloudflare/cfbridge related lines' : '')
@@ -224,12 +225,12 @@ if (fs.existsSync(systemSkills)) {
 }
 check('DSH system presets have no cfbridge', !systemPolluted, systemPolluted || '')
 
-// === 10. legacy v0.2.0 preset 状态 ===
+// === 10. legacy preset 状态 ===
 const legacyPreset = path.join(dshHome, '.agent-presets', 'cfbridge')
 if (fs.existsSync(legacyPreset)) {
-  check('legacy v0.2.0 preset directory noted', true, `still present at ${legacyPreset}; run \`npm run migrate:from-preset -- --yes\` to clean`)
+  check('legacy preset directory noted', true, `still present at ${legacyPreset}; run \`npm run migrate:from-preset -- --yes\` to clean`)
 } else {
-  check('legacy v0.2.0 preset absent', true, 'no agent-presets/cfbridge/ residue')
+  check('legacy preset absent', true, 'no agent-presets/cfbridge/ residue')
 }
 
 // === 11. Git remote ===

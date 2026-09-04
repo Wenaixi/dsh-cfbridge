@@ -1,11 +1,11 @@
-// 一键卸载 cfbridge v0.3.0 Bundle。
+// 一键卸载 cfbridge v0.5.0 Bundle。
 //
 // 流程：
 // 1. 调用 `dsh plugin --profile <name> remove @wenaixi/cfbridge`，DSH 会
 //    自动从 dsh.profile.bundles 移除本层并清理 node_modules。
 // 2. 清理旧版本残留的软链 $DSH_HOME/skills/cfbridge/（若存在）。
 // 3. 调 `dsh --profile <name> --dump-config` 验证层不再出现 cfbridge。
-// 4. 提示 v0.2.0 旧 preset 残留的可选清理。
+// 4. 提示旧 preset 残留的可选清理。
 //
 // 使用：
 //   npm run uninstall:bundle
@@ -118,7 +118,7 @@ async function main() {
   dumpConfig(opts.profile)
 
   if (fs.existsSync(LEGACY_PRESET)) {
-    log('warn', `Legacy v0.2.0 preset still exists at ${LEGACY_PRESET}.`)
+    log('warn', `Legacy preset still exists at ${LEGACY_PRESET}.`)
     log('info', 'Run `npm run migrate:from-preset` to remove it.')
   }
 

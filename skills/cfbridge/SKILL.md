@@ -1,3 +1,9 @@
+---
+name: cfbridge
+description: Cloudflare Code Mode MCP 全局 Bridge：装后所有会话自动获得 mcp__cloudflare__docs/search/execute 三工具与本操作指南；含 search-then-execute 工作流、写操作审批规范、Token 权限边界与 Wrangler 透传指引。
+whenToUse: 任何涉及 Cloudflare API 的请求都应先加载本 Skill；执行前用 mcp__cloudflare__docs 或 mcp__cloudflare__search 确认端点，再用 mcp__cloudflare__execute 执行。
+---
+
 # cfbridge — Cloudflare 全局 Bridge 操作指南
 
 ## 三工具速查
