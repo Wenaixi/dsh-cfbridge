@@ -4,7 +4,7 @@
   "description": "Cloudflare Code Mode MCP 全局 Bundle，安装后所有 DSH 会话自动获得 docs/search/execute 三工具与 cfbridge Skill，配合项目本地 Wrangler CLI 透传。",
   "author": "Wenaixi <wenxiloveyou@gmail.com>",
   "license": "MIT",
-  "type": "commonjs",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/Wenaixi/dsh-cfbridge.git"
@@ -23,22 +23,31 @@
     "dsh-bundle",
     "skill"
   ],
-  "main": "cordis.patch.yml",
+  "main": "lib/cfbridge.js",
+  "types": "lib/cfbridge.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/cfbridge.d.ts",
+      "default": "./lib/cfbridge.js"
+    }
+  },
   "files": [
     "cordis.patch.yml",
-    "src/",
+    "lib/",
     "skills/",
-    "scripts/",
     "README.md",
     "LICENSE",
-    ".env.example",
-    "deprecated/"
+    ".env.example"
   ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run build",
+    "prepack": "npm run build",
     "check": "node scripts/check.js",
     "install:bundle": "node scripts/install-bundle.js",
     "uninstall:bundle": "node scripts/uninstall-bundle.js",
@@ -58,9 +67,12 @@
     "sync:vendor:force": "node scripts/sync-vendor-skills.js --force"
   },
   "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-mcp-client": "*",
+    "@deepseek-ai/dsh-skill": ">=0.0.1-rc.1 <0.2.0-0",
     "@deepseek-ai/dsh-skill-filesystem": "*",
-    "@deepseek-ai/dsh-tool-skill": "*"
+    "@deepseek-ai/dsh-tool-skill": "*",
+    "@deepseek-ai/schemastery": "^3.18.1"
   },
   "dsh": {
     "bundle": {
@@ -68,6 +80,11 @@
     }
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-skill": "^0.0.1-rc.5",
+    "@deepseek-ai/schemastery": "^3.18.2",
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3",
     "wrangler": "^4.123.0"
   },
   "engines": {
