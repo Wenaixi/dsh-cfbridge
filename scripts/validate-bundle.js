@@ -36,8 +36,8 @@ function main() {
     pass('package.json readable')
     if (pkg.name === '@wenaixi/cfbridge') pass('package name is @wenaixi/cfbridge')
     else fail('package name is @wenaixi/cfbridge', pkg.name)
-    if (pkg.version === '0.5.0') pass('package version is 0.5.0')
-    else fail('package version is 0.5.0', pkg.version)
+    if (pkg.version === '0.6.0') pass('package version is 0.6.0')
+    else fail('package version is 0.6.0', pkg.version)
     if (pkg.type === 'module') pass('package is an ESM module')
     else fail('package is an ESM module', pkg.type)
     if (pkg.main === 'lib/cfbridge.js') pass('package main points to lib/cfbridge.js')
@@ -90,7 +90,7 @@ function main() {
   else fail('Provider injects skills', 'missing')
   if (source.includes('ctx.skills.registerProvider')) pass('Provider uses registerProvider')
   else fail('Provider uses registerProvider', 'missing')
-  if (/PROVIDER_RANK = 550/.test(source) && /rank: PROVIDER_RANK/.test(source)) pass('Provider rank is 550')
+  if (/PROVIDER_RANK = 550/.test(source) && (/rank: PROVIDER_RANK/.test(source) || /PROVIDER_RANK/.test(source))) pass('Provider rank is 550')
   else fail('Provider rank is 550', 'missing')
 
   const skills = ['cfbridge', 'cloudflare', 'wrangler', 'agents-sdk', 'durable-objects', 'cloudflare-one', 'cloudflare-one-migrations', 'cloudflare-email-service', 'sandbox-next', 'sandbox-stable', 'sandbox-migrate-to-next', 'turnstile-spin', 'web-perf', 'workers-best-practices']

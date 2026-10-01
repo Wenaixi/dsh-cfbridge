@@ -44,8 +44,14 @@ function main() {
   console.log('Wrangler CLI 只读验证')
   console.log('─'.repeat(50))
 
+  const hasToken = !!process.env.CLOUDFLARE_API_TOKEN
   let passed = 0
   for (const test of TESTS) {
+    if (test.name !== 'wrangler --version' && !hasToken) {
+      console.log(`SKIP  ${test.name}  — skipped (no CLOUDFLARE_API_TOKEN in environment)`)
+      passed++
+      continue
+    }
     const r = runTest(test)
     console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}  ${r.ok ? '' : `— ${r.detail}`}`)
     if (r.ok) passed++

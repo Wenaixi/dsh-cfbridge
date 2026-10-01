@@ -40,7 +40,7 @@ function hasTokenLeak(text) {
 const pkg = readJson(path.join(ROOT, 'package.json'))
 if (pkg) {
   check('package name is @wenaixi/cfbridge', pkg.name === '@wenaixi/cfbridge', `got: ${pkg.name}`)
-  check('package version is 0.5.0', pkg.version === '0.5.0', `got: ${pkg.version}`)
+  check('package version is 0.6.0', pkg.version === '0.6.0', `got: ${pkg.version}`)
   check('package is not private', pkg.private !== true, pkg.private ? 'package.json must not be private for npm publish' : '')
   check('package publishConfig.access is public', pkg.publishConfig?.access === 'public', `got: ${pkg.publishConfig?.access}`)
   check('package repository points to Wenaixi/dsh-cfbridge', /github\.com\/Wenaixi\/dsh-cfbridge(\.git)?$/i.test(pkg.repository?.url || ''), `got: ${pkg.repository?.url}`)
@@ -112,7 +112,7 @@ if (skillMd) {
   check('SKILL.md has title', /^#\s+cfbridge\b/m.test(skillMd))
   check('SKILL.md has no token-like content', !hasTokenLeak(skillMd))
   check('SKILL.md mentions global bundle trigger', /全局|安装 cfbridge bundle|install:bundle/.test(skillMd))
-  check('SKILL.md has frontmatter', /^---\n[\s\S]*^name:\s*cfbridge\s*$/m.test(skillMd))
+  check('SKILL.md has frontmatter', /^---\r?\n[\s\S]*^name:\s*cfbridge\s*$/m.test(skillMd))
   check('SKILL.md exposes Provider metadata', /^description:\s*.+$/m.test(skillMd) && /^whenToUse:\s*.+$/m.test(skillMd))
 }
 
