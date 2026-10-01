@@ -56,4 +56,25 @@ function log(level, msg) {
   console.log('[' + prefix + '] ' + msg)
 }
 
-module.exports = { ROOT, fileExists, readText, readJson, collectFiles, hasTokenLeak, dshHome, log }
+module.exports = { ROOT, fileExists, readText, readJson, collectFiles, hasTokenLeak, dshHome, log, removeLegacySkillLink }
+
+// 删除 DSH 用户目录下的 legacy cfbridge skill 链接。
+// requireBundleTarget=true（默认，install 语义）：仅删除指向 bundle 的链接/目录，
+// 保护用户自建的指向别处的同名链接；false（uninstall 语义）：路径是链接或目录即删。
+// 返回是否真的删除；日志文案由调用方经 log 回调保留各自差异。
+function removeLegacySkillLink(dshHomePath, opts = {}) {
+  const { requireBundleTarget = true, log: logFn = () => {} } = opts
+  const link = path.join(dshHomePath, 'skills', 'cfbridge')
+  let stat
+  try { stat = fs.lstatSync(link) } catch (e) {
+    if (e.code !== 'ENOENT') logFn('warn', 'Could not inspect legacy skill link at ' + link + ': ' + e.message)
+    return false
+  }
+  if (!stat.isSymbolicLink() && !stat.isDirectory()) return false
+  const raw = stat.isSymbolicLink() ? fs.readlinkSync(link) : ''
+  const pointsToBundle = stat.isDirectory() || (raw && String(raw).includes('cfbridge') && String(raw).includes('skills'))
+  if (requireBundleTarget && !pointsToBundle) return false
+  fs.rmSync(link, { recursive: true, force: true })
+  logFn('ok', 'Removed legacy skill link: ' + link)
+  return true
+}

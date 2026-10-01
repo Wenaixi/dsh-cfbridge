@@ -15,6 +15,7 @@ const STEPS = [
   { name: 'demo', label: '独立 demo 文档测试', command: [process.execPath, '--test', 'tests/demo-config.test.mjs'] },
   { name: 'check', label: '仓库配置与安全检查', command: [process.execPath, 'scripts/check.js'] },
   { name: 'bundle', label: 'Bundle manifest 与结构校验', command: [process.execPath, 'scripts/validate-bundle.js', '--strict-router'] },
+  { name: 'scripts', label: '脚本共享模块行为测试', command: [process.execPath, '--test', 'tests/scripts-lib.test.mjs'] },
   { name: 'wrangler', label: 'Wrangler CLI 只读验证', command: [process.execPath, 'scripts/test-wrangler.js'] },
 ]
 

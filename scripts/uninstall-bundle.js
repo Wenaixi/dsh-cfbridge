@@ -15,7 +15,7 @@ const fs = require('fs')
 const path = require('path')
 const { spawnSync } = require('child_process')
 
-const { ROOT, log, dshHome: resolveDshHome } = require('./lib/fs')
+const { ROOT, log, dshHome: resolveDshHome, removeLegacySkillLink } = require('./lib/fs')
 
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const DSH_HOME = resolveDshHome()
@@ -53,15 +53,8 @@ function runCapture(cmd, args, opts = {}) {
 }
 
 function removeSkillLink() {
-  try {
-    const stat = fs.lstatSync(SKILL_LINK)
-    if (!stat.isSymbolicLink() && !stat.isDirectory()) return
-    fs.rmSync(SKILL_LINK, { recursive: true, force: true })
-    log('ok', `Removed skill link (legacy): ${SKILL_LINK}`)
-  } catch (e) {
-    if (e.code === 'ENOENT') log('info', `No skill link at ${SKILL_LINK}; nothing to remove.`)
-    else log('warn', `Failed to remove ${SKILL_LINK}: ${e.message}`)
-  }
+  const removed = removeLegacySkillLink(DSH_HOME, { requireBundleTarget: false, log })
+  if (!removed) log('info', `No skill link at ${SKILL_LINK}; nothing to remove.`)
 }
 
 function dumpConfig(profile) {

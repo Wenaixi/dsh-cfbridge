@@ -18,7 +18,7 @@ const fs = require('fs')
 const path = require('path')
 const { spawnSync } = require('child_process')
 
-const { ROOT, log, dshHome: resolveDshHome } = require('./lib/fs')
+const { ROOT, log, dshHome: resolveDshHome, removeLegacySkillLink } = require('./lib/fs')
 
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const DSH_HOME = resolveDshHome()
@@ -79,20 +79,7 @@ function profileDir(name) {
 }
 
 function cleanupLegacySymlink() {
-  const link = path.join(DSH_HOME, 'skills', 'cfbridge')
-  try {
-    const stat = fs.lstatSync(link)
-    if (!stat.isSymbolicLink() && !stat.isDirectory()) return
-    const raw = stat.isSymbolicLink() ? fs.readlinkSync(link) : ''
-    const pointsToBundle =
-      stat.isDirectory() ||
-      (raw && String(raw).includes('cfbridge') && String(raw).includes('skills'))
-    if (!pointsToBundle) return
-    fs.rmSync(link, { recursive: true, force: true })
-    log('ok', `Cleaned legacy skill link: ${link}`)
-  } catch (e) {
-    if (e.code !== 'ENOENT') log('warn', `Could not inspect legacy skill link at ${link}: ${e.message}`)
-  }
+  removeLegacySkillLink(DSH_HOME, { log })
 }
 
 function dumpConfig(profile) {
