@@ -150,6 +150,19 @@ export function parseFrontmatter(raw: string): ParsedSkillFile | undefined {
   return { data: data as Frontmatter, body: raw.slice(closing.bodyStart) }
 }
 
+// watcher 事件过滤：只关心 Provider 可能读到的内容变化。
+// watch(skillDir, { recursive: true }) 回调的 filename 是相对路径（Windows 用反斜杠）；
+// 规则与 list() 的发现契约一一对齐：文件级只认 SKILL.md，目录级顶层事件一律放行
+// （Windows 上目录删除/重命名与文件同形态，无法可靠区分），点目录与嵌套无关文件拦截。
+export function isSkillCatalogEvent(filename: string | null | undefined): boolean {
+  if (filename === null || filename === undefined) return true
+  const norm = filename.replaceAll('\\', '/')
+  if (norm === '' || norm.startsWith('.')) return false
+  if (norm === 'SKILL.md' || norm.endsWith('/SKILL.md')) return true
+  if (!norm.includes('/')) return true
+  return false
+}
+
 function loggerMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -354,7 +367,7 @@ export function apply(ctx: Context, config: Config = {
     if (config.watchSkills) {
       try {
         watcher = watch(skillDir, { recursive: true }, (_eventType, filename) => {
-          if (!filename || filename.endsWith('.md')) {
+          if (isSkillCatalogEvent(filename)) {
             if (debounceTimer) clearTimeout(debounceTimer)
             debounceTimer = setTimeout(() => {
               // 走失效入口而非手动 emit：由 registry 的 invalidate() 自动广播 skills/change。

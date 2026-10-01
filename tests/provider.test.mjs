@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, utimes } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, utimes, rename, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { apply, createProviderForTest } from '../lib/cfbridge.js'
+import { apply, createProviderForTest, isSkillCatalogEvent } from '../lib/cfbridge.js'
 
 const { ALL_SKILLS: SKILLS } = createRequire(import.meta.url)('../scripts/lib/skills.js')
 
@@ -212,4 +212,50 @@ test('invalidate clears the mtime cache and the next list rereads', async () => 
   provider.invalidate()
   const fresh = await provider.list({})
   assert.equal(fresh[0].description, 'Changed')
+})
+
+test('isSkillCatalogEvent aligns watcher filtering with provider discovery', () => {
+  assert.equal(isSkillCatalogEvent('SKILL.md'), true)
+  assert.equal(isSkillCatalogEvent('foo/SKILL.md'), true)
+  assert.equal(isSkillCatalogEvent('foo\\SKILL.md'), true)
+  assert.equal(isSkillCatalogEvent('foo/README.md'), false)
+  // 顶层无斜杠事件（README.md、foo）无法与目录创建/删除/重命名区分，保守放行；
+  // 误放行的代价只是带 mtime 缓存的廉价 list 刷新，漏放行则会错过目录级变更。
+  assert.equal(isSkillCatalogEvent('README.md'), true)
+  assert.equal(isSkillCatalogEvent('foo/docs/notes.md'), false)
+  assert.equal(isSkillCatalogEvent('foo'), true)
+  assert.equal(isSkillCatalogEvent('.hidden'), false)
+  assert.equal(isSkillCatalogEvent('.hidden/SKILL.md'), false)
+  assert.equal(isSkillCatalogEvent(''), false)
+  assert.equal(isSkillCatalogEvent(null), true)
+  assert.equal(isSkillCatalogEvent(undefined), true)
+})
+
+test('watcher refreshes on skill directory rename and removal', { skip: process.platform === 'linux' }, async () => {
+  const root = await fixture()
+  const events = []
+  const disposers = []
+  const mockCtx = {
+    logger: { warn() {}, debug() {}, info() {} },
+    skills: {
+      registerProvider(factory) {
+        factory({ invalidate: () => events.push('skills/change'), signal: new AbortController().signal })
+        return () => {}
+      },
+    },
+    on: () => () => {},
+    emit: () => {},
+    effect: (fn) => { const d = fn(); disposers.push(d); return d },
+  }
+  apply(mockCtx, { skillDir: root, providerName: 'cfbridge', watchSkills: true })
+  // 重命名技能目录：目录级事件（无 .md 文件事件伴随），旧实现会漏报
+  await rename(join(root, 'alpha'), join(root, 'beta'))
+  await new Promise((r) => setTimeout(r, 300))
+  assert.ok(events.includes('skills/change'), 'expected skills/change on directory rename')
+  events.length = 0
+  // 删除整个技能目录：纯 rename 事件，旧实现零刷新
+  await rm(join(root, 'beta'), { recursive: true })
+  await new Promise((r) => setTimeout(r, 300))
+  assert.ok(events.includes('skills/change'), 'expected skills/change on directory removal')
+  for (const d of disposers) d()
 })

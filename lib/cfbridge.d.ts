@@ -34,6 +34,7 @@ type ParsedSkillFile = {
     body: string;
 };
 export declare function parseFrontmatter(raw: string): ParsedSkillFile | undefined;
+export declare function isSkillCatalogEvent(filename: string | null | undefined): boolean;
 export declare function createProviderForTest(skillDir: string, providerName?: string, logger?: Logger, rank?: number, cacheEnabled?: boolean, onInvalidate?: () => void): SkillProvider & {
     invalidate(): void;
 };
