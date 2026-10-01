@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 — 2026-10-02
+- feat(provider): 基于 mtime 的高性能候选技能元数据内存缓存，避免重复文件 IO 与 YAML 解析开销。
+- feat(config): 扩展 Schemastery 配置模型，支持自定义 Provider 优先级（rank，默认 550）、缓存开关（cache，默认 true）与开发态文件热监听（watchSkills，默认 false）。
+- feat(watcher): 可逆的技能目录文件变动监听 Effect，在开发模式下修改技能自动去抖广播 skills/change 事件，插件卸载时安全释放句柄。
+- chore: 全面更新测试套件与 Bundle 静态校验，支持离线/无 token 场景优雅跳过。
+
 ## 0.5.0 — 2026-08-23
 - feat: 改用 TypeScript SkillProvider，14 个技能按需读取并支持 vendored 注释前导。
 - fix: Bundle patch 通过 `@wenaixi/cfbridge` 包名挂载，插件面板可解析版本号。

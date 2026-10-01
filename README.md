@@ -6,7 +6,7 @@
 [![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
-DSH Bundle 组合包：装到 web profile 后**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 SkillProvider，配合项目本地 Wrangler CLI 透传。当前本地重构版本为 `0.5.0`，入口是 TypeScript `src/cfbridge.ts` 的提交产物 `lib/cfbridge.js`；走 `dsh.bundle` 原生分发。仓库 [Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge) · npm [@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)。
+DSH Bundle 组合包：装到 web profile 后**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 SkillProvider，配合项目本地 Wrangler CLI 透传。当前本地重构版本为 `0.6.0`，入口是 TypeScript `src/cfbridge.ts` 的提交产物 `lib/cfbridge.js`；走 `dsh.bundle` 原生分发。仓库 [Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge) · npm [@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)。
 
 ## 安装
 
@@ -95,6 +95,30 @@ DSH Bundle（全局常驻，按需开关）
 > 约束（遵循 dsh-plugin-dev）：Bundle 的 `cordis.patch.yml` 不声明 `persona` / `agent-instructions` / `tool-fs` 等 host 已有层；`failOnStartupError: false`；Authorization 用 `!!js` 动态引 `process.env.CLOUDFLARE_API_TOKEN`；勿与 Preset 同时注册 `mcp__cloudflare__*`。
 
 **它不是什么**：不是按 preset 选择（装完全会话可见）；不是动态 Cordis 插件（走原生 `dsh.bundle` 分发）；不复制端点列表（直连官方 Code Mode MCP，永远最新）；不污染用户 patch 层（独立层追加于 `dsh.profile.bundles`）。
+
+## 配置项（Config Schema）
+
+cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml` 中自由覆写：
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `providerName` | string | `'cfbridge'` | Provider 注册标识符（禁止使用保留名 `'runtime'`） |
+| `skillDir` | string | 源码相对路径 | 技能目录绝对或相对路径（默认指向 bundle 内置 `skills/`） |
+| `rank` | number | `550` | 技能提供方排序权重（数值越大优先级越高） |
+| `cache` | boolean | `true` | 是否启用基于文件 mtime 的技能元数据内存缓存 |
+| `watchSkills` | boolean | `false` | 是否开启技能目录递归变动监听（开发模式下自动广播 `skills/change` 触发热刷新） |
+
+配置示例（可在自己的 patch overlay 中覆盖）：
+
+```yaml
+- insert:
+    - id: cfbridge
+      name: '@wenaixi/cfbridge'
+      config:
+        rank: 600
+        cache: true
+        watchSkills: true
+```
 
 ## 验证
 
