@@ -15,16 +15,12 @@ const fs = require('fs')
 const path = require('path')
 const { spawnSync } = require('child_process')
 
-const ROOT = path.resolve(__dirname, '..')
+const { ROOT, log, dshHome: resolveDshHome } = require('./lib/fs')
+
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
-const DSH_HOME = process.env.DSH_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '', '.dsh')
+const DSH_HOME = resolveDshHome()
 const SKILL_LINK = path.join(DSH_HOME, 'skills', 'cfbridge')
 const LEGACY_PRESET = path.join(DSH_HOME, '.agent-presets', 'cfbridge')
-
-function log(level, msg) {
-  const prefix = { info: 'INFO', ok: 'OK  ', warn: 'WARN', err: 'ERR ' }[level] || 'INFO'
-  console.log(`[${prefix}] ${msg}`)
-}
 
 function parseArgs(argv) {
   const opts = { profile: 'web', yes: false }

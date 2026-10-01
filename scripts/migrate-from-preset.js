@@ -8,14 +8,10 @@
 
 const fs = require('fs')
 const path = require('path')
+const { log, dshHome: resolveDshHome } = require('./lib/fs')
 
-const DSH_HOME = process.env.DSH_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '', '.dsh')
+const DSH_HOME = resolveDshHome()
 const LEGACY = path.join(DSH_HOME, '.agent-presets', 'cfbridge')
-
-function log(level, msg) {
-  const prefix = { info: 'INFO', ok: 'OK  ', warn: 'WARN', err: 'ERR ' }[level] || 'INFO'
-  console.log(`[${prefix}] ${msg}`)
-}
 
 function parseArgs(argv) {
   const opts = { yes: false, profile: 'web' }

@@ -12,29 +12,10 @@ const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
 
-const ROOT = path.resolve(__dirname, '..')
+const { ROOT, readJson, readText, fileExists, hasTokenLeak, dshHome: resolveDshHome } = require('./lib/fs')
 
 const checks = []
 function check(name, ok, detail = '') { checks.push({ name, ok, detail }) }
-
-function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')) } catch { return null } }
-function readText(p) { try { return fs.readFileSync(p, 'utf8') } catch { return '' } }
-function fileExists(p) { return fs.existsSync(p) }
-
-function hasTokenLeak(text) {
-  const patterns = [
-    /cfat_[A-Za-z0-9]{16,}/,
-    /cfut_[A-Za-z0-9]{16,}/,
-    /cfoat_[A-Za-z0-9]{16,}/,
-    /sk-[A-Za-z0-9-]{16,}/,
-    /Bearer\s+[A-Za-z0-9_-]{40,}/,
-    /gh[pousr]_[A-Za-z0-9]{30,}/,
-    /AKIA[0-9A-Z]{16}/,
-    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-    /AIza[0-9A-Za-z_-]{35}/,
-  ]
-  return patterns.some((re) => re.test(text))
-}
 
 // === 1. package.json 元数据 + dsh.bundle ===
 const pkg = readJson(path.join(ROOT, 'package.json'))
@@ -172,7 +153,7 @@ for (const f of tracked) {
 check('no tracked file contains token-like content', !tokenLeak, tokenLeak ? `found in ${tokenLeak}` : '')
 
 // === 8. web profile 状态（v0.5.0 翻转断言） ===
-const dshHome = process.env.DSH_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '', '.dsh')
+const dshHome = resolveDshHome()
 const webProfile = path.join(dshHome, 'profiles', 'web')
 const webPatch = path.join(webProfile, 'cordis.patch.yml')
 const webManifest = readJson(path.join(webProfile, 'package.json'))

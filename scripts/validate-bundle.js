@@ -1,33 +1,12 @@
 // 静态校验 cfbridge 0.5.0 Bundle 的结构与安全属性。
 const fs = require('fs')
 const path = require('path')
-const ROOT = path.resolve(__dirname, '..')
+const { ROOT, readText, readJson, fileExists, collectFiles, hasTokenLeak } = require('./lib/fs')
 const results = []
 
 function pass(name, detail) { results.push({ ok: true, name, detail: detail || '' }) }
 function fail(name, msg) { results.push({ ok: false, name, msg: msg || '' }) }
-function readText(file) { try { return fs.readFileSync(file, 'utf8') } catch { return '' } }
-function readJson(file) { try { return JSON.parse(readText(file)) } catch { return null } }
 function checkFile(file, name) { if (fs.existsSync(file)) pass(name); else fail(name, 'missing: ' + file) }
-function hasTokenLeak(text) {
-  return [
-    /cfat_[A-Za-z0-9]{16,}/,
-    /cfut_[A-Za-z0-9]{16,}/,
-    /cfoat_[A-Za-z0-9]{16,}/,
-    /sk-[A-Za-z0-9-]{16,}/,
-    /Bearer\s+[A-Za-z0-9_-]{40,}/,
-    /gh[pousr]_[A-Za-z0-9]{30,}/,
-    /AKIA[0-9A-Z]{16}/,
-    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-    /AIza[0-9A-Za-z_-]{35}/,
-  ].some((pattern) => pattern.test(text))
-}
-function collectFiles(dir) {
-  if (!fs.existsSync(dir)) return []
-  const stats = fs.statSync(dir)
-  if (!stats.isDirectory()) return [dir]
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => collectFiles(path.join(dir, entry.name)))
-}
 
 function main() {
   const pkg = readJson(path.join(ROOT, 'package.json'))
