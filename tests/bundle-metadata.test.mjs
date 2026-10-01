@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { parse } from 'yaml'
 
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)))
@@ -29,7 +30,7 @@ test('patch mounts provider by package name', () => {
 })
 
 test('all bundled skills have frontmatter', async () => {
-  const skills = ['cfbridge', 'cloudflare', 'wrangler', 'agents-sdk', 'durable-objects', 'cloudflare-one', 'cloudflare-one-migrations', 'cloudflare-email-service', 'sandbox-next', 'sandbox-stable', 'sandbox-migrate-to-next', 'turnstile-spin', 'web-perf', 'workers-best-practices']
+  const { ALL_SKILLS: skills } = createRequire(import.meta.url)('../scripts/lib/skills.js')
   for (const skill of skills) {
     const text = await readFile(new URL('../skills/' + skill + '/SKILL.md', import.meta.url), 'utf8')
     assert.match(text, /^(?:<!--.*-->\n|\ufeff?\s*)*---\r?\n/)

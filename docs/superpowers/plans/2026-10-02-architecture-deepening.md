@@ -170,15 +170,17 @@ git commit -m "refactor(scripts): introduce skills single source and migrate con
 ```js
 test('hasTokenLeak matches the same 9 token families as the security gate', () => {
   const { hasTokenLeak } = require('../scripts/lib/fs.js')
-  assert.equal(hasTokenLeak('cfat_ABCDEFGHIJKLMNOP1234'), true)
-  assert.equal(hasTokenLeak('cfut_ABCDEFGHIJKLMNOP1234'), true)
-  assert.equal(hasTokenLeak('cfoat_ABCDEFGHIJKLMNOP1234'), true)
-  assert.equal(hasTokenLeak('sk-abcdefghijklmnopqrstuvwxyz123'), true)
-  assert.equal(hasTokenLeak('Bearer abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTU'), true)
-  assert.equal(hasTokenLeak('ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij'), true)
-  assert.equal(hasTokenLeak('AKIAABCDEFGHIJKLMNOP'), true)
-  assert.equal(hasTokenLeak('-----BEGIN RSA PRIVATE KEY-----'), true)
-  assert.equal(hasTokenLeak('AIzaABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijk'), true)
+  // 断言触发串是明文伪 token，不能落入任何跟踪文件（check.js 会扫描）；此处仅列类型示意。
+  // 真实触发串构造在 tests/scripts-lib.test.mjs 中，以可读形式表达，不复制 token 形态。
+  assert.equal(hasTokenLeak('cfat_<cfat-family>'), true)
+  assert.equal(hasTokenLeak('cfut_<cfut-family>'), true)
+  assert.equal(hasTokenLeak('cfoat_<cfoat-family>'), true)
+  assert.equal(hasTokenLeak('sk-<sk-family>'), true)
+  assert.equal(hasTokenLeak('Bearer <bearer-family>'), true)
+  assert.equal(hasTokenLeak('ghp_<ghp-family>'), true)
+  assert.equal(hasTokenLeak('AKIA<akia-family>'), true)
+  assert.equal(hasTokenLeak('-----BEGIN <key-family> PRIVATE KEY-----'), true)
+  assert.equal(hasTokenLeak('AIza<aiza-family>'), true)
   assert.equal(hasTokenLeak('no secrets here'), false)
 })
 ```

@@ -1,4 +1,4 @@
-// scripts/sync-vendor-skills.js — 幂等拉取 cloudflare/skills 13 个 SKILL.md 快照
+// scripts/sync-vendor-skills.js — 幂等拉取 cloudflare/skills 13 个 SKILL.md 快照（清单来自 scripts/lib/skills.js）
 // 用法: node scripts/sync-vendor-skills.js [--force]
 // 行为: 访问 https://raw.githubusercontent.com/cloudflare/skills/main/skills/<name>/SKILL.md
 //       写入 skills/<name>/SKILL.md，头部追加 vendored 注释，校验 front-matter 含 name: <name>
@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const ROOT = path.resolve(__dirname, '..');
-const SKILLS = ['cloudflare','wrangler','agents-sdk','durable-objects','cloudflare-one','cloudflare-one-migrations','cloudflare-email-service','sandbox-next','sandbox-stable','sandbox-migrate-to-next','turnstile-spin','web-perf','workers-best-practices'];
+const { VENDORED_SKILLS: SKILLS } = require('./lib/skills');
 const BASE = 'https://raw.githubusercontent.com/cloudflare/skills/main/skills';
 function fetchRaw(url, timeoutMs=30000){
   return new Promise((resolve, reject)=>{

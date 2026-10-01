@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply, createProviderForTest } from '../lib/cfbridge.js'
 
-const SKILLS = ['cfbridge', 'cloudflare', 'wrangler', 'agents-sdk', 'durable-objects', 'cloudflare-one', 'cloudflare-one-migrations', 'cloudflare-email-service', 'sandbox-next', 'sandbox-stable', 'sandbox-migrate-to-next', 'turnstile-spin', 'web-perf', 'workers-best-practices']
+const { ALL_SKILLS: SKILLS } = createRequire(import.meta.url)('../scripts/lib/skills.js')
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'cfbridge-provider-'))

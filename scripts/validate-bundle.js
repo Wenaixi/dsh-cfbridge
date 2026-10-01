@@ -93,7 +93,7 @@ function main() {
   if (/PROVIDER_RANK = 550/.test(source) && (/rank: PROVIDER_RANK/.test(source) || /PROVIDER_RANK/.test(source))) pass('Provider rank is 550')
   else fail('Provider rank is 550', 'missing')
 
-  const skills = ['cfbridge', 'cloudflare', 'wrangler', 'agents-sdk', 'durable-objects', 'cloudflare-one', 'cloudflare-one-migrations', 'cloudflare-email-service', 'sandbox-next', 'sandbox-stable', 'sandbox-migrate-to-next', 'turnstile-spin', 'web-perf', 'workers-best-practices']
+  const { ALL_SKILLS: skills } = require('./lib/skills')
   for (const skill of skills) checkFile(path.join(ROOT, 'skills', skill, 'SKILL.md'), 'skills/' + skill + '/SKILL.md exists')
   const allSkillMetadata = skills.every((skill) => {
     const text = readText(path.join(ROOT, 'skills', skill, 'SKILL.md'))
