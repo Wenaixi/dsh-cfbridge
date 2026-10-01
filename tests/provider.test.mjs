@@ -142,3 +142,17 @@ test('Config schema accepts and defaults rank, cache, and watchSkills', async ()
   assert.equal(custom.cache, false)
   assert.equal(custom.watchSkills, true)
 })
+test('Provider supports custom rank and reuses cached candidates when mtime is unchanged', async () => {
+  const root = await fixture()
+  const provider = createProviderForTest(root, 'cfbridge', console, 700, true)
+  const first = await provider.list({})
+  assert.equal(first.length, 1)
+  assert.equal(first[0].name, 'alpha')
+  assert.equal(first[0].rank, 700)
+
+  // 再次调用，此时文件未修改，复用缓存且 rank 保持 700
+  const second = await provider.list({})
+  assert.equal(second.length, 1)
+  assert.equal(second[0].name, 'alpha')
+  assert.equal(second[0].rank, 700)
+})

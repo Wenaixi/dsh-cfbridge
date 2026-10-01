@@ -165,6 +165,7 @@ function makeCandidate(
   parsed: ParsedSkillFile,
   locator: SkillLocator,
   providerName: string,
+  rank: number = PROVIDER_RANK,
 ): SkillCandidate | undefined {
   const skillName = stringField(parsed.data, 'name')
   const description = stringField(parsed.data, 'description')
@@ -176,7 +177,7 @@ function makeCandidate(
     invocation: parseInvocation(parsed.data),
     source: 'bundled',
     provider: providerName,
-    rank: PROVIDER_RANK,
+    rank,
     locator,
     resourceBase: { kind: 'directory', path: locator.directory },
     path: locator.path,
@@ -196,8 +197,12 @@ export function createProviderForTest(
   skillDir: string,
   providerName = DEFAULT_PROVIDER_NAME,
   logger: Logger = console,
+  rank = PROVIDER_RANK,
+  cacheEnabled = true,
 ): SkillProvider {
   const root = resolve(skillDir)
+  type CacheEntry = { mtimeMs: number; candidate: SkillCandidate }
+  const cache = new Map<string, CacheEntry>()
   return {
     name: providerName,
     async list(options = {}) {
@@ -218,16 +223,33 @@ export function createProviderForTest(
         const directory = join(root, entry.name)
         const path = join(directory, 'SKILL.md')
         try {
-          await stat(path)
+          const fileStat = await stat(path)
+          throwIfAborted(options)
+
+          if (cacheEnabled && cache.has(path)) {
+            const cached = cache.get(path)!
+            if (cached.mtimeMs === fileStat.mtimeMs) {
+              if (seen.has(cached.candidate.name)) {
+                logger.warn('[cfbridge] skip ' + path + ': duplicate skill name ' + cached.candidate.name)
+                continue
+              }
+              seen.add(cached.candidate.name)
+              candidates.push(cached.candidate)
+              continue
+            }
+          }
+
           const parsed = parseFrontmatter(await readFile(path, { encoding: 'utf8', signal: options.signal }))
           throwIfAborted(options)
           if (parsed === undefined) {
             logger.warn('[cfbridge] skip ' + path + ': missing or invalid frontmatter')
+            cache.delete(path)
             continue
           }
-          const candidate = makeCandidate(parsed, { path, directory }, providerName)
+          const candidate = makeCandidate(parsed, { path, directory }, providerName, rank)
           if (candidate === undefined) {
             logger.warn('[cfbridge] skip ' + path + ': frontmatter requires a valid name and description')
+            cache.delete(path)
             continue
           }
           if (seen.has(candidate.name)) {
@@ -235,9 +257,13 @@ export function createProviderForTest(
             continue
           }
           seen.add(candidate.name)
+          if (cacheEnabled) {
+            cache.set(path, { mtimeMs: fileStat.mtimeMs, candidate })
+          }
           candidates.push(candidate)
         } catch (error) {
           if (isAbortError(error)) throw error
+          cache.delete(path)
           logger.warn('[cfbridge] skip ' + path + ': ' + loggerMessage(error))
         }
       }
@@ -266,7 +292,7 @@ export function createProviderForTest(
       if (parsed === undefined) return undefined
       let definition: SkillCandidate | undefined
       try {
-        definition = makeCandidate(parsed, locator, providerName)
+        definition = makeCandidate(parsed, locator, providerName, rank)
       } catch (error) {
         logger.warn('[cfbridge] get ' + candidate.name + ': invalid invocation frontmatter: ' + loggerMessage(error))
         return undefined
@@ -293,8 +319,12 @@ export function apply(ctx: Context, config: Config = {
     throw new Error('[cfbridge] providerName "runtime" 为保留名，不可用')
   }
   const skillDir = resolveSkillDir(config.skillDir)
+  const rank = config.rank ?? PROVIDER_RANK
+  const cacheEnabled = config.cache ?? true
   ctx.effect(() => {
-    const disposeProvider = ctx.skills.registerProvider(() => createProviderForTest(skillDir, providerName, ctx.logger))
+    const disposeProvider = ctx.skills.registerProvider(() =>
+      createProviderForTest(skillDir, providerName, ctx.logger, rank, cacheEnabled)
+    )
     const disposeListener = ctx.on('skills/change', () => ctx.logger.debug?.('[cfbridge] skills catalog changed'))
     return () => {
       disposeListener()

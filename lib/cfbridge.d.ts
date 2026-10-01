@@ -34,7 +34,7 @@ type ParsedSkillFile = {
     body: string;
 };
 export declare function parseFrontmatter(raw: string): ParsedSkillFile | undefined;
-export declare function createProviderForTest(skillDir: string, providerName?: string, logger?: Logger): SkillProvider;
+export declare function createProviderForTest(skillDir: string, providerName?: string, logger?: Logger, rank?: number, cacheEnabled?: boolean): SkillProvider;
 export declare function apply(ctx: Context, config?: Config): void;
 declare const _default: {
     name: string;
