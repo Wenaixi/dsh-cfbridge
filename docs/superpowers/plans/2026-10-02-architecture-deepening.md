@@ -596,6 +596,6 @@ Critical 立即修、Important 修复后再收尾、Minor 记录。修复后重�
 补充：invalidate 失效契约（watcher → invalidateCatalog → registry 自动广播）、isSkillCatalogEvent 过滤规则、scripts/lib/skills.js 与 scripts/lib/fs.js 单一来源、门禁 9/9、deprecated shim 现状（软 404 指引，不合并）。
 
 - [x] **步骤 5：收尾合并**
-  - [x] 本地合回 main（finishing-a-development-branch，fast-forward 至 ce3511a）
+  - [x] 本地合回 main（finishing-a-development-branch，fast-forward 至 1571f10，随后删除特性分支）
 
 按 finishing-a-development-branch：确认 main 无新提交后，本地将 refactor/architecture-deepening 合回 main（fast-forward 或 --no-ff），更新 ledger 完结，向用户汇报。
