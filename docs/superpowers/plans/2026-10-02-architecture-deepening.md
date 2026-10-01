@@ -1,6 +1,6 @@
 # cfbridge 架构深化实施计划
 
-> **面向 Agent 执行者：** 必需子技能：executing-plans（内联执行）。步骤使用复选框（`- [ ]`）语法跟踪进度。
+> **面向 Agent 执行者：** 必需子技能：executing-plans（内联执行）。步骤使用复选框（`- [x]`）语法跟踪进度。
 
 **目标：** 落实 2026-10-01 架构评审（improve-codebase-architecture）中经 5 个子代理深度核实确认的候选改进：验证与元数据收敛（候选 1）、兑现 Provider 失效契约（候选 2）、watcher 过滤规则与发现规则对齐（候选 3）、deprecated shim 文档修正（候选 4 最小范围）、安装脚本共享助手与行为统一（候选 5）。
 
@@ -57,7 +57,7 @@
   }
   ```
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 新建 `tests/scripts-lib.test.mjs`：
 ```js
@@ -79,21 +79,21 @@ test('skills single source exposes ALL_SKILLS (14) and VENDORED_SKILLS (13)', ()
 })
 ```
 
-- [ ] **步骤 2：运行测试，确认其失败**
+- [x] **步骤 2：运行测试，确认其失败**
 
 运行：`node --test tests/scripts-lib.test.mjs`
 预期：FAIL（MODULE_NOT_FOUND，`scripts/lib/skills.js` 不存在）
 
-- [ ] **步骤 3：实现 `scripts/lib/skills.js`**
+- [x] **步骤 3：实现 `scripts/lib/skills.js`**
 
 新建 CommonJS 模块，导出 ALL_SKILLS（14 项，含 cfbridge）与 VENDORED_SKILLS（13 项，= ALL_SKILLS 去掉 cfbridge），简体中文注释说明这是技能清单单一事实来源、修改技能集只改这里。
 
-- [ ] **步骤 4：运行测试，确认其通过**
+- [x] **步骤 4：运行测试，确认其通过**
 
 运行：`node --test tests/scripts-lib.test.mjs`
 预期：PASS
 
-- [ ] **步骤 5：迁移 validate-bundle.js**
+- [x] **步骤 5：迁移 validate-bundle.js**
 
 `scripts/validate-bundle.js:96` 的 14 项数组字面量替换为：
 ```js
@@ -101,7 +101,7 @@ const { ALL_SKILLS: skills } = require('./lib/skills')
 ```
 （保持 `skills` 变量名，后续 97-111 行逻辑不变）
 
-- [ ] **步骤 6：迁移 bundle-metadata.test.mjs**
+- [x] **步骤 6：迁移 bundle-metadata.test.mjs**
 
 `tests/bundle-metadata.test.mjs:32` 的 14 项数组字面量替换为：
 ```js
@@ -109,7 +109,7 @@ const { ALL_SKILLS: skills } = createRequire(import.meta.url)('../scripts/lib/sk
 ```
 （文件头部补 `import { createRequire } from 'node:module'`）
 
-- [ ] **步骤 7：迁移 provider.test.mjs**
+- [x] **步骤 7：迁移 provider.test.mjs**
 
 `tests/provider.test.mjs:8` 的 SKILLS 数组字面量替换为：
 ```js
@@ -117,19 +117,19 @@ const { ALL_SKILLS: SKILLS } = createRequire(import.meta.url)('../scripts/lib/sk
 ```
 （文件头部补 createRequire 导入；SKILLS 变量名与 76-77 行用法不变）
 
-- [ ] **步骤 8：迁移 sync-vendor-skills.js**
+- [x] **步骤 8：迁移 sync-vendor-skills.js**
 
 `scripts/sync-vendor-skills.js:10` 的 SKILLS 数组字面量替换为：
 ```js
 const { VENDORED_SKILLS: SKILLS } = require('./lib/skills')
 ```
 
-- [ ] **步骤 9：运行全量门禁，确认无回归**
+- [x] **步骤 9：运行全量门禁，确认无回归**
 
 运行：`npm test`、`node scripts/check.js`、`node scripts/validate-bundle.js --strict-router`
 预期：8/8、75/75、73/73 全绿；scripts-lib 测试通过。
 
-- [ ] **步骤 10：提交**
+- [x] **步骤 10：提交**
 
 ```bash
 git add scripts/lib/skills.js scripts/validate-bundle.js scripts/sync-vendor-skills.js tests/scripts-lib.test.mjs tests/bundle-metadata.test.mjs tests/provider.test.mjs
@@ -164,7 +164,7 @@ git commit -m "refactor(scripts): introduce skills single source and migrate con
   }
   ```
 
-- [ ] **步骤 1：编写失败的测试（hasTokenLeak 逐字一致性）**
+- [x] **步骤 1：编写失败的测试（hasTokenLeak 逐字一致性）**
 
 在 `tests/scripts-lib.test.mjs` 追加：
 ```js
@@ -185,21 +185,21 @@ test('hasTokenLeak matches the same 9 token families as the security gate', () =
 })
 ```
 
-- [ ] **步骤 2：运行测试，确认其失败**
+- [x] **步骤 2：运行测试，确认其失败**
 
 运行：`node --test tests/scripts-lib.test.mjs`
 预期：FAIL（MODULE_NOT_FOUND）
 
-- [ ] **步骤 3：实现 `scripts/lib/fs.js`**
+- [x] **步骤 3：实现 `scripts/lib/fs.js`**
 
 按上方接口实现。hasTokenLeak 的 9 条正则从 check.js:24-37 逐字复制（安全门禁，不得改写任何一条）。简体中文注释。
 
-- [ ] **步骤 4：运行测试，确认其通过**
+- [x] **步骤 4：运行测试，确认其通过**
 
 运行：`node --test tests/scripts-lib.test.mjs`
 预期：PASS
 
-- [ ] **步骤 5：迁移 check.js**
+- [x] **步骤 5：迁移 check.js**
 
 删除本地 readJson/readText/fileExists（20-22）与 hasTokenLeak（24-37）定义，替换为：
 ```js
@@ -207,7 +207,7 @@ const { ROOT, readText, readJson, fileExists, hasTokenLeak, dshHome } = require(
 ```
 删除 15 行本地 ROOT 定义；175 行附近本地 DSH_HOME 表达式替换为共享 dshHome（注意该处变量的引用名，保持后续逻辑不变）。
 
-- [ ] **步骤 6：迁移 validate-bundle.js**
+- [x] **步骤 6：迁移 validate-bundle.js**
 
 删除本地 readText/readJson/collectFiles/hasTokenLeak（9-30），替换为：
 ```js
@@ -215,16 +215,16 @@ const { ROOT, readText, readJson, fileExists, collectFiles, hasTokenLeak } = req
 ```
 本地 `checkFile` 保留为 2 行包装（基于共享 fileExists + 本文件 pass/fail）。
 
-- [ ] **步骤 7：迁移三个安装/迁移脚本**
+- [x] **步骤 7：迁移三个安装/迁移脚本**
 
 install-bundle.js、uninstall-bundle.js、migrate-from-preset.js：本地 log 与 DSH_HOME 表达式替换为 `require('./lib/fs')` 的 log/dshHome；ROOT 替换为共享 ROOT。各自的 parseArgs、run、runCapture、dumpConfig、confirm 保持不动（行为差异，不强行统一）。
 
-- [ ] **步骤 8：运行全量门禁，确认无回归**
+- [x] **步骤 8：运行全量门禁，确认无回归**
 
 运行：`npm test`、`node scripts/check.js`、`node scripts/validate-bundle.js --strict-router`
 预期：8/8、75/75、73/73 全绿。
 
-- [ ] **步骤 9：提交**
+- [x] **步骤 9：提交**
 
 ```bash
 git add scripts/lib/fs.js scripts/check.js scripts/validate-bundle.js scripts/install-bundle.js scripts/uninstall-bundle.js scripts/migrate-from-preset.js tests/scripts-lib.test.mjs
@@ -257,7 +257,7 @@ git commit -m "refactor(scripts): consolidate shared fs helpers into scripts/lib
   apply 接线：`registerProvider((control) => {` 内创建 provider 并保存 `invalidateCatalog = () => provider.invalidate()`，工厂 6 参传 `control.invalidate`。
   watcher 回调（335-341）：去抖后调用 `invalidateCatalog()`（不再手动 ctx.emit，由 registry 自动广播 skills/change）。
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 在 `tests/provider.test.mjs` 追加（文件头 import 增加 utimes）：
 ```js
@@ -281,16 +281,16 @@ test('invalidate clears the mtime cache and the next list rereads', async () => 
 })
 ```
 
-- [ ] **步骤 2：运行测试，确认其失败**
+- [x] **步骤 2：运行测试，确认其失败**
 
 运行：`node --test tests/provider.test.mjs`
 预期：FAIL（TypeError: provider.invalidate is not a function）
 
-- [ ] **步骤 3：实现工厂签名与 invalidate 成员**
+- [x] **步骤 3：实现工厂签名与 invalidate 成员**
 
 在 `src/cfbridge.ts` 中按"接口"块修改 createProviderForTest；返回类型改为 `SkillProvider & { invalidate(): void }`，对象内新增 invalidate 成员。
 
-- [ ] **步骤 4：实现 apply 接线**
+- [x] **步骤 4：实现 apply 接线**
 
 registerProvider 工厂改为接收 control：
 ```ts
@@ -303,16 +303,16 @@ const disposeProvider = ctx.skills.registerProvider((control) => {
 ```
 watcher 回调去抖后改为 `invalidateCatalog()`，删除 `ctx.emit?.('skills/change')`。
 
-- [ ] **步骤 5：更新 watcher 测试的 mock**
+- [x] **步骤 5：更新 watcher 测试的 mock**
 
 `tests/provider.test.mjs` 现有 watcher 测试（159-185）的 mockCtx.skills.registerProvider 改为真实调用工厂并注入 control（invalidate 时 push 'skills/change' 到 events），使事件断言继续成立。
 
-- [ ] **步骤 6：构建并运行测试，确认其通过**
+- [x] **步骤 6：构建并运行测试，确认其通过**
 
 运行：`npm run build && node --test tests/provider.test.mjs && npm run typecheck`
 预期：PASS，全部 provider 测试通过（含 159-185 watcher 事件断言）。
 
-- [ ] **步骤 7：提交**
+- [x] **步骤 7：提交**
 
 ```bash
 git add src/cfbridge.ts lib/cfbridge.js tests/provider.test.mjs
@@ -335,7 +335,7 @@ git commit -m "feat(provider): honor SkillProviderControl.invalidate contract"
   ```
   规则：null/undefined → true（保守，等价旧 !filename 兜底）；归一化分隔符（replaceAll('\\','/')）后：空串或顶层段以 '.' 开头 → false；'SKILL.md' 或 endsWith('/SKILL.md') → true；不含 '/' 的顶层目录事件 → true（创建/删除/重命名一律放行，Windows 上无法可靠区分）；其余 → false。
 
-- [ ] **步骤 1：编写失败的测试（纯函数矩阵）**
+- [x] **步骤 1：编写失败的测试（纯函数矩阵）**
 
 在 `tests/provider.test.mjs` 顶部 import 增加 isSkillCatalogEvent，追加：
 ```js
@@ -356,16 +356,16 @@ test('isSkillCatalogEvent aligns watcher filtering with provider discovery', () 
 })
 ```
 
-- [ ] **步骤 2：运行测试，确认其失败**
+- [x] **步骤 2：运行测试，确认其失败**
 
 运行：`node --test tests/provider.test.mjs`
 预期：FAIL（isSkillCatalogEvent is not a function）
 
-- [ ] **步骤 3：实现 isSkillCatalogEvent 并替换 watcher 回调**
+- [x] **步骤 3：实现 isSkillCatalogEvent 并替换 watcher 回调**
 
 按"接口"块实现纯函数并导出；watcher 回调条件 `if (!filename || filename.endsWith('.md'))` 替换为 `if (isSkillCatalogEvent(filename))`。
 
-- [ ] **步骤 4：追加目录级集成测试（平台守卫）**
+- [x] **步骤 4：追加目录级集成测试（平台守卫）**
 
 ```js
 test('watcher refreshes on skill directory rename and removal', { skip: process.platform === 'linux' }, async () => {
@@ -392,12 +392,12 @@ test('watcher refreshes on skill directory rename and removal', { skip: process.
 ```
 （文件头 import 增加 rename、rm）
 
-- [ ] **步骤 5：构建并运行测试，确认其通过**
+- [x] **步骤 5：构建并运行测试，确认其通过**
 
 运行：`npm run build && node --test tests/provider.test.mjs && npm run typecheck`
 预期：PASS（含目录级集成测试）
 
-- [ ] **步骤 6：提交**
+- [x] **步骤 6：提交**
 
 ```bash
 git add src/cfbridge.ts lib/cfbridge.js tests/provider.test.mjs
@@ -422,7 +422,7 @@ git commit -m "feat(watcher): align watcher filter with provider discovery rule"
   // 删除 DSH 用户目录下的 legacy cfbridge skill 链接。
   // requireBundleTarget=true（默认，install 语义）：仅删除指向 bundle 的链接/目录；
   // false（uninstall 语义）：只要路径是链接或目录就删除。
-  // 返回是否真的删除。log 回调由调用方传入以保留各自日志文案。
+  // 返回是否真的删除。log 回调由调用方传入；文案统一收敛为一条 'Removed legacy skill link:'。
   function removeLegacySkillLink(dshHomePath, opts = {}) {
     const { requireBundleTarget = true, log: logFn = () => {} } = opts
     const link = path.join(dshHomePath, 'skills', 'cfbridge')
@@ -441,7 +441,7 @@ git commit -m "feat(watcher): align watcher filter with provider discovery rule"
   }
   ```
 
-- [ ] **步骤 1：编写失败的测试（双语义矩阵）**
+- [x] **步骤 1：编写失败的测试（双语义矩阵）**
 
 在 `tests/scripts-lib.test.mjs` 追加（async test，mkdtemp 临时 DSH_HOME）：
 ```js
@@ -484,21 +484,21 @@ test('removeLegacySkillLink honors requireBundleTarget semantics', async () => {
 })
 ```
 
-- [ ] **步骤 2：运行测试，确认其失败**
+- [x] **步骤 2：运行测试，确认其失败**
 
 运行：`node --test tests/scripts-lib.test.mjs`
 预期：FAIL（removeLegacySkillLink is not a function）
 
-- [ ] **步骤 3：实现 removeLegacySkillLink**
+- [x] **步骤 3：实现 removeLegacySkillLink**
 
 按"接口"块在 scripts/lib/fs.js 追加并导出。
 
-- [ ] **步骤 4：运行测试，确认其通过**
+- [x] **步骤 4：运行测试，确认其通过**
 
 运行：`node --test tests/scripts-lib.test.mjs`
 预期：PASS
 
-- [ ] **步骤 5：迁移 install-bundle.js**
+- [x] **步骤 5：迁移 install-bundle.js**
 
 cleanupLegacySymlink 函数体替换为：
 ```js
@@ -508,7 +508,7 @@ function cleanupLegacySymlink() {
 ```
 （顶部 require 增加 removeLegacySkillLink；确认无文档 grep 依赖 'Cleaned legacy skill link' 原文，如有则在步骤 9 同步文档）
 
-- [ ] **步骤 6：迁移 uninstall-bundle.js**
+- [x] **步骤 6：迁移 uninstall-bundle.js**
 
 removeSkillLink 函数体替换为：
 ```js
@@ -521,23 +521,23 @@ function removeSkillLink() {
 
 **行为偏差记录（uninstall 删除失败路径）：** 原实现 rmSync 在 try/catch 内，删除失败（EACCES/占用）→ warn 后继续卸载流程；共享实现把 rmSync 错误捕获后经 log('warn') 提示并返回 false，卸载流程同样继续（不中断 dumpConfig 验证），既保留"warn + 继续"语义，又让失败可观测。
 
-- [ ] **步骤 7：新增 test.js 第 9 步**
+- [x] **步骤 7：新增 test.js 第 9 步**
 
 `scripts/test.js` 的 STEPS 数组（10-19）在 bundle 与 wrangler 之间插入：
 ```js
 { name: 'scripts', label: '脚本共享模块行为测试', command: [process.execPath, '--test', 'tests/scripts-lib.test.mjs'] },
 ```
 
-- [ ] **步骤 8：运行全量门禁**
+- [x] **步骤 8：运行全量门禁**
 
 运行：`npm test`、`node scripts/check.js`、`node scripts/validate-bundle.js --strict-router`、`npm pack --dry-run`
 预期：9/9、75/75、73/73 全绿，pack 成功。
 
-- [ ] **步骤 9：更新 CLAUDE.md 门禁数字**
+- [x] **步骤 9：更新 CLAUDE.md 门禁数字**
 
 CLAUDE.md 25 行与 70 行 "8/8" 改为 "9/9"（"综合套件 | npm test | 9/9 全部通过（…含脚本共享模块行为…）"），并同步 70 行表格括号内的步骤列举。
 
-- [ ] **步骤 10：提交**
+- [x] **步骤 10：提交**
 
 ```bash
 git add scripts/lib/fs.js scripts/install-bundle.js scripts/uninstall-bundle.js scripts/test.js tests/scripts-lib.test.mjs
@@ -555,20 +555,20 @@ git commit -m "test(scripts): add scripts gate step and unify legacy skill link 
 **接口：**
 - 无代码接口变更；不合并 shim、不删除文件（合并会让历史回滚路径更复杂，收益抵不上改动面）。
 
-- [ ] **步骤 1：修正 deprecated/preset/README.md 回滚教程**
+- [x] **步骤 1：修正 deprecated/preset/README.md 回滚教程**
 
 将"## 回滚路径"节改写：注明 `npm run install:preset` 从未在任何已发布版本（含 v0.2.0）的 package.json 注册，教程改为手动复制 preset.yml / agent.cordis.yml / skills/ 到 ~/.dsh/.agent-presets/cfbridge/ 的恢复流程。
 
-- [ ] **步骤 2：修正 validate-preset.js 注释**
+- [x] **步骤 2：修正 validate-preset.js 注释**
 
 将 8 行英文假转发注释替换为简体中文直白说明：本 shim 不转发到 validate:bundle，仅打印指引并以非零退出，让旧 CI 调用方明确失败。
 
-- [ ] **步骤 3：运行门禁确认无回归**
+- [x] **步骤 3：运行门禁确认无回归**
 
 运行：`npm test`、`node scripts/check.js`、`node scripts/validate-bundle.js --strict-router`
 预期：9/9、75/75、73/73 全绿（check/validate 的 deprecated 断言仍指向三个 shim 文件，未动）。
 
-- [ ] **步骤 4：提交**
+- [x] **步骤 4：提交**
 
 ```bash
 git add deprecated/preset/README.md scripts/validate-preset.js
@@ -579,22 +579,23 @@ git commit -m "docs(preset): fix broken rollback tutorial and honest shim commen
 
 ### 任务 7：最终全分支评审与收尾
 
-- [ ] **步骤 1：全量门禁复查**
+- [x] **步骤 1：全量门禁复查**
 
 运行：`npm test`（9/9）、`node scripts/check.js`（75/75）、`node scripts/validate-bundle.js --strict-router`（73/73）、`npm pack --dry-run`、`git status` 确认干净。
 
-- [ ] **步骤 2：派代码评审子代理**
+- [x] **步骤 2：派代码评审子代理**
 
 按 requesting-code-review 模板派 general-purpose 评审子代理，Base=main（66810ba 之后含 gitignore 提交 9452873 的当前 main HEAD），Head=refactor/architecture-deepening；评审聚焦 ESM/CJS 边界、invalidate 生命周期、isSkillCatalogEvent 规则矩阵、脚本行为统一偏差。
 
-- [ ] **步骤 3：处理评审意见**
+- [x] **步骤 3：处理评审意见**
 
 Critical 立即修、Important 修复后再收尾、Minor 记录。修复后重跑步骤 1 门禁。
 
-- [ ] **步骤 4：更新 CLAUDE.md 架构契约**
+- [x] **步骤 4：更新 CLAUDE.md 架构契约**
 
 补充：invalidate 失效契约（watcher → invalidateCatalog → registry 自动广播）、isSkillCatalogEvent 过滤规则、scripts/lib/skills.js 与 scripts/lib/fs.js 单一来源、门禁 9/9、deprecated shim 现状（软 404 指引，不合并）。
 
-- [ ] **步骤 5：收尾合并**
+- [x] **步骤 5：收尾合并**
+  - [ ] 本地合回 main（finishing-a-development-branch；当前仍处执行中，合并完成后补勾）
 
 按 finishing-a-development-branch：确认 main 无新提交后，本地将 refactor/architecture-deepening 合回 main（fast-forward 或 --no-ff），更新 ledger 完结，向用户汇报。

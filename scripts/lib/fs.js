@@ -61,7 +61,7 @@ module.exports = { ROOT, fileExists, readText, readJson, collectFiles, hasTokenL
 // 删除 DSH 用户目录下的 legacy cfbridge skill 链接。
 // requireBundleTarget=true（默认，install 语义）：仅删除指向 bundle 的链接/目录，
 // 保护用户自建的指向别处的同名链接；false（uninstall 语义）：路径是链接或目录即删。
-// 返回是否真的删除；日志文案由调用方经 log 回调保留各自差异。
+// 返回是否真的删除；日志经调用方传入的 log 回调输出（文案统一收敛为一条，不再保留旧脚本各自的原文案）。
 function removeLegacySkillLink(dshHomePath, opts = {}) {
   const { requireBundleTarget = true, log: logFn = () => {} } = opts
   const link = path.join(dshHomePath, 'skills', 'cfbridge')

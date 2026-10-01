@@ -26,8 +26,9 @@
 1. 回到 git v0.2.0 标签：`git checkout v0.2.0`。
 2. 手动恢复 preset 目录（该版本未注册 `install:preset` 命令，仓库中仅有的三个
    preset 脚本是打印指引后以非零码退出的 deprecated shim，不会写入任何文件）：
-   把本目录的 `preset.yml`、`agent.cordis.yml` 与 `skills/` 复制到
-   `~/.dsh/.agent-presets/cfbridge/`。
+   把本目录的 `preset.yml`、`agent.cordis.yml` 复制到 `~/.dsh/.agent-presets/cfbridge/`，
+   并把 v0.2.0 标签仓库根 `skills/cfbridge/SKILL.md` 一并复制过去（`skills/` 技能目录
+   不在 deprecated/preset 下，勿在本目录寻找）。
 3. 重启 DSH，在新会话选择器中选「Cloudflare 模式」。
 
 > 注意：`npm run install:preset` 在任何已发布版本（含 v0.2.0）中都未注册，
