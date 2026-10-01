@@ -24,7 +24,14 @@
 需要临时回到旧形态：
 
 1. 回到 git v0.2.0 标签：`git checkout v0.2.0`。
-2. 按该版本的 README 操作：`npm install && npm run install:preset`。
+2. 手动恢复 preset 目录（该版本未注册 `install:preset` 命令，仓库中仅有的三个
+   preset 脚本是打印指引后以非零码退出的 deprecated shim，不会写入任何文件）：
+   把本目录的 `preset.yml`、`agent.cordis.yml` 与 `skills/` 复制到
+   `~/.dsh/.agent-presets/cfbridge/`。
 3. 重启 DSH，在新会话选择器中选「Cloudflare 模式」。
+
+> 注意：`npm run install:preset` 在任何已发布版本（含 v0.2.0）中都未注册，
+> 按旧文档执行会直接报 "missing script"。当前 v0.6.0 仓库里的
+> `scripts/install-preset.js` 是引导到 `npm run install:bundle` 的软 404 指引。
 
 > 不建议在 v0.3.0 之后继续维护本目录；如需保留更长时间，请开一个 issue 说明用例。
