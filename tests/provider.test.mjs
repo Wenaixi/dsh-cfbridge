@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, utimes } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -163,9 +163,19 @@ test('apply mounts file watcher and emits skills/change on markdown edit when wa
   const disposers = []
   const mockCtx = {
     logger: { warn() {}, debug() {}, info() {} },
-    skills: { registerProvider: () => () => {} },
+    skills: {
+      registerProvider(factory) {
+        // 模拟 dsh-skill registry：真实调用工厂并注入 control；
+        // invalidate 回调即宿主收到失效通知（registry 会广播 skills/change）。
+        factory({
+          invalidate: () => events.push('skills/change'),
+          signal: new AbortController().signal,
+        })
+        return () => {}
+      },
+    },
     on: () => () => {},
-    emit: (evt) => events.push(evt),
+    emit: () => {},
     effect: (fn) => {
       const d = fn()
       disposers.push(d)
@@ -183,4 +193,23 @@ test('apply mounts file watcher and emits skills/change on markdown edit when wa
 
   // 调用清理函数释放句柄
   for (const d of disposers) d()
+})
+
+test('invalidate clears the mtime cache and the next list rereads', async () => {
+  const root = await fixture()
+  const provider = createProviderForTest(root, 'cfbridge', { warn() {} }, 550, true, () => {})
+  const file = join(root, 'alpha', 'SKILL.md')
+  const t = Date.now()
+  await utimes(file, t / 1000, t / 1000)
+  const first = await provider.list({})
+  assert.equal(first[0].description, 'Alpha skill')
+  // 内容变了但 mtime 保持不变：命中缓存窗口
+  await writeFile(file, '---\nname: alpha\ndescription: Changed\n---\nNew body\n')
+  await utimes(file, t / 1000, t / 1000)
+  const stale = await provider.list({})
+  assert.equal(stale[0].description, 'Alpha skill')
+  // invalidate 强制清缓存，下一次 list 必须重读
+  provider.invalidate()
+  const fresh = await provider.list({})
+  assert.equal(fresh[0].description, 'Changed')
 })

@@ -200,12 +200,20 @@ export function createProviderForTest(
   logger: Logger = console,
   rank = PROVIDER_RANK,
   cacheEnabled = true,
-): SkillProvider {
+  onInvalidate?: () => void,
+): SkillProvider & { invalidate(): void } {
   const root = resolve(skillDir)
   type CacheEntry = { mtimeMs: number; candidate: SkillCandidate }
   const cache = new Map<string, CacheEntry>()
   return {
     name: providerName,
+    invalidate() {
+      // 清空 mtime 内存缓存并通知宿主侧失效回调（如有）。
+      // 宿主（dsh-skill registry）在 invalidate() 之内自行广播 skills/change，
+      // 此处不重复 emit，避免双份刷新。
+      cache.clear()
+      onInvalidate?.()
+    },
     async list(options = {}) {
       throwIfAborted(options)
       let entries
@@ -323,9 +331,22 @@ export function apply(ctx: Context, config: Config = {
   const rank = config.rank ?? PROVIDER_RANK
   const cacheEnabled = config.cache ?? true
   ctx.effect(() => {
-    const disposeProvider = ctx.skills.registerProvider(() =>
-      createProviderForTest(skillDir, providerName, ctx.logger, rank, cacheEnabled)
-    )
+    // 失效入口：宿主注册层（dsh-skill registry）与 watcher 共用。
+    // 宿主侧 invalidate() 会清 registry 的 collectCache 并广播 skills/change；
+    // provider.invalidate() 负责清 provider 自身的 mtime 缓存。
+    let invalidateCatalog: () => void = () => {}
+    const disposeProvider = ctx.skills.registerProvider((control) => {
+      const provider = createProviderForTest(
+        skillDir,
+        providerName,
+        ctx.logger,
+        rank,
+        cacheEnabled,
+        control.invalidate,
+      )
+      invalidateCatalog = () => provider.invalidate()
+      return provider
+    })
     const disposeListener = ctx.on('skills/change', () => ctx.logger.debug?.('[cfbridge] skills catalog changed'))
 
     let watcher: ReturnType<typeof watch> | undefined
@@ -336,7 +357,8 @@ export function apply(ctx: Context, config: Config = {
           if (!filename || filename.endsWith('.md')) {
             if (debounceTimer) clearTimeout(debounceTimer)
             debounceTimer = setTimeout(() => {
-              ctx.emit?.('skills/change')
+              // 走失效入口而非手动 emit：由 registry 的 invalidate() 自动广播 skills/change。
+              invalidateCatalog()
             }, 100)
           }
         })
