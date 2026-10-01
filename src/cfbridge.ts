@@ -157,6 +157,8 @@ export function parseFrontmatter(raw: string): ParsedSkillFile | undefined {
 export function isSkillCatalogEvent(filename: string | null | undefined): boolean {
   if (filename === null || filename === undefined) return true
   const norm = filename.replaceAll('\\', '/')
+  // 空串与 null 不同源：null 是平台正常形态（保守放行），空串视为异常形态（宁漏勿错），
+  // 若未来观测到某平台用空串表示文件事件，需改回放行。
   if (norm === '' || norm.startsWith('.')) return false
   if (norm === 'SKILL.md' || norm.endsWith('/SKILL.md')) return true
   if (!norm.includes('/')) return true
@@ -357,6 +359,9 @@ export function apply(ctx: Context, config: Config = {
         cacheEnabled,
         control.invalidate,
       )
+      // 闭包捕获安全：provider 只持有 control.invalidate 这一个函数引用，
+      // 宿主对已 dispose 的注册调用 invalidate 按 dsh-skill 契约是 no-op（不会抛错），
+      // 因此 watcher 在卸载竞态窗口内触发也不会崩，仅是一次空刷新。
       invalidateCatalog = () => provider.invalidate()
       return provider
     })

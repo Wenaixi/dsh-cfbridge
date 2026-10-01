@@ -344,7 +344,8 @@ test('isSkillCatalogEvent aligns watcher filtering with provider discovery', () 
   assert.equal(isSkillCatalogEvent('foo/SKILL.md'), true)
   assert.equal(isSkillCatalogEvent('foo\\SKILL.md'), true)
   assert.equal(isSkillCatalogEvent('foo/README.md'), false)
-  assert.equal(isSkillCatalogEvent('README.md'), false)
+  // 顶层无斜杠事件（README.md、foo）与目录事件同形态，保守放行（实现阶段由 false 修正为 true）
+  assert.equal(isSkillCatalogEvent('README.md'), true)
   assert.equal(isSkillCatalogEvent('foo/docs/notes.md'), false)
   assert.equal(isSkillCatalogEvent('foo'), true)
   assert.equal(isSkillCatalogEvent('.hidden'), false)
@@ -517,6 +518,8 @@ function removeSkillLink() {
 }
 ```
 （保留 SKILL_LINK 常量用于提示文案；ENOENT/普通文件统一走 info 提示，行为偏差记录在案：原实现对普通文件静默）
+
+**行为偏差记录（uninstall 删除失败路径）：** 原实现 rmSync 在 try/catch 内，删除失败（EACCES/占用）→ warn 后继续卸载流程；共享实现把 rmSync 错误捕获后经 log('warn') 提示并返回 false，卸载流程同样继续（不中断 dumpConfig 验证），既保留"warn + 继续"语义，又让失败可观测。
 
 - [ ] **步骤 7：新增 test.js 第 9 步**
 

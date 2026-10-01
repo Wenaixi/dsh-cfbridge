@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const ROOT = path.resolve(__dirname, '..');
+const { ROOT } = require('./lib/fs');
 const { VENDORED_SKILLS: SKILLS } = require('./lib/skills');
 const BASE = 'https://raw.githubusercontent.com/cloudflare/skills/main/skills';
 function fetchRaw(url, timeoutMs=30000){

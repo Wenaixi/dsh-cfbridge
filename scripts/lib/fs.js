@@ -72,9 +72,16 @@ function removeLegacySkillLink(dshHomePath, opts = {}) {
   }
   if (!stat.isSymbolicLink() && !stat.isDirectory()) return false
   const raw = stat.isSymbolicLink() ? fs.readlinkSync(link) : ''
+  // 已知边界（既有行为迁移）：对"指向别处的链接目标恰好含 cfbridge 与 skills 字样"会误判为
+  // bundle 指向而删除。低概率、与旧 install 实现一致；中长期可用精确路径比对替代子串启发式。
   const pointsToBundle = stat.isDirectory() || (raw && String(raw).includes('cfbridge') && String(raw).includes('skills'))
   if (requireBundleTarget && !pointsToBundle) return false
-  fs.rmSync(link, { recursive: true, force: true })
+  try {
+    fs.rmSync(link, { recursive: true, force: true })
+  } catch (e) {
+    logFn('warn', 'Failed to remove legacy skill link at ' + link + ': ' + e.message)
+    return false
+  }
   logFn('ok', 'Removed legacy skill link: ' + link)
   return true
 }
