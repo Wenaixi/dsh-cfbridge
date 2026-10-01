@@ -4,13 +4,22 @@ import type { SkillProvider } from '@deepseek-ai/dsh-skill';
 export interface Config {
     providerName: string;
     skillDir?: string;
+    rank?: number;
+    cache?: boolean;
+    watchSkills?: boolean;
 }
 export declare const Config: Schema<Schemastery.ObjectS<{
     providerName: Schema<string, string>;
     skillDir: Schema<string, string>;
+    rank: Schema<number, number>;
+    cache: Schema<boolean, boolean>;
+    watchSkills: Schema<boolean, boolean>;
 }>, Schemastery.ObjectT<{
     providerName: Schema<string, string>;
     skillDir: Schema<string, string>;
+    rank: Schema<number, number>;
+    cache: Schema<boolean, boolean>;
+    watchSkills: Schema<boolean, boolean>;
 }>>;
 export declare const name = "cfbridge";
 export declare const inject: readonly ["skills"];
@@ -33,9 +42,15 @@ declare const _default: {
     Config: Schema<Schemastery.ObjectS<{
         providerName: Schema<string, string>;
         skillDir: Schema<string, string>;
+        rank: Schema<number, number>;
+        cache: Schema<boolean, boolean>;
+        watchSkills: Schema<boolean, boolean>;
     }>, Schemastery.ObjectT<{
         providerName: Schema<string, string>;
         skillDir: Schema<string, string>;
+        rank: Schema<number, number>;
+        cache: Schema<boolean, boolean>;
+        watchSkills: Schema<boolean, boolean>;
     }>>;
     apply: typeof apply;
 };
