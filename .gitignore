@@ -1,4 +1,4 @@
-﻿# === 密钥、本地环境与凭证 ===
+# === 密钥、本地环境与凭证 ===
 # 永远不要提交真实的 token、密码或私有凭证。
 .env
 .env.*
@@ -82,6 +82,11 @@ dsh-cloudflare-bridge-plan*.json
 *plan*.json
 *-plan-*.md
 *-plan-*.json
+
+# === Superpowers 计划 workspace（每计划一个目录，仅本机） ===
+# 这些目录承载 SDD 计划产物：ledger、brief、review package。
+# 本地计划执行者的进度记录存在这里，不进仓库；进程内残留文件也不应混入提交。
+.superpowers/sdd/
 
 # === 本地测试与回放数据 ===
 playwright-report/
