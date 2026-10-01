@@ -156,3 +156,30 @@ test('Provider supports custom rank and reuses cached candidates when mtime is u
   assert.equal(second[0].name, 'alpha')
   assert.equal(second[0].rank, 700)
 })
+test('apply mounts file watcher and emits skills/change on markdown edit when watchSkills is true', async () => {
+  const root = await fixture()
+  const events = []
+  const disposers = []
+  const mockCtx = {
+    logger: { warn() {}, debug() {}, info() {} },
+    skills: { registerProvider: () => () => {} },
+    on: () => () => {},
+    emit: (evt) => events.push(evt),
+    effect: (fn) => {
+      const d = fn()
+      disposers.push(d)
+      return d
+    }
+  }
+
+  apply(mockCtx, { skillDir: root, providerName: 'cfbridge', watchSkills: true })
+  assert.equal(disposers.length, 1)
+
+  // 修改文件触发 watcher
+  await writeFile(join(root, 'alpha', 'SKILL.md'), '---\nname: alpha\ndescription: Updated\n---\nBody\n')
+  await new Promise(r => setTimeout(r, 300))
+  assert.ok(events.includes('skills/change'), 'expected skills/change event emitted on file write')
+
+  // 调用清理函数释放句柄
+  for (const d of disposers) d()
+})

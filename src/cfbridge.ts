@@ -1,3 +1,4 @@
+import { watch } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -326,7 +327,27 @@ export function apply(ctx: Context, config: Config = {
       createProviderForTest(skillDir, providerName, ctx.logger, rank, cacheEnabled)
     )
     const disposeListener = ctx.on('skills/change', () => ctx.logger.debug?.('[cfbridge] skills catalog changed'))
+
+    let watcher: ReturnType<typeof watch> | undefined
+    let debounceTimer: NodeJS.Timeout | undefined
+    if (config.watchSkills) {
+      try {
+        watcher = watch(skillDir, { recursive: true }, (_eventType, filename) => {
+          if (!filename || filename.endsWith('.md')) {
+            if (debounceTimer) clearTimeout(debounceTimer)
+            debounceTimer = setTimeout(() => {
+              ctx.emit?.('skills/change')
+            }, 100)
+          }
+        })
+      } catch (e) {
+        ctx.logger.warn?.('[cfbridge] failed to initialize skills watcher: ' + String(e))
+      }
+    }
+
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      if (watcher && typeof watcher.close === 'function') watcher.close()
       disposeListener()
       disposeProvider()
     }
