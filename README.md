@@ -6,7 +6,7 @@
 [![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
 [![许可](https://img.shields.io/badge/license-MIT-16a34a)](./LICENSE)
 
-DSH Bundle 组合包：装到 web profile 后**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 SkillProvider，配合项目本地 Wrangler CLI 透传。当前本地重构版本为 `0.6.0`，入口是 TypeScript `src/cfbridge.ts` 的提交产物 `lib/cfbridge.js`；走 `dsh.bundle` 原生分发。仓库 [Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge) · npm [@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)。
+DSH Bundle 组合包：装到 web profile 后**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 SkillProvider，配合项目本地 Wrangler CLI 透传。当前版本为 `0.7.0`，入口是 TypeScript `src/cfbridge.ts` 的提交产物 `lib/cfbridge.js`；走 `dsh.bundle` 原生分发。仓库 [Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge) · npm [@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)。
 
 ## 安装
 
@@ -123,7 +123,7 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 ## 验证
 
 ```powershell
-npm run check              # 仓库配置 + 安全检查（73 项）
+npm run check              # 仓库配置 + 安全检查（75 项）
 npm run validate:bundle -- --strict-router  # manifest + 14 个技能结构校验（73 项）
 npm run test:wrangler      # Wrangler CLI 只读验证
 npm run test               # 构建、类型检查、Provider、demo、静态校验与 Wrangler
@@ -176,5 +176,5 @@ dsh plugin --profile web remove @wenaixi/cfbridge
 
 - **同步官方 Skills 快照**：`npm run sync:vendor`（仅补缺失）/ `sync:vendor:force`（强制刷新）。快照头部含 `vendored from cloudflare/skills@main on YYYY-MM-DD` 注释；SKILL.md 内的 raw.githubusercontent.com 链接作为“永远最新”兜底。
 - **版本**：本地 `package.json` 为权威，跟随 npm `latest`。发布流程：改 version → 补 CHANGELOG.md 小节 → 打 `vX.Y.Z` tag 推送，CI 自动测试 + npm publish + GitHub Release。
-- **已验证能力**：Provider 实测可发现 14 个技能并按需读取 `wrangler` 正文；MCP 三工具（账号/Zone/Workers/KV/D1/Pages/GraphQL 只读调用）；本地 Wrangler（version/whoami/D1/Worker/Pages）；追踪文件与历史均无 token。
+- **已验证能力（0.7.0 于隔离 DSH 新实例实测）**：tarball 与目录两种安装路径、`--dump-config` 展开 `mcp-cloudflare`/`cfbridge` 两层、14 个技能发现与按需读取、mtime 缓存自动失效、`invalidate()` 清缓存、watcher 实时热刷新（增/删目录、编辑 SKILL.md 均广播 `skills/change`）、SkillRegistry 注册/重名拒绝/注销/事件广播链路、`install:bundle`/`uninstall:bundle` 幂等与旧软链清理；无 token 时优雅降级（`failOnStartupError: false`，wrangler 透传友好报错）；追踪文件与历史均无 token。
 - 作者 **Wenaixi** · MIT · 设计文档见 [`docs/superpowers/`](./docs/superpowers/) · 相关：[Cloudflare MCP](https://github.com/cloudflare/mcp) · [Wrangler 文档](https://developers.cloudflare.com/workers/wrangler/) · [DSH Bundle 文档](https://github.com/deepseek-ai/deepseek-harness)

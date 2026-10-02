@@ -17,3 +17,12 @@ dsh --profile demo
 预期配置中出现 `id: cfbridge` 与 `name: @wenaixi/cfbridge`，不出现旧 Skill 行或源码子路径。退出 demo 后可删除 `.demo-dsh-home`。
 
 如果 pnpm 阻止本地包的 prepare/build，在该独立 profile 的 pnpm 配置中允许本地构建脚本，再重新执行安装。
+
+## 卸载验证
+
+```powershell
+npm run uninstall:bundle -- --profile demo --yes
+dsh --profile demo --dump-config | Select-String 'cfbridge'   # 应无输出
+```
+
+`uninstall:bundle` 会移除依赖层、清理旧版 skill 软链残留，并验证层已消失。

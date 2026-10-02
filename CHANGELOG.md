@@ -1,3 +1,10 @@
+## 0.7.0 — 2026-10-02
+- feat(watcher): 开发模式技能热刷新（watchSkills）经真实 SkillRegistry 端到端验证：新增/删除技能目录、编辑 SKILL.md 均去抖广播 skills/change，list 感知新描述。
+- fix(provider): 保留名 providerName="runtime" 在 apply 层直接拒绝（抛错），不再进入注册阶段。
+- chore(scripts): install-bundle/uninstall-bundle 在隔离 DSH_HOME 实测通过；install 清理旧 legacy skill 软链、uninstall 幂等移除层与链接。
+- chore(verify): 隔离 DSH 新实例深度验证记录——tarball 安装、dump-config patch 展开、14 技能发现、get 正文按需读取、mtime 缓存失效、SkillRegistry 注册/重名拒绝/注销/广播链路全部实测通过。
+- docs: README 与 demo 说明同步 0.7.0 验证结论（详见下方各节）。
+
 # Changelog
 
 ## 0.6.0 — 2026-10-02
