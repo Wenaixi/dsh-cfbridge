@@ -125,6 +125,26 @@ export interface SkillProviderOptions {
  * 选项对象让每个调用点自解释，且新增选项不再波及任何既有调用点。
  */
 export declare function createSkillProvider(options: SkillProviderOptions): MutableSkillProvider;
+/**
+ * 技能运行时：把「当前活着的 Provider」与「失效入口」这两根共享线封装在内部。
+ *
+ * 拆解 apply() 之前，这两根线是裸的闭包变量，被三条互不相关的效果同时读写
+ * （watcher 去抖回调、/cfbridge 命令、清单发布），于是想改其中一条效果就必须
+ * 先读懂另外两条。收敛到这里之后，各效果只面对下面几个方法。
+ *
+ * 宿主注册与失效的时序契约（不变）：
+ *   - registerProvider 的回调在宿主收集目录时被调用，返回的 Provider 被宿主持有；
+ *   - provider.invalidate() 清自身 mtime 缓存，并触发宿主侧的 control.invalidate，
+ *     由 dsh-skill registry 广播 skills/change —— 此处不再手动 emit，避免双份刷新。
+ */
+export interface SkillRuntime {
+    /** 当前活着的 Provider；宿主尚未调用注册回调时为 undefined。 */
+    current(): MutableSkillProvider | undefined;
+    /** 清目录缓存并通知宿主失效。Provider 尚未就绪时是空操作。 */
+    invalidate(): void;
+    /** 用真实技能目录列一次候选；Provider 未就绪或读取失败时返回空数组。 */
+    listNames(): Promise<string[]>;
+}
 export declare function apply(ctx: Context, config?: Config): void;
 declare const _default: {
     name: string;
