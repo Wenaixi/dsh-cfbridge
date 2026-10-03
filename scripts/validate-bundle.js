@@ -2,13 +2,15 @@
 const fs = require('fs')
 const path = require('path')
 const { ROOT, readText, readJson, fileExists, collectFiles, hasTokenLeak } = require('./lib/fs')
+const { verifyProviderContract } = require('./lib/provider-contract')
 const results = []
 
 function pass(name, detail) { results.push({ ok: true, name, detail: detail || '' }) }
 function fail(name, msg) { results.push({ ok: false, name, msg: msg || '' }) }
 function checkFile(file, name) { if (fs.existsSync(file)) pass(name); else fail(name, 'missing: ' + file) }
 
-function main() {
+// main 为 async：Provider 契约校验需要 import 构建产物。
+async function main() {
   const pkg = readJson(path.join(ROOT, 'package.json'))
   if (!pkg) fail('package.json readable', 'invalid JSON')
   else {
@@ -92,17 +94,15 @@ function main() {
   if (!hasTokenLeak(patchText)) pass('patch has no hardcoded token')
   else fail('patch has no hardcoded token', 'token-like value found')
 
-  const source = readText(path.join(ROOT, 'src', 'cfbridge.ts'))
+  // Provider 契约：import 构建产物、断言真实导出值与真实行为。
+  // 不再用正则匹配 src/cfbridge.ts 的源码文本 —— 那种断言会误报（纯改名即红）
+  // 也会漏报（注册被短路仍全绿），两个方向都有实测证据。断言集合与
+  // scripts/check.js 共用 scripts/lib/provider-contract.js，杜绝两处各抄一份。
   checkFile(path.join(ROOT, 'src', 'cfbridge.ts'), 'src/cfbridge.ts exists')
-  if (/export const name = DEFAULT_PROVIDER_NAME/.test(source)) pass('Provider exports name')
-  else fail('Provider exports name', 'missing')
-  // 断言「declares skills」，而不是等于精确串 ['skills']：settings 同样是真实依赖。
-  if (/export const inject = \[[^\]]*'skills'[^\]]*\]/.test(source)) pass('Provider injects skills')
-  else fail('Provider injects skills', 'missing')
-  if (source.includes('ctx.skills.registerProvider')) pass('Provider uses registerProvider')
-  else fail('Provider uses registerProvider', 'missing')
-  if (/PROVIDER_RANK = 550/.test(source) && (/rank: PROVIDER_RANK/.test(source) || /PROVIDER_RANK/.test(source))) pass('Provider rank is 550')
-  else fail('Provider rank is 550', 'missing')
+  for (const r of await verifyProviderContract(ROOT)) {
+    if (r.ok) pass(r.name, r.detail)
+    else fail(r.name, r.detail)
+  }
 
   const { ALL_SKILLS: skills } = require('./lib/skills')
   for (const skill of skills) checkFile(path.join(ROOT, 'skills', skill, 'SKILL.md'), 'skills/' + skill + '/SKILL.md exists')
@@ -145,4 +145,7 @@ function main() {
   console.log('\\n' + (passed === results.length ? 'PASS' : 'FAIL') + ': ' + passed + '/' + results.length + ' checks')
   process.exit(passed === results.length ? 0 : 1)
 }
-main()
+main().catch((error) => {
+  console.error(error && error.stack ? error.stack : String(error))
+  process.exit(1)
+})
