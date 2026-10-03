@@ -8,7 +8,7 @@
 
 const fs = require('fs')
 const path = require('path')
-const { log, dshHome: resolveDshHome } = require('./lib/fs')
+const { log, dshHome: resolveDshHome, collectFiles } = require('./lib/fs')
 
 const DSH_HOME = resolveDshHome()
 const LEGACY = path.join(DSH_HOME, '.agent-presets', 'cfbridge')
@@ -34,21 +34,6 @@ Options:
   --help, -h         Show this message.`)
 }
 
-function listFiles(dir) {
-  const out = []
-  if (!fs.existsSync(dir)) return out
-  const stack = [dir]
-  while (stack.length) {
-    const cur = stack.pop()
-    for (const entry of fs.readdirSync(cur, { withFileTypes: true })) {
-      const p = path.join(cur, entry.name)
-      if (entry.isDirectory()) stack.push(p)
-      else if (entry.isFile()) out.push(p)
-    }
-  }
-  return out
-}
-
 function main() {
   const opts = parseArgs(process.argv.slice(2))
   log('info', `DSH home: ${DSH_HOME}`)
@@ -59,7 +44,8 @@ function main() {
     return
   }
 
-  const files = listFiles(LEGACY)
+  // 递归收集用共享助手，避免与 scripts/lib/fs.js 的实现各维护一份。
+  const files = collectFiles(LEGACY)
   log('warn', `Found ${files.length} file(s) inside legacy preset directory.`)
   for (const f of files.slice(0, 20)) console.log(`       ${f}`)
   if (files.length > 20) console.log(`       …and ${files.length - 20} more`)
