@@ -1,4 +1,4 @@
-## Unreleased
+## 0.8.0 — 2026-10-03
 - **feat(ui)**: 插件页新增 Cloudflare 桥接配置面板。每个技能有**两个独立开关**——「模型可调用」与「人类可调用」；两个都关等于完全关闭。
 - **feat(config)**: 新增三个可写字段 `modelHiddenSkills` / `userHiddenSkills`（单方向隐藏）与 `disabledSkills`（完全关闭），彼此独立、可组合。
 - **feat(command)**: `/cfbridge` 斜杠命令扩展 `hide-model` / `show-model` / `hide-user` / `show-user`，便于命令行临时调试。
