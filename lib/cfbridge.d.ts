@@ -1,6 +1,6 @@
 import Schema from '@deepseek-ai/schemastery';
 import type { Context } from '@deepseek-ai/cordis';
-import type { SkillProvider } from '@deepseek-ai/dsh-skill';
+import type { SkillInvocationPolicy, SkillProvider } from '@deepseek-ai/dsh-skill';
 export interface Config {
     providerName: string;
     skillDir?: string;
@@ -62,6 +62,33 @@ export interface SkillVisibility {
     readonly model?: readonly string[];
     readonly user?: readonly string[];
 }
+/**
+ * 技能可见性名单的规范化读取面。
+ *
+ * 把两个方向的名单收成一个只读结构，供投影函数与运行时开关共用。
+ * 「不给模型」与「不给人类」是两个独立维度（见上），因此分开承载。
+ */
+export interface VisibilitySets {
+    readonly model: ReadonlySet<string>;
+    readonly user: ReadonlySet<string>;
+}
+/**
+ * 按可见性名单重投影一个候选的 invocation。
+ *
+ * 这是「技能开关」这套规则的唯一实现。此前 list() 与 get() 各手写了一份
+ * 语义相同、仅变量名不同的投影，两份必须永远保持一致却没有任何机制保证；
+ * 这里收敛成一个纯函数，两条路径都以它为唯一来源。
+ *
+ * 泛型约束刻意只要求 { name, invocation }：list() 处理 SkillCandidate，
+ * get() 处理 SkillDefinition（多一个 content 字段），两者形状不同但投影规则相同，
+ * 所以不能把签名绑定在某一种具体类型上。
+ *
+ * 投影只改 invocation，不改候选身份 —— 技能仍在目录里，只是某个消费面看不到它。
+ */
+export declare function projectInvocation<T extends {
+    name: string;
+    invocation: SkillInvocationPolicy;
+}>(item: T, hidden: VisibilitySets): T;
 /** Provider 额外暴露给宿主控制面的运行时开关（设置面板与 /cfbridge 命令共用）。 */
 export interface MutableSkillProvider extends SkillProvider {
     invalidate(): void;

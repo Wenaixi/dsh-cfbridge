@@ -9,6 +9,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {
   SkillCandidate,
   SkillDefinition,
+  SkillInvocationPolicy,
   SkillLookupOptions,
   SkillProvider,
 } from '@deepseek-ai/dsh-skill'
@@ -287,6 +288,43 @@ export interface SkillVisibility {
   readonly user?: readonly string[]
 }
 
+/**
+ * 技能可见性名单的规范化读取面。
+ *
+ * 把两个方向的名单收成一个只读结构，供投影函数与运行时开关共用。
+ * 「不给模型」与「不给人类」是两个独立维度（见上），因此分开承载。
+ */
+export interface VisibilitySets {
+  readonly model: ReadonlySet<string>
+  readonly user: ReadonlySet<string>
+}
+
+/**
+ * 按可见性名单重投影一个候选的 invocation。
+ *
+ * 这是「技能开关」这套规则的唯一实现。此前 list() 与 get() 各手写了一份
+ * 语义相同、仅变量名不同的投影，两份必须永远保持一致却没有任何机制保证；
+ * 这里收敛成一个纯函数，两条路径都以它为唯一来源。
+ *
+ * 泛型约束刻意只要求 { name, invocation }：list() 处理 SkillCandidate，
+ * get() 处理 SkillDefinition（多一个 content 字段），两者形状不同但投影规则相同，
+ * 所以不能把签名绑定在某一种具体类型上。
+ *
+ * 投影只改 invocation，不改候选身份 —— 技能仍在目录里，只是某个消费面看不到它。
+ */
+export function projectInvocation<T extends { name: string; invocation: SkillInvocationPolicy }>(
+  item: T,
+  hidden: VisibilitySets,
+): T {
+  return {
+    ...item,
+    invocation: {
+      modelInvocable: item.invocation.modelInvocable && !hidden.model.has(item.name),
+      userInvocable: item.invocation.userInvocable && !hidden.user.has(item.name),
+    },
+  }
+}
+
 /** Provider 额外暴露给宿主控制面的运行时开关（设置面板与 /cfbridge 命令共用）。 */
 export interface MutableSkillProvider extends SkillProvider {
   invalidate(): void
@@ -358,16 +396,9 @@ export function createProviderForTest(
       // 隐藏名单改写 invocation，不改候选身份：技能仍在目录里，只是某个
       // 消费面看不到它。缓存里存的是「原始候选」，这里每次都按当前名单重投影，
       // 这样运行中改名单无需清 mtime 缓存。
-      const project = (candidate: SkillCandidate): SkillCandidate => {
-        const name_ = candidate.name
-        return {
-          ...candidate,
-          invocation: {
-            modelInvocable: candidate.invocation.modelInvocable && !modelHidden.has(name_),
-            userInvocable: candidate.invocation.userInvocable && !userHidden.has(name_),
-          },
-        }
-      }
+      const hidden: VisibilitySets = { model: modelHidden, user: userHidden }
+      const project = (candidate: SkillCandidate): SkillCandidate =>
+        projectInvocation(candidate, hidden)
       for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
         throwIfAborted(options)
         if (!entry.isDirectory() || entry.name.startsWith('.')) continue
@@ -453,13 +484,10 @@ export function createProviderForTest(
         return undefined
       }
       if (definition === undefined || definition.name !== candidate.name) return undefined
-      // 与 list() 同一份隐藏名单：调用方拿着关闭前的旧候选取正文时不放行。
+      // 与 list() 共用同一条投影规则，杜绝两份手写实现漂移。
+      // 关闭名单在加载阶段同样生效：调用方拿着关闭前的旧候选取正文时不放行。
       return {
-        ...definition,
-        invocation: {
-          modelInvocable: definition.invocation.modelInvocable && !modelHidden.has(definition.name),
-          userInvocable: definition.invocation.userInvocable && !userHidden.has(definition.name),
-        },
+        ...projectInvocation(definition, { model: modelHidden, user: userHidden }),
         content: parsed.body.trim(),
       } as SkillDefinition
     },

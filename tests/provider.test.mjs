@@ -259,3 +259,46 @@ test('watcher refreshes on skill directory rename and removal', { skip: process.
   assert.ok(events.includes('skills/change'), 'expected skills/change on directory removal')
   for (const d of disposers) d()
 })
+test('projectInvocation applies both visibility axes independently', async () => {
+  const { projectInvocation } = await import('../lib/cfbridge.js')
+  const candidate = {
+    name: 'wrangler',
+    description: 'Wrangler skill',
+    invocation: { modelInvocable: true, userInvocable: true },
+  }
+  const none = { model: new Set(), user: new Set() }
+  const modelOff = { model: new Set(['wrangler']), user: new Set() }
+  const userOff = { model: new Set(), user: new Set(['wrangler']) }
+  const bothOff = { model: new Set(['wrangler']), user: new Set(['wrangler']) }
+
+  // 名单为空：两个方向都保持原状
+  assert.deepEqual(projectInvocation(candidate, none).invocation,
+    { modelInvocable: true, userInvocable: true })
+  // 命中 model 名单：只关模型，人类不受影响
+  assert.deepEqual(projectInvocation(candidate, modelOff).invocation,
+    { modelInvocable: false, userInvocable: true })
+  // 命中 user 名单：只关人类，模型不受影响
+  assert.deepEqual(projectInvocation(candidate, userOff).invocation,
+    { modelInvocable: true, userInvocable: false })
+  // 两个名单都命中：两个方向都关
+  assert.deepEqual(projectInvocation(candidate, bothOff).invocation,
+    { modelInvocable: false, userInvocable: false })
+  // 名单命中别的技能：本候选不受影响（按名字精确匹配）
+  const other = { model: new Set(['cloudflare']), user: new Set(['cloudflare']) }
+  assert.deepEqual(projectInvocation(candidate, other).invocation,
+    { modelInvocable: true, userInvocable: true })
+  // 投影只改 invocation，不丢其它字段、不改候选身份
+  const projected = projectInvocation({ ...candidate, extra: 'kept' }, bothOff)
+  assert.equal(projected.name, 'wrangler')
+  assert.equal(projected.description, 'Wrangler skill')
+  assert.equal(projected.extra, 'kept')
+  // 原候选不可变（纯函数契约）
+  assert.deepEqual(candidate.invocation, { modelInvocable: true, userInvocable: true })
+  // 已关闭的方向不会被名单「打开」
+  const alreadyOff = {
+    name: 'wrangler',
+    invocation: { modelInvocable: false, userInvocable: true },
+  }
+  assert.deepEqual(projectInvocation(alreadyOff, none).invocation,
+    { modelInvocable: false, userInvocable: true })
+})
