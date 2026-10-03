@@ -135,6 +135,22 @@ async function main() {
     else fail('scripts/' + script + ' is marked deprecated', 'marker missing')
   }
 
+  // README 不得写死本项目版本号。
+  // 理由：README 曾写着「当前版本为 0.7.0」，而在 0.10.0 时才被发现——已过时三个版本。
+  // 版本号在 npm 徽章与 package.json 中都是动态的，README 里写死必然漂移。
+  // 例外：vX.Y.Z 之类的流程占位符、徽章 URL、以及依赖项版本（如 node >= 20.9.0）。
+  const readmeText = readText(path.join(ROOT, 'README.md'))
+  const versionHits = []
+  for (const line of readmeText.split(/\r?\n/)) {
+    if (/shields\.io|img\.shields/.test(line)) continue
+    if (/vX\.Y\.Z|\bx\.y\.z\b/i.test(line)) continue
+    if (/node\s*>?=?\s*\d|engines|依赖|dependencies/.test(line)) continue
+    const m = line.match(/(?<![\d.@])(\d+\.\d+\.\d+)(?![\d.])/g)
+    if (m) versionHits.push(m.join(',') + ' ← ' + line.trim().slice(0, 70))
+  }
+  if (versionHits.length === 0) pass('README has no hardcoded project version')
+  else fail('README has no hardcoded project version', versionHits.slice(0, 3).join(' | '))
+
   const tokenFiles = collectFiles(path.join(ROOT, 'cordis.patch.yml')).concat(collectFiles(path.join(ROOT, 'scripts'))).concat(collectFiles(path.join(ROOT, 'skills'))).concat(collectFiles(path.join(ROOT, 'README.md'))).concat(collectFiles(path.join(ROOT, 'CHANGELOG.md'))).concat(collectFiles(path.join(ROOT, 'deprecated'))).filter((file) => hasTokenLeak(readText(file)))
   if (tokenFiles.length === 0) pass('tracked bundle sources contain no token-like content')
   else fail('tracked bundle sources contain no token-like content', tokenFiles.join(', '))
