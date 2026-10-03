@@ -334,16 +334,45 @@ export interface MutableSkillProvider extends SkillProvider {
   hiddenSkillNames(): Required<SkillVisibility>
 }
 
-export function createProviderForTest(
-  skillDir: string,
-  providerName = DEFAULT_PROVIDER_NAME,
-  logger: Logger = console,
-  rank = PROVIDER_RANK,
-  cacheEnabled = true,
-  onInvalidate?: () => void,
-  disabledSkills: readonly string[] = [],
-  hiddenSkills: SkillVisibility = {},
-): MutableSkillProvider {
+/** createSkillProvider 的入参。用具名选项对象而非位置参数： */
+/** 调用点因此只需写出关心的那几项，读代码不必回查签名。 */
+export interface SkillProviderOptions {
+  /** 技能目录；相对路径按进程工作目录解析。 */
+  skillDir: string
+  /** 挂载标识，默认 cfbridge；禁止使用保留名 runtime。 */
+  providerName?: string
+  /** 日志出口，默认 console。 */
+  logger?: Logger
+  /** 发现优先级权重，默认 550。 */
+  rank?: number
+  /** 是否启用基于 mtime 的元数据内存缓存，默认 true。 */
+  cacheEnabled?: boolean
+  /** 宿主驱动失效时的回调（清缓存后触发，用于让上游重新收集目录）。 */
+  onInvalidate?: () => void
+  /** 被完全关闭的技能名，默认空。 */
+  disabledSkills?: readonly string[]
+  /** 两个方向独立的隐藏名单，默认空。 */
+  hiddenSkills?: SkillVisibility
+}
+
+/**
+ * 创建一个技能 Provider。
+ *
+ * 参数用具名选项对象承载：此前是 8 个位置参数（其中 5 个可选），
+ * 调用点必须回查签名才知道第 4 个是什么、第 6 个的 () => {} 又是谁。
+ * 选项对象让每个调用点自解释，且新增选项不再波及任何既有调用点。
+ */
+export function createSkillProvider(options: SkillProviderOptions): MutableSkillProvider {
+  const {
+    skillDir,
+    providerName = DEFAULT_PROVIDER_NAME,
+    logger = console,
+    rank = PROVIDER_RANK,
+    cacheEnabled = true,
+    onInvalidate,
+    disabledSkills = [],
+    hiddenSkills = {},
+  } = options
   const root = resolve(skillDir)
   // 关闭名单在 list() 的最早位置生效：候选不进入结果，等同该技能不存在。
   // 用可变 Set（而非拷贝快照）承载：宿主侧命令可以在不重载插件的前提下改它，
@@ -523,16 +552,16 @@ export function apply(ctx: Context, config: Config = {
     // 当前活着的 provider，供 /cfbridge 命令在运行时改关闭名单。
     let liveProvider: MutableSkillProvider | undefined
     const disposeProvider = ctx.skills.registerProvider((control) => {
-      const provider = createProviderForTest(
+      const provider = createSkillProvider({
         skillDir,
         providerName,
-        ctx.logger,
+        logger: ctx.logger,
         rank,
         cacheEnabled,
-        control.invalidate,
+        onInvalidate: control.invalidate,
         disabledSkills,
         hiddenSkills,
-      )
+      })
       liveProvider = provider
       // 闭包捕获安全：provider 只持有 control.invalidate 这一个函数引用，
       // 宿主对已 dispose 的注册调用 invalidate 按 dsh-skill 契约是 no-op（不会抛错），

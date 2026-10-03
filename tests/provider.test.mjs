@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, utimes, rename, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { apply, createProviderForTest, isSkillCatalogEvent } from '../lib/cfbridge.js'
+import { apply, createSkillProvider, isSkillCatalogEvent } from '../lib/cfbridge.js'
 
 const { ALL_SKILLS: SKILLS } = createRequire(import.meta.url)('../scripts/lib/skills.js')
 
@@ -65,14 +65,14 @@ test('Provider accepts a comment and BOM preamble before frontmatter', async () 
   const root = await mkdtemp(join(tmpdir(), 'cfbridge-preamble-'))
   await mkdir(join(root, 'preamble'))
   await writeFile(join(root, 'preamble', 'SKILL.md'), '<!-- generated header -->\n\ufeff<!-- second header -->\n---\nname: preamble\ndescription: Preamble skill\n---\nPreamble body\n')
-  const provider = createProviderForTest(root, 'cfbridge', { warn() {} })
+  const provider = createSkillProvider({ skillDir: root, providerName: 'cfbridge', logger: { warn() {} } })
   const candidates = await provider.list({})
   assert.deepEqual(candidates.map((candidate) => candidate.name), ['preamble'])
   assert.equal((await provider.get(candidates[0], {})).content, 'Preamble body')
 })
 
 test('Provider discovers all bundled skills with vendored preamble', async () => {
-  const provider = createProviderForTest('skills', 'cfbridge', { warn() {} })
+  const provider = createSkillProvider({ skillDir: 'skills', providerName: 'cfbridge', logger: { warn() {} } })
   const candidates = await provider.list({})
   assert.deepEqual(candidates.map((candidate) => candidate.name), [...SKILLS].sort())
   const loaded = await provider.get(candidates.find((candidate) => candidate.name === 'cloudflare'), {})
@@ -82,7 +82,7 @@ test('Provider discovers all bundled skills with vendored preamble', async () =>
 test('Provider returns undefined for invalid invocation metadata during get', async () => {
   const root = await fixture()
   const warnings = []
-  const provider = createProviderForTest(root, 'cfbridge', { warn(message) { warnings.push(message) } })
+  const provider = createSkillProvider({ skillDir: root, providerName: 'cfbridge', logger: { warn(message) { warnings.push(message) } } })
   const candidate = (await provider.list({})).find((item) => item.name === 'alpha')
   await writeFile(join(root, 'alpha', 'SKILL.md'), '---\nname: alpha\ndescription: Alpha skill\ndisable-model-invocation: maybe\n---\nAlpha body\n')
   assert.equal(await provider.get(candidate, {}), undefined)
@@ -124,7 +124,7 @@ test('Provider handles hidden, missing, duplicate and invalid skills', async () 
   await writeFile(join(root, 'second', 'SKILL.md'), '---\nname: duplicate\ndescription: Second\n---\nSecond\n')
   await writeFile(join(root, 'invalid', 'SKILL.md'), '---\nname: invalid\ndescription: [\n---\nBroken\n')
   const warnings = []
-  const provider = createProviderForTest(root, 'cfbridge', { warn(message) { warnings.push(message) } })
+  const provider = createSkillProvider({ skillDir: root, providerName: 'cfbridge', logger: { warn(message) { warnings.push(message) } } })
   const candidates = await provider.list({})
   assert.deepEqual(candidates.map((candidate) => candidate.name), ['duplicate'])
   assert.equal(warnings.length, 3)
@@ -145,7 +145,7 @@ test('Config schema accepts and defaults rank, cache, and watchSkills', async ()
 })
 test('Provider supports custom rank and reuses cached candidates when mtime is unchanged', async () => {
   const root = await fixture()
-  const provider = createProviderForTest(root, 'cfbridge', console, 700, true)
+  const provider = createSkillProvider({ skillDir: root, providerName: 'cfbridge', logger: console, rank: 700, cacheEnabled: true })
   const first = await provider.list({})
   assert.equal(first.length, 1)
   assert.equal(first[0].name, 'alpha')
@@ -197,7 +197,7 @@ test('apply mounts file watcher and emits skills/change on markdown edit when wa
 
 test('invalidate clears the mtime cache and the next list rereads', async () => {
   const root = await fixture()
-  const provider = createProviderForTest(root, 'cfbridge', { warn() {} }, 550, true, () => {})
+  const provider = createSkillProvider({ skillDir: root, providerName: 'cfbridge', logger: { warn() {} }, rank: 550, cacheEnabled: true, onInvalidate: () => {} })
   const file = join(root, 'alpha', 'SKILL.md')
   const t = Date.now()
   await utimes(file, t / 1000, t / 1000)
