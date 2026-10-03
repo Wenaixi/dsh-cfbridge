@@ -26,10 +26,8 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npm run check
-      - run: npm run validate:bundle
-      - name: Wrangler smoke (best-effort, no token in CI)
-        run: npm run test:wrangler || echo "::warning::wrangler smoke skipped — no CLOUDFLARE_API_TOKEN in CI"
+      # 与 CI 共用同一条综合门禁；发布前必须全绿。
+      - run: npm test
       - run: npm pack --dry-run
 
       - name: Verify tag matches package.json version
