@@ -1,4 +1,4 @@
-## Unreleased — 2026-10-04（架构评审核实与修复）
+## 0.9.0 — 2026-10-04
 - **test(gates)**: 门禁不再用正则匹配 `src/cfbridge.ts` 源码文本来断言 Provider 行为。新增 `scripts/lib/provider-contract.js`，改为 `import` 构建产物 `lib/cfbridge.js` 并断言真实导出值（`name` / `inject` / `Config().rank`）与真实行为（`apply` 是否注册恰好一个 Provider、该 Provider 能否列出磁盘全部技能、list/get 两段式加载是否成立、保留名 `runtime` 是否被拒）。两个门禁共用该断言集合，消除逐字抄写两遍的重复。门禁计数 `check.js` 76→85、`validate-bundle.js` 86→97。
   - 对照实验（临时副本，仓库不受影响）：把 `PROVIDER_RANK` 改名（行为不变）旧实现**误报** 2 项，新实现全绿；把 `registerProvider` 调用短路（Provider 永远注册不上）旧实现**全绿漏报**，新实现 FAIL 并非零退出。
 - **fix(client)**: `src/client.entry.ts` 此前完全不被类型检查（`tsconfig.json` 与 `tsconfig.build.json` 都显式 exclude 它，唯一编译路径 `build-client.js` 走 `transpileModule` 且明确不做类型检查）。新增 `tsconfig.client.json` 与 `src/client.deps.d.ts`（按实际用到的面声明 react 与 ui-primitives 的最小类型，两者本由 DSH 客户端运行时注入、本地不安装，因此不引入新依赖），并接入 `npm test` 成为独立一步。
