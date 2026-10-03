@@ -1,3 +1,16 @@
+## Unreleased — 2026-10-04（架构评审核实与修复）
+- **test(gates)**: 门禁不再用正则匹配 `src/cfbridge.ts` 源码文本来断言 Provider 行为。新增 `scripts/lib/provider-contract.js`，改为 `import` 构建产物 `lib/cfbridge.js` 并断言真实导出值（`name` / `inject` / `Config().rank`）与真实行为（`apply` 是否注册恰好一个 Provider、该 Provider 能否列出磁盘全部技能、list/get 两段式加载是否成立、保留名 `runtime` 是否被拒）。两个门禁共用该断言集合，消除逐字抄写两遍的重复。门禁计数 `check.js` 76→85、`validate-bundle.js` 86→97。
+  - 对照实验（临时副本，仓库不受影响）：把 `PROVIDER_RANK` 改名（行为不变）旧实现**误报** 2 项，新实现全绿；把 `registerProvider` 调用短路（Provider 永远注册不上）旧实现**全绿漏报**，新实现 FAIL 并非零退出。
+- **fix(client)**: `src/client.entry.ts` 此前完全不被类型检查（`tsconfig.json` 与 `tsconfig.build.json` 都显式 exclude 它，唯一编译路径 `build-client.js` 走 `transpileModule` 且明确不做类型检查）。新增 `tsconfig.client.json` 与 `src/client.deps.d.ts`（按实际用到的面声明 react 与 ui-primitives 的最小类型，两者本由 DSH 客户端运行时注入、本地不安装，因此不引入新依赖），并接入 `npm test` 成为独立一步。
+  - 补上检查后立刻发现真实缺陷：`SkillRow` 的 props 里 `busy` 已声明为 boolean（调用方按 `busy === name` 求值后传入），组件内部却仍写 `busy === name`，与 string 比较恒为假，导致保存中的开关不会被禁用、可被重复点击。已改为直接使用 `busy`。
+  - 验证：注入类型错误 → `error TS2322` 并非零退出；恢复 → EXIT=0。
+- **refactor(provider)**: 收敛技能开关投影规则。`list()` 内的 `project()` 与 `get()` 内联的手写投影本属同一规则，抽出泛型纯函数 `projectInvocation<T extends { name; invocation }>`（刻意不绑定 `SkillCandidate`，因为 `get()` 需返回多一个 `content` 字段的 `SkillDefinition`，这正是当初手抄一份的原因）。配套规则测试覆盖两个维度独立生效、名单为空、命中他名、已关闭方向不被打开、纯函数不可变；破坏实测确认该测试会红。
+- **refactor(provider)**: `createProviderForTest`（8 个位置参数、其中 5 个可选）改为 `createSkillProvider({ ... })` 具名选项对象。旧签名下 `createProviderForTest(root, 'cfbridge', console, 700, true)` 必须回查签名才知道第 4、5 位是什么；名字里的 `ForTest` 也与事实不符（它在生产路径 `apply()` 内被调用）。
+- **refactor(provider)**: 拆解 `apply()`。它此前在单个函数体内混了七条生命周期，并靠三个裸闭包变量互相咬合（`invalidateCatalog` 被 watcher 与斜杠命令同时读写、`liveProvider` 被注册/发布/命令三处读写、`settings` 取值表达式写了两遍）。引入 `SkillRuntime` 作接缝封装前两根线，对外只暴露 `current()` / `invalidate()` / `listNames()`；三条效果各自成为独立安装函数并各自返回清理函数（`installSkillRuntime` / `installSkillsWatcher` / `installCommand` / `publishSkillCatalog`），`apply` 缩为约 40 行装配层。行为严格不变：六个命令动作的三维度增删逐条实测复现，清单发布经 `describe` 比对后写入 `availableSkills`。
+- **refactor(scripts)**: `migrate-from-preset.js` 自带的 `listFiles` 改用共享的 `collectFiles`（上一轮收敛共享助手时漏掉的消费方；实测两者对 `skills/` 的收集结果逐项一致）。
+- **chore(gate)**: 门禁基线更新为 `npm test` 10/10、`check.js` 85/85、`validate-bundle.js --strict-router` 97/97。
+- **核实结论（明确不做）**: `ALL_SKILLS` 手抄清单维持现状（实测磁盘 14 与声明 14 完全一致、零漂移；且删除漏改会被 `checkFile` 发现，只有新增漏改才是静默通过，严重度不足以换取自动化后破坏 `VENDORED_SKILLS` 意图语义的代价）；`locale/*.json` 与 `client.entry.ts` 内联语文案维持两条通道（前者供宿主渲染插件卡片、后者供面板内部使用，服务不同消费者，非重复）。
+
 ## 0.8.0 — 2026-10-03
 - **feat(ui)**: 插件页新增 Cloudflare 桥接配置面板。每个技能有**两个独立开关**——「模型可调用」与「人类可调用」；两个都关等于完全关闭。
 - **feat(config)**: 新增三个可写字段 `modelHiddenSkills` / `userHiddenSkills`（单方向隐藏）与 `disabledSkills`（完全关闭），彼此独立、可组合。
