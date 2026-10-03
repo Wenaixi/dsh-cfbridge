@@ -10,6 +10,7 @@ const npmArgs = process.platform === 'win32' ? ['/d', '/s', '/c', 'npm'] : []
 const STEPS = [
   { name: 'build', label: 'TypeScript 构建', command: ['npm', 'run', 'build'] },
   { name: 'typecheck', label: 'TypeScript 类型检查', command: ['npm', 'run', 'typecheck'] },
+  { name: 'typecheck-client', label: '客户端半侧类型检查', command: ['npm', 'run', 'typecheck:client'] },
   { name: 'provider', label: 'Provider 行为测试', command: [process.execPath, '--test', 'tests/provider.test.mjs'] },
   { name: 'metadata', label: 'Bundle 元数据测试', command: [process.execPath, '--test', 'tests/bundle-metadata.test.mjs'] },
   { name: 'demo', label: '独立 demo 文档测试', command: [process.execPath, '--test', 'tests/demo-config.test.mjs'] },

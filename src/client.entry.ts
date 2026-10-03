@@ -149,6 +149,7 @@ function SkillRow(props: {
   name: string
   modelInvocable: boolean
   userInvocable: boolean
+  /** 本行是否正在保存（由调用方按技能名比对后传来，这里只当布尔用）。 */
   busy: boolean
   writable: boolean
   t: Translate
@@ -184,13 +185,13 @@ function SkillRow(props: {
     React.createElement(LabelledSwitch, {
       label: t('model'),
       checked: modelInvocable,
-      disabled: !writable || busy === name,
+      disabled: !writable || busy,
       onChange: (next: boolean) => onToggle(name, 'model', next),
     }),
     React.createElement(LabelledSwitch, {
       label: t('user'),
       checked: userInvocable,
-      disabled: !writable || busy === name,
+      disabled: !writable || busy,
       onChange: (next: boolean) => onToggle(name, 'user', next),
     }),
   )

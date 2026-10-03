@@ -55,6 +55,7 @@
     "build": "tsc -p tsconfig.build.json && node scripts/build-client.js",
     "build:client": "node scripts/build-client.js",
     "typecheck": "tsc --noEmit",
+    "typecheck:client": "tsc -p tsconfig.client.json",
     "prepare": "npm run build",
     "prepack": "npm run build",
     "check": "node scripts/check.js",

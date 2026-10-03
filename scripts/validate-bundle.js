@@ -45,6 +45,12 @@ async function main() {
     } else fail('client injects official primitives', JSON.stringify(pkg.dsh && pkg.dsh.client && pkg.dsh.client.inject))
 
     checkFile(path.join(ROOT, 'lib', 'cfbridge.js'), 'built entry exists')
+    // 客户端半侧必须有它自己的类型检查入口：该文件被主 tsconfig 显式排除
+    // （需要 JSX 与浏览器环境），若再没有专用 tsconfig，这 400 余行将完全不被检查。
+    checkFile(path.join(ROOT, 'tsconfig.client.json'), 'client tsconfig exists')
+    checkFile(path.join(ROOT, 'src', 'client.deps.d.ts'), 'client type shim exists')
+    if (pkg.scripts && pkg.scripts['typecheck:client']) pass('script typecheck:client defined')
+    else fail('script typecheck:client defined', 'missing')
     checkFile(path.join(ROOT, 'lib', 'client.js'), 'built client entry exists')
     checkFile(path.join(ROOT, 'locale', 'zh.json'), 'locale/zh.json exists')
     checkFile(path.join(ROOT, 'locale', 'en.json'), 'locale/en.json exists')
