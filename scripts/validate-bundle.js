@@ -65,7 +65,7 @@ async function main() {
       else fail('icon within 256 KiB', bytes + ' B exceeds the host limit')
     }
 
-    for (const entry of ['cordis.patch.yml', 'lib/', 'skills/', 'locale/', 'icon.svg', 'README.md', 'LICENSE']) {
+    for (const entry of ['cordis.patch.yml', 'lib/', 'skills/', 'locale/', 'icon.png', 'README.md', 'LICENSE']) {
       if (Array.isArray(pkg.files) && pkg.files.includes(entry)) pass('files[] includes ' + entry)
       else fail('files[] includes ' + entry, 'missing in package.json files')
     }

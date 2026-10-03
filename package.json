@@ -39,7 +39,7 @@
     "lib/",
     "skills/",
     "locale/",
-    "icon.svg",
+    "icon.png",
     "README.md",
     "LICENSE",
     ".env.example"
@@ -95,7 +95,7 @@
       ]
     }
   },
-  "icon": "./icon.svg",
+  "icon": "./icon.png",
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
     "@deepseek-ai/dsh-skill": "^0.0.1-rc.5",
