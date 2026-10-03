@@ -108,8 +108,8 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 | `cache` | boolean | `true` | 是否启用基于文件 mtime 的技能元数据内存缓存 |
 | `watchSkills` | boolean | `false` | 是否开启技能目录递归变动监听（开发模式下自动广播 `skills/change` 触发热刷新） |
 | `disabledSkills` | string[] | `[]` | **完全关闭**的技能：模型与人类都不可调用，等同该技能不存在 |
-| `modelHiddenSkills` | string[] | `[]` | **只不给模型**的技能：模型目录看不到，但斜杠命令仍可调用 |
-| `userHiddenSkills` | string[] | `[]` | **只不给人类**的技能：斜杠命令看不到，但模型仍可调用 |
+| `modelHiddenSkills` | string[] | `[]` | **只不给模型**的技能：模型目录看不到，但人类仍可调用 |
+| `userHiddenSkills` | string[] | `[]` | **只不给人类**的技能：面板上人类不可调用，但模型仍可调用 |
 | `availableSkills` | string[] | `[]` | 技能清单快照，由插件发现后自动写回，供插件页面板渲染（不建议手改） |
 
 配置示例（可在自己的 patch overlay 中覆盖）：
@@ -122,7 +122,7 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
         rank: 600
         cache: true
         watchSkills: true
-        # 只想让模型看不到 wrangler，但自己仍能用斜杠命令调用它
+        # 只想让模型看不到 wrangler，但面板上人类仍可调用它
         modelHiddenSkills:
           - wrangler
 ```
@@ -138,28 +138,11 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 | 开关 | 关掉后的效果 |
 | --- | --- |
 | **模型** | 模型在技能目录里看不到它（不会主动调用） |
-| **人类** | 斜杠命令补全里看不到它（仍可被模型调用） |
+| **人类** | 人类不可调用它（仍可被模型调用） |
 
 两个都关 = **完全关闭**，该技能等同不存在（模型与人类都拿不到）。
 
 面板的写入直接落在 profile 的 `cordis.patch.yml`，改动即时生效、无需重启。
-
-## 用斜杠命令开关（命令行）
-
-在输入框里可直接切换，适合临时调试：
-
-```text
-/cfbridge list                  # 查看当前被完全关闭的技能
-/cfbridge disable wrangler      # 完全关闭
-/cfbridge enable wrangler       # 恢复（模型与人类都开放）
-/cfbridge hide-model wrangler   # 只对模型隐藏
-/cfbridge show-model wrangler   # 对模型重新开放
-/cfbridge hide-user wrangler    # 只对人类隐藏
-/cfbridge show-user wrangler    # 对人类重新开放
-```
-
-> 注意：斜杠命令改的是**运行时内存态**，重启 DSH 后会回到配置文件里的值。
-> 想要持久生效，请用插件页面板或直接在 `cordis.patch.yml` 里写上面那三个字段。
 
 ## 验证
 

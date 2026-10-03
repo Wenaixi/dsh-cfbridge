@@ -45,7 +45,6 @@ const zh = {
   failed: '保存失败',
   readOnly: '当前实例的配置不可写。',
   noSkills: '没有发现技能。',
-  slashHint: '也可以在输入框里用 /cfbridge disable <skill>、/cfbridge hide-model <skill> 切换。',
   guideText: '开关位置：下方「包含的组件」可逐行启用或停用 MCP 与 Provider；技能开关在 cfbridge 行的「配置」页里，每个技能有「模型」与「人类」两个独立开关。',
 }
 
@@ -61,7 +60,6 @@ const en = {
   failed: 'Save failed',
   readOnly: 'Configuration is read-only in this instance.',
   noSkills: 'No skills found.',
-  slashHint: 'You can also use /cfbridge disable <skill> or /cfbridge hide-model <skill> in the composer.',
   guideText: 'Where the switches are: "Included components" below toggles the MCP and Provider rows; skill switches live in the cfbridge row config page, with independent Model and Human switches per skill.',
 }
 
@@ -404,11 +402,6 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
           ),
     ),
 
-    React.createElement(
-      'p',
-      { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', marginTop: 14 } },
-      t('slashHint'),
-    ),
   )
 }
 
