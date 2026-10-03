@@ -107,6 +107,10 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 | `rank` | number | `550` | 技能提供方排序权重（数值越大优先级越高） |
 | `cache` | boolean | `true` | 是否启用基于文件 mtime 的技能元数据内存缓存 |
 | `watchSkills` | boolean | `false` | 是否开启技能目录递归变动监听（开发模式下自动广播 `skills/change` 触发热刷新） |
+| `disabledSkills` | string[] | `[]` | **完全关闭**的技能：模型与人类都不可调用，等同该技能不存在 |
+| `modelHiddenSkills` | string[] | `[]` | **只不给模型**的技能：模型目录看不到，但斜杠命令仍可调用 |
+| `userHiddenSkills` | string[] | `[]` | **只不给人类**的技能：斜杠命令看不到，但模型仍可调用 |
+| `availableSkills` | string[] | `[]` | 技能清单快照，由插件发现后自动写回，供插件页面板渲染（不建议手改） |
 
 配置示例（可在自己的 patch overlay 中覆盖）：
 
@@ -118,13 +122,50 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
         rank: 600
         cache: true
         watchSkills: true
+        # 只想让模型看不到 wrangler，但自己仍能用斜杠命令调用它
+        modelHiddenSkills:
+          - wrangler
 ```
+
+## 在插件页开关（图形界面）
+
+安装后打开 DSH 的「插件」页即可逐项控制，无需手改配置：
+
+1. **插件** → 点 **Cloudflare 桥接** 卡片的「查看」，进入详情页。
+2. **组件开关**：详情页下方「包含的组件」里，`mcp-cloudflare` 与 `cfbridge` 两行各带一个开关，可单独停用其中一行（这是宿主原生能力）。
+3. **技能开关**：点 `cfbridge` 那一行的 **配置**，进入技能面板。每个技能有两个**独立**开关：
+
+| 开关 | 关掉后的效果 |
+| --- | --- |
+| **模型** | 模型在技能目录里看不到它（不会主动调用） |
+| **人类** | 斜杠命令补全里看不到它（仍可被模型调用） |
+
+两个都关 = **完全关闭**，该技能等同不存在（模型与人类都拿不到）。
+
+面板的写入直接落在 profile 的 `cordis.patch.yml`，改动即时生效、无需重启。
+
+## 用斜杠命令开关（命令行）
+
+在输入框里可直接切换，适合临时调试：
+
+```text
+/cfbridge list                  # 查看当前被完全关闭的技能
+/cfbridge disable wrangler      # 完全关闭
+/cfbridge enable wrangler       # 恢复（模型与人类都开放）
+/cfbridge hide-model wrangler   # 只对模型隐藏
+/cfbridge show-model wrangler   # 对模型重新开放
+/cfbridge hide-user wrangler    # 只对人类隐藏
+/cfbridge show-user wrangler    # 对人类重新开放
+```
+
+> 注意：斜杠命令改的是**运行时内存态**，重启 DSH 后会回到配置文件里的值。
+> 想要持久生效，请用插件页面板或直接在 `cordis.patch.yml` 里写上面那三个字段。
 
 ## 验证
 
 ```powershell
-npm run check              # 仓库配置 + 安全检查（75 项）
-npm run validate:bundle -- --strict-router  # manifest + 14 个技能结构校验（73 项）
+npm run check              # 仓库配置 + 安全检查（76 项）
+npm run validate:bundle -- --strict-router  # manifest + 14 个技能结构校验（86 项）
 npm run test:wrangler      # Wrangler CLI 只读验证
 npm run test               # 构建、类型检查、Provider、demo、静态校验与 Wrangler
 npm run dump:config        # 查看当前 profile 中 cfbridge 这一层（--raw 不过滤）

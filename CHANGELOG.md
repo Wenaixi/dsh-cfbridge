@@ -1,3 +1,12 @@
+## Unreleased
+- **feat(ui)**: 插件页新增 Cloudflare 桥接配置面板。每个技能有**两个独立开关**——「模型可调用」与「人类可调用」；两个都关等于完全关闭。
+- **feat(config)**: 新增三个可写字段 `modelHiddenSkills` / `userHiddenSkills`（单方向隐藏）与 `disabledSkills`（完全关闭），彼此独立、可组合。
+- **feat(command)**: `/cfbridge` 斜杠命令扩展 `hide-model` / `show-model` / `hide-user` / `show-user`，便于命令行临时调试。
+- **fix(root cause)**: 插件此前未被加入 profile 的 `dsh.profile.bundles`，补丁层从不装载（表现为无工具、无技能）。现已确认官方 `dsh plugin add` 会自动写入该项。
+- **refactor**: 删除自建的跨端 Remote 控制层（约 300 行）。宿主原生通道（`pluginManager.setPluginEnabled` 与设置页 `form.mutate`）已完全覆盖这些能力，无需自己读写 `cordis.patch.yml`。
+- **docs**: README 新增「在插件页开关」「用斜杠命令开关」两节；CLAUDE.md 新增第九节记录双面插件六条硬约束与两个静默失效陷阱。
+- **chore(gate)**: `Provider injects skills` 断言由精确串放宽为「数组含 `skills`」（`settings` 也是真实依赖），并做了一次破坏实测确认会红。门禁基线 `check.js` 76/76、`validate-bundle.js` 86/86、`npm test` 9/9。
+
 ## 0.7.0 — 2026-10-02
 - feat(watcher): 开发模式技能热刷新（watchSkills）经真实 SkillRegistry 端到端验证：新增/删除技能目录、编辑 SKILL.md 均去抖广播 skills/change，list 感知新描述。
 - fix(provider): 保留名 providerName="runtime" 在 apply 层直接拒绝（抛错），不再进入注册阶段。

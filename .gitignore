@@ -64,9 +64,28 @@ tmp/
 Thumbs.db
 Desktop.ini
 ~$*
-*.bak
 *.orig
 *.rej
+
+# 备份文件：只忽略带时间戳或常见备份后缀的文件，不用裸 `*.bak`。
+# 裸规则会误伤任何以 .bak 结尾的正常文件（例如想留一份对比用的 SKILL.md.bak）。
+*.bak-*
+*.bak.*
+*.backup
+*~
+
+# 改宿主 profile 前自动生成的带时间戳备份（见 CLAUDE.md 第九节：改 profile 必须备份）
+# 例：cordis.patch.yml.bak-20261003161041
+package.json.bak-*
+cordis.patch.yml.bak-*
+
+# === 一次性任务报告与本地过程记录 ===
+# task-N-report.md 是历史重构（v0.5.0）时的 TDD 过程记录，属本地产物。
+task-*-report.md
+
+# 浏览器验收脚本：仅本机排障用（CDP/Playwright 探针），不应进仓库。
+tests/ui-verify/
+tests/browser/
 
 # === 历史动态插件与一次性生成器（v0.1.0 之前） ===
 # 当前正式架构使用 MCP 组合行与 Agent Preset；保留这些规则避免旧文件再次混入。

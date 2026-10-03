@@ -1,10 +1,46 @@
 ---
 name: cfbridge
-description: Cloudflare Code Mode MCP 全局 Bridge：装后所有会话自动获得 mcp__cloudflare__docs/search/execute 三工具与本操作指南；含 search-then-execute 工作流、写操作审批规范、Token 权限边界与 Wrangler 透传指引。
-whenToUse: 任何涉及 Cloudflare API 的请求都应先加载本 Skill；执行前用 mcp__cloudflare__docs 或 mcp__cloudflare__search 确认端点，再用 mcp__cloudflare__execute 执行。
+description: Cloudflare Code Mode MCP 全局 Bridge：装后所有会话自动获得 mcp__cloudflare__docs/search/execute 三工具与本操作指南；含 search-then-execute 工作流、写操作审批规范、Token 权限边界、技能开关方式与 Wrangler 透传指引。
+whenToUse: 任何涉及 Cloudflare API 的请求都应先加载本 Skill；执行前用 mcp__cloudflare__docs 或 mcp__cloudflare__search 确认端点，再用 mcp__cloudflare__execute 执行。若用户想停用某个技能或限制谁能调用，见「技能开关」一节。
 ---
 
 # cfbridge — Cloudflare 全局 Bridge 操作指南
+
+## 先从这里开始
+
+你只需要记住一件事：**不确定就先查，别猜。**
+
+```text
+要做什么？                → 用哪个？
+─────────────────────────────────────────────
+不知道 Cloudflare 有啥    → mcp__cloudflare__docs
+不知道该调哪个接口        → mcp__cloudflare__search
+要真的调接口了            → mcp__cloudflare__execute
+不确定用哪个 Cloudflare   → 先加载 cloudflare Skill（见文末）
+  产品（存数据？跑代码？）
+想停用某个技能            → 见下面「技能开关」
+```
+
+**两条铁律**：
+
+1. 写操作（POST/PUT/PATCH/DELETE）执行前，**必须先告诉用户你要做什么并等他同意**。
+2. 端点、参数、限额一律以 `search` / `docs` 的检索结果为准，**检索优于记忆**。
+
+## 技能开关（可以只关一边）
+
+14 个 Cloudflare 技能每个都能单独控制，而且**「模型能用」和「人能用」是两个独立的开关**：
+
+| 想达到的效果 | 怎么做 |
+| --- | --- |
+| 模型别自作主张调某个技能，但我自己还能用 | 关掉「模型」 |
+| 斜杠命令里别出现某个技能，但模型仍可调用 | 关掉「人类」 |
+| 这个技能彻底不用了 | 两个都关 |
+
+三种做法，任选其一：
+
+- **图形界面（推荐）**：DSH → 「插件」→ Cloudflare 桥接 → `cfbridge` 行的「配置」，面板里逐个切换。
+- **斜杠命令**（临时调试，重启后失效）：`/cfbridge hide-model wrangler`、`/cfbridge hide-user wrangler`、`/cfbridge enable wrangler`。
+- **写配置**（持久生效）：在 profile 的 `cordis.patch.yml` 的 cfbridge 行写 `modelHiddenSkills` / `userHiddenSkills` / `disabledSkills`。
 
 ## 三工具速查
 
@@ -209,6 +245,8 @@ Wrangler 启动器（`scripts/wrangler.js`）优先读取当前进程的 `CLOUDF
 | `execute` 超时 | 网络受限；DSH 内 MCP 客户端会自动重连 |
 | `search` 无结果 | 关键词过窄；改用更宽泛的 `path.includes('xxx')` |
 | 模型猜测端点而不是 search | 不接受猜测结果；强制要求先 search |
+| 某个技能「不见了」 | 它可能被关掉了。去插件页 Cloudflare 桥接 → `cfbridge` 行的「配置」看开关状态；或检查配置里的 `disabledSkills` / `modelHiddenSkills` |
+| 斜杠命令里找不到某技能 | 只关了「人类」那一路。同上，把「人类」开关打开即可 |
 
 ## 何时不要调用 Cloudflare
 
@@ -221,8 +259,6 @@ Wrangler 启动器（`scripts/wrangler.js`）优先读取当前进程的 `CLOUDF
 ## 官方 Skills 入口：cloudflare Skill（按需加载）
 
 > cfbridge 是"薄桥"：负责把 Cloudflare 官方 Code Mode MCP 的 `docs/search/execute` 三工具全局挂到 DSH；领域知识由 https://github.com/cloudflare/skills 的 `cloudflare` Skill 按需提供。**不要把官方 SKILL.md 全文都展开在 cfbridge 的路由节里**——需要领域知识时先加载 `cloudflare`，它内含 Quick Decision Trees 与 Product Index，会指引你按需再加载 `wrangler` / `agents-sdk` / `durable-objects` 等子 Skill，最后用 cfbridge 的 `search`/`execute` 落地。
-
-// ponytail: 全量 Vendoring 镜像（13-in-1 bundle）已在 0.3.0 落地到 skills/<name>/ 与 14 行 patch；路由节保持精简，仅保留 cloudflare 入口，避免在索引阶段注入 13 行描述。
 
 ### 何时加载 cloudflare Skill
 
