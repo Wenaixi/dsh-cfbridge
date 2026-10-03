@@ -25,8 +25,39 @@ function main() {
     else fail('package exports built entry', JSON.stringify(pkg.exports))
     if (pkg.dsh && pkg.dsh.bundle && pkg.dsh.bundle.patch === './cordis.patch.yml') pass('package declares dsh.bundle.patch')
     else fail('package declares dsh.bundle.patch', JSON.stringify(pkg.dsh && pkg.dsh.bundle && pkg.dsh.bundle.patch))
+
+    // 双面插件声明：浏览器半侧 + 卡片元数据。
+    // exports 一旦声明就是严格白名单，漏掉 ./package.json 会让插件卡片只剩包名。
+    if (pkg.dsh && pkg.dsh.client && pkg.dsh.client.platform === 'web') pass('package declares dsh.client.platform web')
+    else fail('package declares dsh.client.platform web', JSON.stringify(pkg.dsh && pkg.dsh.client))
+    if (pkg.exports && pkg.exports['./client'] === './lib/client.js') pass('package exports ./client')
+    else fail('package exports ./client', JSON.stringify(pkg.exports && pkg.exports['./client']))
+    if (pkg.exports && pkg.exports['./package.json'] === './package.json') pass('package exports ./package.json (card metadata)')
+    else fail('package exports ./package.json (card metadata)', 'readPluginMeta resolves this subpath; missing means an empty card')
+    if (pkg.exports && pkg.exports['./locale/*.json']) pass('package exports ./locale/*.json')
+    else fail('package exports ./locale/*.json', 'plugin card description needs this subpath')
+    if (typeof pkg.icon === 'string' && pkg.icon.startsWith('./')) pass('package declares in-package icon')
+    else fail('package declares in-package icon', JSON.stringify(pkg.icon))
+    if (pkg.dsh && pkg.dsh.client && Array.isArray(pkg.dsh.client.inject) && pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-primitives')) {
+      pass('client injects official primitives')
+    } else fail('client injects official primitives', JSON.stringify(pkg.dsh && pkg.dsh.client && pkg.dsh.client.inject))
+
     checkFile(path.join(ROOT, 'lib', 'cfbridge.js'), 'built entry exists')
-    for (const entry of ['cordis.patch.yml', 'lib/', 'skills/', 'README.md', 'LICENSE']) {
+    checkFile(path.join(ROOT, 'lib', 'client.js'), 'built client entry exists')
+    checkFile(path.join(ROOT, 'locale', 'zh.json'), 'locale/zh.json exists')
+    checkFile(path.join(ROOT, 'locale', 'en.json'), 'locale/en.json exists')
+
+    // 图标必须 <= 256 KiB（宿主 MAX_ICON_BYTES 硬上限）且是包内相对路径。
+    const iconRel = String(pkg.icon || '').replace(/^\.\//, '')
+    const iconAbs = path.join(ROOT, iconRel)
+    checkFile(iconAbs, 'icon file exists')
+    if (fs.existsSync(iconAbs)) {
+      const bytes = fs.statSync(iconAbs).size
+      if (bytes <= 256 * 1024) pass('icon within 256 KiB (' + bytes + ' B)')
+      else fail('icon within 256 KiB', bytes + ' B exceeds the host limit')
+    }
+
+    for (const entry of ['cordis.patch.yml', 'lib/', 'skills/', 'locale/', 'icon.svg', 'README.md', 'LICENSE']) {
       if (Array.isArray(pkg.files) && pkg.files.includes(entry)) pass('files[] includes ' + entry)
       else fail('files[] includes ' + entry, 'missing in package.json files')
     }
@@ -65,7 +96,8 @@ function main() {
   checkFile(path.join(ROOT, 'src', 'cfbridge.ts'), 'src/cfbridge.ts exists')
   if (/export const name = DEFAULT_PROVIDER_NAME/.test(source)) pass('Provider exports name')
   else fail('Provider exports name', 'missing')
-  if (source.includes("export const inject = ['skills']")) pass('Provider injects skills')
+  // 断言「declares skills」，而不是等于精确串 ['skills']：settings 同样是真实依赖。
+  if (/export const inject = \[[^\]]*'skills'[^\]]*\]/.test(source)) pass('Provider injects skills')
   else fail('Provider injects skills', 'missing')
   if (source.includes('ctx.skills.registerProvider')) pass('Provider uses registerProvider')
   else fail('Provider uses registerProvider', 'missing')

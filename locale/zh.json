@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Cloudflare 桥接",
+    "description": "把 Cloudflare Code Mode MCP 接入全部会话：docs / search / execute 三个工具，外加按需加载的 Cloudflare 技能；在插件页可逐项开关。"
+  }
+}

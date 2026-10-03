@@ -12,5 +12,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["lib", "scripts", "tests"]
+  "exclude": ["lib", "scripts", "tests", "src/client.entry.ts"]
 }

@@ -1,5 +1,5 @@
 // cfbridge 综合测试入口。
-// 默认运行构建、Provider 合同、Bundle 校验、独立 demo 和 Wrangler 只读检查。
+// 默认运行构建、Provider 合同、Bundle 校验、控制服务逻辑、独立 demo 和 Wrangler 只读检查。
 
 const { spawnSync } = require('child_process')
 const path = require('path')

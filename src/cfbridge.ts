@@ -24,6 +24,44 @@ export interface Config {
   rank?: number
   cache?: boolean
   watchSkills?: boolean
+  /** 被单独关闭的技能名列表；命中的技能不进入发现结果，等同不存在。 */
+  disabledSkills?: string[]
+  /** 不向模型开放的技能名列表；人类仍可调用。 */
+  modelHiddenSkills?: string[]
+  /** 不向人类开放的技能名列表；模型仍可调用。 */
+  userHiddenSkills?: string[]
+  /** 技能清单快照，由插件在发现后写回，供设置面板逐个渲染技能。 */
+  availableSkills?: string[]
+}
+
+/**
+ * 把配置里的 disabledSkills 归一成字符串数组。
+ *
+ * 这个字段是 volatile 的，而 volatile 字段在宿主里以懒求值形态传递
+ * （见 dsh-app-boot 的 lazy 投影），所以它可能是：数组、返回数组的函数、
+ * 或包装过的对象。这里统一收敛，调用方只面对数组。
+ */
+function readStringListConfig(raw: unknown): string[] {
+  let value: unknown = raw
+  // 懒求值包装：取出最内层的真实值，最多解几层，避免意外自引用。
+  for (let i = 0; i < 4 && typeof value === 'function'; i += 1) {
+    try {
+      value = (value as () => unknown)()
+    } catch {
+      return []
+    }
+  }
+  if (!Array.isArray(value)) return []
+  return value.filter((v): v is string => typeof v === 'string' && v !== '')
+}
+
+/**
+ * 把一处 schema 标记为 volatile：宿主设置面只允许写入 volatile 字段。
+ * Schemastery 的 Meta 是可变对象，没有链式 setter，所以这里直接打标。
+ */
+function markVolatile<T>(schema: T): T {
+  ;(schema as { meta: Record<string, unknown> }).meta.volatile = true
+  return schema
 }
 
 export const Config = Schema.object({
@@ -32,10 +70,38 @@ export const Config = Schema.object({
   rank: Schema.number().default(PROVIDER_RANK).description('Provider 优先级权重 (默认 550)'),
   cache: Schema.boolean().default(true).description('是否开启基于 mtime 的元数据内存缓存'),
   watchSkills: Schema.boolean().default(false).description('是否在开发模式下监听技能文件变动'),
+  // meta.volatile 是宿主 settings 通道的硬要求：只有被标记为 volatile 的字段
+  // 才允许在运行时通过设置面写入（见 dsh-settings 的 volatileForm）。
+  // 少了它，settings.update 会以 "has no volatile fields" 拒绝 —— 面板的
+  // 技能开关就无从落盘。Schemastery 没有 volatile() 链式方法，直接写 meta。
+  disabledSkills: markVolatile(
+    Schema.array(Schema.string())
+      .default([])
+      .description('被单独关闭的技能名列表；命中的技能不进入发现结果'),
+  ),
+  modelHiddenSkills: markVolatile(
+    Schema.array(Schema.string())
+      .default([])
+      .description('不向模型开放的技能名列表；人类仍可调用'),
+  ),
+  userHiddenSkills: markVolatile(
+    Schema.array(Schema.string())
+      .default([])
+      .description('不向人类开放的技能名列表；模型仍可调用'),
+  ),
+  availableSkills: markVolatile(
+    Schema.array(Schema.string())
+      .default([])
+      .description('技能清单快照（插件发现后写回，供设置面板展示）'),
+  ),
+
 }).description('@wenaixi/cfbridge Provider 配置')
 
 export const name = DEFAULT_PROVIDER_NAME
-export const inject = ['skills'] as const
+// settings 必须进 inject：技能清单要在 apply 里发布到设置面，而可选取用
+// （ctx.get）在 apply 时机可能还没就绪，会让发布静默落空。
+// 同时保留可选写法兜底，因为精简宿主可能没有 settings（插件仍应正常加载）。
+export const inject = ['skills', 'settings'] as const
 
 type Logger = {
   warn(message: string): void
@@ -209,6 +275,27 @@ function locatorOf(candidate: SkillCandidate): SkillLocator | undefined {
   return { path: locator.path, directory: locator.directory }
 }
 
+/**
+ * 两个方向独立的隐藏名单。
+ *
+ * DSH 的技能发现契约本身就区分 modelInvocable 与 userInvocable（见
+ * dsh-skill 的 SkillInvocationPolicy），所以「不给模型」和「不给人」
+ * 是两件独立的事，不该塞进同一个开关。
+ */
+export interface SkillVisibility {
+  readonly model?: readonly string[]
+  readonly user?: readonly string[]
+}
+
+/** Provider 额外暴露给宿主控制面的运行时开关（设置面板与 /cfbridge 命令共用）。 */
+export interface MutableSkillProvider extends SkillProvider {
+  invalidate(): void
+  setDisabledSkills(names: readonly string[]): void
+  disabledSkillNames(): string[]
+  setHiddenSkills(next: SkillVisibility): void
+  hiddenSkillNames(): Required<SkillVisibility>
+}
+
 export function createProviderForTest(
   skillDir: string,
   providerName = DEFAULT_PROVIDER_NAME,
@@ -216,12 +303,39 @@ export function createProviderForTest(
   rank = PROVIDER_RANK,
   cacheEnabled = true,
   onInvalidate?: () => void,
-): SkillProvider & { invalidate(): void } {
+  disabledSkills: readonly string[] = [],
+  hiddenSkills: SkillVisibility = {},
+): MutableSkillProvider {
   const root = resolve(skillDir)
+  // 关闭名单在 list() 的最早位置生效：候选不进入结果，等同该技能不存在。
+  // 用可变 Set（而非拷贝快照）承载：宿主侧命令可以在不重载插件的前提下改它，
+  // 改完调 invalidate() 让目录失效，下一次 list() 就按新名单过滤。
+  const disabled = new Set(disabledSkills)
+  // 两个方向独立的隐藏名单：不给模型 ≠ 不给人。
+  // 用可变 Set 承载，宿主命令可在运行中替换，改完调 invalidate()。
+  const modelHidden = new Set(hiddenSkills.model ?? [])
+  const userHidden = new Set(hiddenSkills.user ?? [])
   type CacheEntry = { mtimeMs: number; candidate: SkillCandidate }
   const cache = new Map<string, CacheEntry>()
   return {
     name: providerName,
+    /** 运行时替换关闭名单；调用方随后应触发一次目录失效。 */
+    setDisabledSkills(names: readonly string[]) {
+      disabled.clear()
+      for (const name of names) disabled.add(name)
+    },
+    disabledSkillNames() {
+      return [...disabled]
+    },
+    setHiddenSkills(next: SkillVisibility) {
+      modelHidden.clear()
+      for (const name of next.model ?? []) modelHidden.add(name)
+      userHidden.clear()
+      for (const name of next.user ?? []) userHidden.add(name)
+    },
+    hiddenSkillNames() {
+      return { model: [...modelHidden], user: [...userHidden] }
+    },
     invalidate() {
       // 清空 mtime 内存缓存并通知宿主侧失效回调（如有）。
       // 宿主（dsh-skill registry）在 invalidate() 之内自行广播 skills/change，
@@ -241,6 +355,19 @@ export function createProviderForTest(
       }
       const candidates: SkillCandidate[] = []
       const seen = new Set<string>()
+      // 隐藏名单改写 invocation，不改候选身份：技能仍在目录里，只是某个
+      // 消费面看不到它。缓存里存的是「原始候选」，这里每次都按当前名单重投影，
+      // 这样运行中改名单无需清 mtime 缓存。
+      const project = (candidate: SkillCandidate): SkillCandidate => {
+        const name_ = candidate.name
+        return {
+          ...candidate,
+          invocation: {
+            modelInvocable: candidate.invocation.modelInvocable && !modelHidden.has(name_),
+            userInvocable: candidate.invocation.userInvocable && !userHidden.has(name_),
+          },
+        }
+      }
       for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
         throwIfAborted(options)
         if (!entry.isDirectory() || entry.name.startsWith('.')) continue
@@ -253,12 +380,13 @@ export function createProviderForTest(
           if (cacheEnabled && cache.has(path)) {
             const cached = cache.get(path)!
             if (cached.mtimeMs === fileStat.mtimeMs) {
+              if (disabled.has(cached.candidate.name)) continue
               if (seen.has(cached.candidate.name)) {
                 logger.warn('[cfbridge] skip ' + path + ': duplicate skill name ' + cached.candidate.name)
                 continue
               }
               seen.add(cached.candidate.name)
-              candidates.push(cached.candidate)
+              candidates.push(project(cached.candidate))
               continue
             }
           }
@@ -276,6 +404,7 @@ export function createProviderForTest(
             cache.delete(path)
             continue
           }
+          if (disabled.has(candidate.name)) continue
           if (seen.has(candidate.name)) {
             logger.warn('[cfbridge] skip ' + path + ': duplicate skill name ' + candidate.name)
             continue
@@ -284,7 +413,7 @@ export function createProviderForTest(
           if (cacheEnabled) {
             cache.set(path, { mtimeMs: fileStat.mtimeMs, candidate })
           }
-          candidates.push(candidate)
+          candidates.push(project(candidate))
         } catch (error) {
           if (isAbortError(error)) throw error
           cache.delete(path)
@@ -295,6 +424,8 @@ export function createProviderForTest(
     },
     async get(candidate, options = {}) {
       throwIfAborted(options)
+      // 关闭名单在加载阶段同样生效：调用方拿着关闭前的旧候选取正文时不放行。
+      if (disabled.has(candidate.name)) return undefined
       const locator = locatorOf(candidate)
       if (locator === undefined) return undefined
       let raw: string
@@ -322,8 +453,13 @@ export function createProviderForTest(
         return undefined
       }
       if (definition === undefined || definition.name !== candidate.name) return undefined
+      // 与 list() 同一份隐藏名单：调用方拿着关闭前的旧候选取正文时不放行。
       return {
         ...definition,
+        invocation: {
+          modelInvocable: definition.invocation.modelInvocable && !modelHidden.has(definition.name),
+          userInvocable: definition.invocation.userInvocable && !userHidden.has(definition.name),
+        },
         content: parsed.body.trim(),
       } as SkillDefinition
     },
@@ -345,11 +481,19 @@ export function apply(ctx: Context, config: Config = {
   const skillDir = resolveSkillDir(config.skillDir)
   const rank = config.rank ?? PROVIDER_RANK
   const cacheEnabled = config.cache ?? true
+  // 去重并丢弃空串：配置由 UI 写回，脏值不应变成一次真实比对。
+  const disabledSkills = readStringListConfig(config.disabledSkills)
+  const hiddenSkills: SkillVisibility = {
+    model: readStringListConfig(config.modelHiddenSkills),
+    user: readStringListConfig(config.userHiddenSkills),
+  }
   ctx.effect(() => {
     // 失效入口：宿主注册层（dsh-skill registry）与 watcher 共用。
     // 宿主侧 invalidate() 会清 registry 的 collectCache 并广播 skills/change；
     // provider.invalidate() 负责清 provider 自身的 mtime 缓存。
     let invalidateCatalog: () => void = () => {}
+    // 当前活着的 provider，供 /cfbridge 命令在运行时改关闭名单。
+    let liveProvider: MutableSkillProvider | undefined
     const disposeProvider = ctx.skills.registerProvider((control) => {
       const provider = createProviderForTest(
         skillDir,
@@ -358,7 +502,10 @@ export function apply(ctx: Context, config: Config = {
         rank,
         cacheEnabled,
         control.invalidate,
+        disabledSkills,
+        hiddenSkills,
       )
+      liveProvider = provider
       // 闭包捕获安全：provider 只持有 control.invalidate 这一个函数引用，
       // 宿主对已 dispose 的注册调用 invalidate 按 dsh-skill 契约是 no-op（不会抛错），
       // 因此 watcher 在卸载竞态窗口内触发也不会崩，仅是一次空刷新。
@@ -385,13 +532,138 @@ export function apply(ctx: Context, config: Config = {
       }
     }
 
+    // 把发现到的技能清单写回设置面一次，供面板逐个渲染技能。
+    // 技能目录在启动时即确定，所以这里只做一次性发布；清单没变就不写，
+    // 避免无谓地触发 profile 重载。写入走宿主官方 settings 面，不自己碰文件。
+    let published = false
+    const publishSkillNames = async (): Promise<void> => {
+      if (published) return
+      const provider = liveProvider
+      const settings = typeof ctx.get === 'function' ? ctx.get('settings') : undefined
+      if (provider === undefined || settings === undefined || typeof settings.describe !== 'function') return
+      let names: string[]
+      try {
+        const listed = await provider.list({})
+        // list() 有两种合法返回：直接给候选数组，或带上 complete 标记的观测对象。
+        // readonly 数组让 Array.isArray 收窄不彻底，因此显式判形状。
+        const candidates: readonly SkillCandidate[] =
+          Array.isArray(listed) ? listed : (listed as { candidates: readonly SkillCandidate[] }).candidates
+        names = candidates.map((candidate: SkillCandidate) => candidate.name).sort()
+      } catch {
+        return
+      }
+      const view = settings
+        .describe({ redactSecrets: true })
+        .find((entry: { ns: string }) => entry.ns === providerName)
+      const current: unknown = view?.user?.availableSkills
+      if (Array.isArray(current) && current.length === names.length
+        && current.every((v: unknown, i: number) => v === names[i])) {
+        published = true
+        return
+      }
+      try {
+        await settings.update(providerName, { availableSkills: names })
+        published = true
+      } catch (error) {
+        // 发布失败不该影响技能本身可用：面板少一份展示数据而已，记一笔就够。
+        ctx.logger.debug?.('[cfbridge] 技能清单发布失败: ' + loggerMessage(error))
+      }
+    }
+
+    // 宿主命令面：/cfbridge 让用户在不重载插件的前提下开关技能。
+    // Provider 就在同一进程里，所以这里直连它的可变名单，
+    // 改完走 control.invalidate() 让 registry 重新收集目录。
+    //
+    // 三个维度各自独立：disable 完全关闭；hide-model / hide-user 只关一个消费面。
+    // 持久化由设置面负责（面板写入 volatile 字段），命令只改运行时内存态 ——
+    // 它是即时的调试与应急入口，重启后以配置里的名单为准。
+    const commands = typeof ctx.get === 'function' ? ctx.get('commands') : undefined
+    const disposeCommand = commands === undefined ? () => {} : commands.register({
+      name: 'cfbridge',
+      description: '开关 Cloudflare 技能（list / enable / disable / hide-model / hide-user）',
+      input: { hint: 'list | enable <s> | disable <s> | hide-model <s> | show-model <s> | hide-user <s> | show-user <s>' },
+      handler: (invocation: { rawInput?: string }) => {
+        const provider = liveProvider
+        if (provider === undefined) return { kind: 'error', text: 'cfbridge Provider 尚未就绪' }
+        const [action, ...rest] = String(invocation.rawInput ?? '').trim().split(/\s+/)
+        const target = rest[0]
+        const fail = (): { kind: 'error'; text: string } => ({
+          kind: 'error',
+          text: '用法：/cfbridge <enable|disable|hide-model|show-model|hide-user|show-user> <skill>',
+        })
+        const disabled = new Set(provider.disabledSkillNames())
+        const hidden = provider.hiddenSkillNames()
+        const modelHidden = new Set(hidden.model)
+        const userHidden = new Set(hidden.user)
+        if (target === undefined) {
+          if (action !== 'list') return fail()
+          const off = [...disabled]
+          return {
+            kind: 'text',
+            text: off.length === 0
+              ? '技能全部开启（模型与人类均可调用）'
+              : '已关闭：' + off.join(', '),
+          }
+        }
+        switch (action) {
+          case 'enable':
+            disabled.delete(target)
+            modelHidden.delete(target)
+            userHidden.delete(target)
+            provider.setDisabledSkills([...disabled])
+            provider.setHiddenSkills({ model: [...modelHidden], user: [...userHidden] })
+            break
+          case 'disable':
+            disabled.add(target)
+            break
+          case 'hide-model':
+            modelHidden.add(target)
+            break
+          case 'show-model':
+            modelHidden.delete(target)
+            break
+          case 'hide-user':
+            userHidden.add(target)
+            break
+          case 'show-user':
+            userHidden.delete(target)
+            break
+          default:
+            return fail()
+        }
+        invalidateCatalog()
+        const label: Record<string, string> = {
+          enable: '已开启',
+          disable: '已关闭',
+          'hide-model': '已对模型隐藏',
+          'show-model': '已对模型开放',
+          'hide-user': '已对人类隐藏',
+          'show-user': '已对人类开放',
+        }
+        return { kind: 'text', text: label[action] + ' ' + target }
+      },
+    })
+
+    void publishSkillNames()
+
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer)
       if (watcher && typeof watcher.close === 'function') watcher.close()
+      disposeCommand()
       disposeListener()
       disposeProvider()
     }
   })
+
+  // 宿主侧设置页：让「插件」页认可本 bundle 有一块自己的配置面。
+  // 这一步不是可选的装饰 —— 客户端的 plugins.bundle.config 插槽只在宿主
+  // 为某个 namespace 提供了配置表单时才会被声明和渲染（见 dsh-context 的同款做法）。
+  // 用可选调用是因为精简的宿主替身（测试里的 fake ctx）可能没有 settings / get()。
+  const settings = typeof ctx.get === 'function' ? ctx.get('settings') : undefined
+  if (settings !== undefined && typeof settings.configure === 'function') {
+    ctx.effect(() => settings.configure({ auto: true }), 'cfbridge: settings page')
+  }
+
 }
 
 export default { name, inject, Config, apply }

@@ -29,12 +29,17 @@
     ".": {
       "types": "./lib/cfbridge.d.ts",
       "default": "./lib/cfbridge.js"
-    }
+    },
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "cordis.patch.yml",
     "lib/",
     "skills/",
+    "locale/",
+    "icon.svg",
     "README.md",
     "LICENSE",
     ".env.example"
@@ -47,7 +52,8 @@
     "yaml": "^2.8.1"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/build-client.js",
+    "build:client": "node scripts/build-client.js",
     "typecheck": "tsc --noEmit",
     "prepare": "npm run build",
     "prepack": "npm run build",
@@ -80,8 +86,15 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-primitives"
+      ]
     }
   },
+  "icon": "./icon.svg",
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
     "@deepseek-ai/dsh-skill": "^0.0.1-rc.5",

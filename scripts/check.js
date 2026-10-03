@@ -81,7 +81,9 @@ if (patchText) {
 const providerSource = readText(path.join(ROOT, 'src', 'cfbridge.ts'))
 check('src/cfbridge.ts exists', fileExists(path.join(ROOT, 'src', 'cfbridge.ts')))
 if (providerSource) {
-  check('Provider injects skills', /inject\s*=\s*\['skills'\]/.test(providerSource))
+  // 断言「inject 里声明了 skills」，而不是等于精确串 ['skills']：
+  // settings 也是真实依赖（技能清单要发布到设置面），后续再加依赖不该让门禁误报。
+  check('Provider injects skills', /inject\s*=\s*\[[^\]]*'skills'[^\]]*\]/.test(providerSource))
   check('Provider registers through registerProvider', /ctx\.skills\.registerProvider/.test(providerSource))
   check('Provider uses rank 550', /PROVIDER_RANK\s*=\s*550/.test(providerSource))
 }
