@@ -11,7 +11,7 @@ const entries = patch.flatMap((item) => item.insert ?? [])
 
 test('bundle exposes package identity and built entry', () => {
   assert.equal(pkg.name, '@wenaixi/cfbridge')
-  assert.equal(pkg.version, '0.10.0')
+  assert.equal(pkg.version, '0.10.1')
   assert.equal(pkg.type, 'module')
   assert.equal(pkg.main, 'lib/cfbridge.js')
   assert.equal(pkg.exports['.'].default, './lib/cfbridge.js')

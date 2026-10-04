@@ -1,3 +1,14 @@
+## 0.10.1 — 2026-10-04
+- **fix(client)**: 修复技能开关的投影缺陷。`disabledSkills` 的语义是「模型与人类都关」，不是一个独立的第三字段；原实现把它当成独立字段参与合成，于是在历史落盘形态（技能只在 `disabledSkills` 里、两个 hidden 名单为空）下，只打开其中一个开关会连带把另一轴静默打开——用户没碰过的开关自己变了。改为先由 `disabledSkills` 还原两轴的真实开合状态，只翻转被点击的那一轴，再按「两轴都关则升级为 `disabledSkills`、否则用对应 hidden 名单」重新合成，并把同一事实的双重来源归一（两轴都关时从两个 hidden 列表移除该技能）。
+- **test(client)**: 新增 `tests/client-panel.test.mjs`，用 Node `vm` 执行真实构建产物 `lib/client.js`，穿过真实 `plugins.row.config` 注册与真实 `Switch.onChange` 驱动面板，断言 `form.mutate` 收到的三个字段投影与 revision 栅栏。模型轴与人类轴各有独立用例（评审实测发现只测一轴时，另一轴的镜像变异可以全绿存活）。每条断言均做破坏实测确认会红。
+- **fix(scripts)**: `wrangler.js` 此前在无 `CLOUDFLARE_API_TOKEN` 时拦截**所有**命令，包括 `--version` 这类纯本地探测，使综合套件在无凭据的 CI 上必然失败。改为只对需要访问 Cloudflare 的命令要求 Token，并按**首个位置参数**判定——用 `some()` 扫描全部参数会让 `whoami --version`、`deploy --help` 这类命令顺带绕过凭据检查（评审实测确认）。
+- **test(scripts)**: 新增 `tests/wrangler-entry.test.mjs`，锁定「无 Token 时 `--version` 必须可用」与「首参数是真实子命令时无论附带什么 flag 都必须被拦下」两条契约。
+- **ci**: CI 与 Release 此前各自跑 `check` + `validate:bundle` + best-effort `test:wrangler`，**从不调用既有综合套件**——类型检查与四个测试文件只在本地跑。两者改为统一调用 `npm test`（唯一验证入口），保留 `npm ci`、`npm pack --dry-run` 与 Release 的 tag 版本校验；原先被 `|| echo` 吞掉所有失败的 Wrangler 步骤随之退场。
+- **test(ci)**: 新增 `tests/workflow-gate.test.mjs`，解析两个 workflow 的真实结构，断言 `npm test` 已接入、零散 check/validate 步骤不再重复、pack 与 tag 校验仍然保留。该断言本身做过破坏实测：把 CI 改回只跑 `npm run check`，它会红。
+- **refactor(scripts)**: 抽出 `scripts/lib/skill-metadata.js`，让 `validate-bundle.js` 与 `tests/bundle-metadata.test.mjs` 共用同一份 SKILL.md 索引元数据判定，消除同一语义两处各写一份。同时修正该判定比契约更严之处：它此前要求注释块后紧跟 `\n` 且 BOM 只能在文件最开头，而 vendored 快照的真实头部是「注释块 + CRLF + BOM + 注释块」交替，导致本地（CRLF）与 Linux checkout（LF）行为分裂。已实测两种行尾下 14 个技能全部通过。
+- **chore(gate)**: 门禁基线更新为 `npm test` 13/13、`check.js` 85/85、`validate-bundle.js --strict-router` 98/98。
+- **核实结论（明确不做）**: `MutableSkillProvider` 的四个名单方法与 `SkillRuntime.current()` 在当前代码里没有仓内调用者，但它们是**已发布类型**（v0.8.0 / v0.9.0 / v0.10.0 的 `lib/cfbridge.d.ts` 都公开了该返回类型与方法），删除属 breaking change；且 `current()` 由 CLAUDE.md 明文裁定为对外暴露面。故保留行为，只更新因 `/cfbridge` 命令移除而过时的注释。
+
 ## 0.10.0 — 2026-10-04
 - **feat(ui)**: 插件配置面板的每个技能行改为显示一句人类可读的简介（中文界面中文、英文界面英文），取代此前只显示 `skills/<目录名>` 的无信息量路径。不直接复用 `SKILL.md` 的 frontmatter description——那是面向模型的触发说明（实测英文 160–551 字符），塞进面板既长又难读；改为在客户端维护一份短简介表，只负责把名字翻译成人话，不参与技能发现。未登记简介的技能回退显示目录名。语言探测不新增宿主依赖（用一个已注册 key 作哨兵比较 `t()` 返回值）。
 - **feat(icon)**: 插件图标替换。旧图标是手写的「深色圆角底 + 白描边云 + 橙色闪电」SVG；新图标以 Cloudflare 官方 Logo 作参考图、经 gpt-image-2 的 edits 端点生成，产出「官方云形态 + 底部负形桥」的标志——延续 Cloudflare 的视觉血统，同时用桥的负形做出自身身份。规格 512×512 PNG、真透明底、86 KB（宿主上限 256 KiB）。`icon.svg` 已删除，`package.json` 的 `icon` / `files[]` 与 `validate-bundle.js` 断言同步。
