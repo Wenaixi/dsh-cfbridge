@@ -119,3 +119,5 @@ junit.xml
 # CLAUDE.md 是本项目的本地记忆库，含本机验证记录与演进笔记，仅保留在本地。
 CLAUDE.md
 
+# GitHub CLI 设备认证本地状态（gh 自动生成）
+.local/
