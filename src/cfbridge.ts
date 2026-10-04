@@ -325,7 +325,7 @@ export function projectInvocation<T extends { name: string; invocation: SkillInv
   }
 }
 
-/** Provider 额外暴露给宿主控制面的运行时开关（设置面板与 /cfbridge 命令共用）。 */
+/** Provider 额外暴露给宿主控制面的运行时开关（设置面板消费）。 */
 export interface MutableSkillProvider extends SkillProvider {
   invalidate(): void
   setDisabledSkills(names: readonly string[]): void
@@ -375,11 +375,11 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
   } = options
   const root = resolve(skillDir)
   // 关闭名单在 list() 的最早位置生效：候选不进入结果，等同该技能不存在。
-  // 用可变 Set（而非拷贝快照）承载：宿主侧命令可以在不重载插件的前提下改它，
+  // 用可变 Set（而非拷贝快照）承载：宿主控制面可以在不重载插件的前提下改它，
   // 改完调 invalidate() 让目录失效，下一次 list() 就按新名单过滤。
   const disabled = new Set(disabledSkills)
   // 两个方向独立的隐藏名单：不给模型 ≠ 不给人。
-  // 用可变 Set 承载，宿主命令可在运行中替换，改完调 invalidate()。
+  // 用可变 Set 承载，宿主控制面可在运行中替换，改完调 invalidate()。
   const modelHidden = new Set(hiddenSkills.model ?? [])
   const userHidden = new Set(hiddenSkills.user ?? [])
   type CacheEntry = { mtimeMs: number; candidate: SkillCandidate }
@@ -531,7 +531,7 @@ function resolveSkillDir(configured: string | undefined): string {
  * 技能运行时：把「当前活着的 Provider」与「失效入口」这两根共享线封装在内部。
  *
  * 拆解 apply() 之前，这两根线是裸的闭包变量，被三条互不相关的效果同时读写
- * （watcher 去抖回调、/cfbridge 命令、清单发布），于是想改其中一条效果就必须
+ * （watcher 去抖回调、技能清单发布），于是想改其中一条效果就必须
  * 先读懂另外两条。收敛到这里之后，各效果只面对下面几个方法。
  *
  * 宿主注册与失效的时序契约（不变）：

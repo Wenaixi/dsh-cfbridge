@@ -89,7 +89,7 @@ export declare function projectInvocation<T extends {
     name: string;
     invocation: SkillInvocationPolicy;
 }>(item: T, hidden: VisibilitySets): T;
-/** Provider 额外暴露给宿主控制面的运行时开关（设置面板与 /cfbridge 命令共用）。 */
+/** Provider 额外暴露给宿主控制面的运行时开关（设置面板消费）。 */
 export interface MutableSkillProvider extends SkillProvider {
     invalidate(): void;
     setDisabledSkills(names: readonly string[]): void;
@@ -129,7 +129,7 @@ export declare function createSkillProvider(options: SkillProviderOptions): Muta
  * 技能运行时：把「当前活着的 Provider」与「失效入口」这两根共享线封装在内部。
  *
  * 拆解 apply() 之前，这两根线是裸的闭包变量，被三条互不相关的效果同时读写
- * （watcher 去抖回调、/cfbridge 命令、清单发布），于是想改其中一条效果就必须
+ * （watcher 去抖回调、技能清单发布），于是想改其中一条效果就必须
  * 先读懂另外两条。收敛到这里之后，各效果只面对下面几个方法。
  *
  * 宿主注册与失效的时序契约（不变）：
