@@ -3,6 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const { ROOT, readText, readJson, fileExists, collectFiles, hasTokenLeak } = require('./lib/fs')
 const { verifyProviderContract } = require('./lib/provider-contract')
+const { hasIndexFrontmatter } = require('./lib/skill-metadata')
 const results = []
 
 function pass(name, detail) { results.push({ ok: true, name, detail: detail || '' }) }
@@ -112,18 +113,8 @@ async function main() {
 
   const { ALL_SKILLS: skills } = require('./lib/skills')
   for (const skill of skills) checkFile(path.join(ROOT, 'skills', skill, 'SKILL.md'), 'skills/' + skill + '/SKILL.md exists')
-  const allSkillMetadata = skills.every((skill) => {
-    const text = readText(path.join(ROOT, 'skills', skill, 'SKILL.md'))
-    const marker = text.indexOf('---')
-    if (marker < 0) return false
-    const preamble = text.slice(0, marker).replace(/\ufeff/g, '')
-    const opening = preamble.trim() === '' || preamble.split('\n').every((line) => line.trim() === '' || line.trim().startsWith('<!--') || line.trim().endsWith('-->'))
-    const frontmatter = text.slice(marker)
-    const nameMatch = /^name:\s*(.+?)\s*$/m.exec(frontmatter)
-    const name = nameMatch?.[1].trim() === skill
-    const description = /^description:\s*.+$/m.test(frontmatter)
-    return opening && name && description
-  })
+  const allSkillMetadata = skills.every((skill) =>
+    hasIndexFrontmatter(readText(path.join(ROOT, 'skills', skill, 'SKILL.md')), skill))
   if (allSkillMetadata) pass('all 14 skill files satisfy index metadata')
   else fail('all 14 skill files satisfy index metadata', 'name mismatch or missing frontmatter')
   if (!fs.existsSync(path.join(ROOT, 'src')) || !fs.readdirSync(path.join(ROOT, 'src')).some((file) => file.endsWith('-skill.js'))) pass('legacy skill wrappers removed')

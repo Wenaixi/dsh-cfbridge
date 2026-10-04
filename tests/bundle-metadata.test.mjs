@@ -29,14 +29,33 @@ test('patch mounts provider by package name', () => {
   assert.equal(patchText.includes('cfbridge-skill'), false)
 })
 
+// 判定规则来自 scripts/lib/skill-metadata.js —— 与结构门禁共用同一条契约，
+// 避免同一语义在两处各写一份、各自漂移。
+const { hasIndexFrontmatter } = createRequire(import.meta.url)('../scripts/lib/skill-metadata.js')
+
 test('all bundled skills have frontmatter', async () => {
   const { ALL_SKILLS: skills } = createRequire(import.meta.url)('../scripts/lib/skills.js')
   for (const skill of skills) {
     const text = await readFile(new URL('../skills/' + skill + '/SKILL.md', import.meta.url), 'utf8')
-    assert.match(text, /^(?:<!--.*-->\n|\ufeff?\s*)*---\r?\n/)
-    assert.match(text, new RegExp('^name: ' + skill + '$', 'm'))
-    assert.match(text, /^description:\s*.+$/m)
+    assert.ok(hasIndexFrontmatter(text, skill), skill + '/SKILL.md 的元数据不满足索引契约')
   }
+})
+
+test('frontmatter check still rejects a body that leaks before the delimiter', () => {
+  // 这个 fixture 必须是「注释块之后、分隔符之前夹了一行正文」，
+  // 才能同时压住 opening 判定。若只用 '# heading\n---'，marker 会落在正文之后，
+  // 断言退化成只测 opening 的一半，删掉 name/description 校验也依然为真。
+  const leaked = '<!-- vendored -->\n# Real heading\n---\nname: leaked\ndescription: x\n---\n'
+  assert.equal(hasIndexFrontmatter(leaked, 'leaked'), false, '正文抢先出现必须判失败')
+
+  // 逐项压住三半契约：缺 name、name 不符、缺 description 都必须为假。
+  assert.equal(hasIndexFrontmatter('---\ndescription: x\n---\n', 'ok'), false, '缺 name 必须失败')
+  assert.equal(hasIndexFrontmatter('---\nname: other\ndescription: x\n---\n', 'ok'), false, 'name 不符必须失败')
+  assert.equal(hasIndexFrontmatter('---\nname: ok\n---\n', 'ok'), false, '缺 description 必须失败')
+
+  // 正例：真实 vendored 头部形态（注释块 + BOM + CRLF）必须通过。
+  const vendored = '<!-- a -->\r\n\ufeff<!-- b -->\r\n---\r\nname: ok\r\ndescription: y\r\n---\r\n'
+  assert.equal(hasIndexFrontmatter(vendored, 'ok'), true, '合法的 vendored 头部必须通过')
 })
 
 test('each bundled skill has a human-readable summary in both languages', async () => {
