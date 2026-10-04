@@ -9,6 +9,7 @@
 - **chore(gate)**: 门禁基线更新为 `npm test` 13/13、`check.js` 85/85、`validate-bundle.js --strict-router` 98/98。
 - **核实结论（明确不做）**: `MutableSkillProvider` 的四个名单方法与 `SkillRuntime.current()` 在当前代码里没有仓内调用者，但它们是**已发布类型**（v0.8.0 / v0.9.0 / v0.10.0 的 `lib/cfbridge.d.ts` 都公开了该返回类型与方法），删除属 breaking change；且 `current()` 由 CLAUDE.md 明文裁定为对外暴露面。故保留行为，只更新因 `/cfbridge` 命令移除而过时的注释。
 
+- **docs**: 移除 skills/cfbridge/SKILL.md 中残留的 `/cfbridge` 斜杠命令指引（第 36/42/249 行）。该命令于 0.10.0 移除（commit 64df76b）时同步了 README 与客户端文案，唯独漏改技能本体文档——它是随 npm 包发布的模型可读操作指南，会教模型调用不存在的命令。顺手清理 src/cfbridge.ts 四处过时注释（328/378/382/534）与 README 验证节的过期门禁计数（76/86 → 无计数，数字会随断言数漂移）；README 维护节「四组行为测试」修正为七个行为测试文件。门禁 `npm test` 13/13、check 84/84、validate 98/98 全绿。
 ## 0.10.0 — 2026-10-04
 - **feat(ui)**: 插件配置面板的每个技能行改为显示一句人类可读的简介（中文界面中文、英文界面英文），取代此前只显示 `skills/<目录名>` 的无信息量路径。不直接复用 `SKILL.md` 的 frontmatter description——那是面向模型的触发说明（实测英文 160–551 字符），塞进面板既长又难读；改为在客户端维护一份短简介表，只负责把名字翻译成人话，不参与技能发现。未登记简介的技能回退显示目录名。语言探测不新增宿主依赖（用一个已注册 key 作哨兵比较 `t()` 返回值）。
 - **feat(icon)**: 插件图标替换。旧图标是手写的「深色圆角底 + 白描边云 + 橙色闪电」SVG；新图标以 Cloudflare 官方 Logo 作参考图、经 gpt-image-2 的 edits 端点生成，产出「官方云形态 + 底部负形桥」的标志——延续 Cloudflare 的视觉血统，同时用桥的负形做出自身身份。规格 512×512 PNG、真透明底、86 KB（宿主上限 256 KiB）。`icon.svg` 已删除，`package.json` 的 `icon` / `files[]` 与 `validate-bundle.js` 断言同步。
