@@ -1,3 +1,8 @@
+## 0.10.2 — 2026-10-04
+- **docs**: 移除 skills/cfbridge/SKILL.md 中残留的 `/cfbridge` 斜杠命令指引（第 36/42/249 行）。该命令于 0.10.0 移除（commit 64df76b）时同步了 README 与客户端文案，唯独漏改技能本体文档——它是随 npm 包发布的模型可读操作指南，会教模型调用不存在的命令。
+- **refactor(provider)**: 清理 `src/cfbridge.ts` 移除 `/cfbridge` 命令后残留的四处过时注释（328/378/382/534 行附近），改为中性表述（宿主控制面 / 技能清单发布）。仅注释改动，无行为变化。
+- **docs**: README 验证节删除会随门禁断言数漂移的过期计数（76/86 → 无计数）；维护节「四组行为测试」修正为七个行为测试文件（`scripts/test.js` 实况）。
+- **docs(changelog)**: 注明 check 门禁计数随环境（本机 web profile 装 bundle 时 85/85，CI/干净环境 84/84，两边均 0 失败）。
 ## 0.10.1 — 2026-10-04
 - **fix(client)**: 修复技能开关的投影缺陷。`disabledSkills` 的语义是「模型与人类都关」，不是一个独立的第三字段；原实现把它当成独立字段参与合成，于是在历史落盘形态（技能只在 `disabledSkills` 里、两个 hidden 名单为空）下，只打开其中一个开关会连带把另一轴静默打开——用户没碰过的开关自己变了。改为先由 `disabledSkills` 还原两轴的真实开合状态，只翻转被点击的那一轴，再按「两轴都关则升级为 `disabledSkills`、否则用对应 hidden 名单」重新合成，并把同一事实的双重来源归一（两轴都关时从两个 hidden 列表移除该技能）。
 - **test(client)**: 新增 `tests/client-panel.test.mjs`，用 Node `vm` 执行真实构建产物 `lib/client.js`，穿过真实 `plugins.row.config` 注册与真实 `Switch.onChange` 驱动面板，断言 `form.mutate` 收到的三个字段投影与 revision 栅栏。模型轴与人类轴各有独立用例（评审实测发现只测一轴时，另一轴的镜像变异可以全绿存活）。每条断言均做破坏实测确认会红。
@@ -9,7 +14,7 @@
 - **chore(gate)**: 门禁基线更新为 `npm test` 13/13、`check.js` 85/85、`validate-bundle.js --strict-router` 98/98。
 - **核实结论（明确不做）**: `MutableSkillProvider` 的四个名单方法与 `SkillRuntime.current()` 在当前代码里没有仓内调用者，但它们是**已发布类型**（v0.8.0 / v0.9.0 / v0.10.0 的 `lib/cfbridge.d.ts` 都公开了该返回类型与方法），删除属 breaking change；且 `current()` 由 CLAUDE.md 明文裁定为对外暴露面。故保留行为，只更新因 `/cfbridge` 命令移除而过时的注释。
 
-- **docs**: 移除 skills/cfbridge/SKILL.md 中残留的 `/cfbridge` 斜杠命令指引（第 36/42/249 行）。该命令于 0.10.0 移除（commit 64df76b）时同步了 README 与客户端文案，唯独漏改技能本体文档——它是随 npm 包发布的模型可读操作指南，会教模型调用不存在的命令。顺手清理 src/cfbridge.ts 四处过时注释（328/378/382/534）与 README 验证节的过期门禁计数（76/86 → 无计数，数字会随断言数漂移）；README 维护节「四组行为测试」修正为七个行为测试文件。门禁 `npm test` 13/13、check 85/85（本机）或 84/84（CI，无 web profile）、validate 98/98 全绿。
+
 ## 0.10.0 — 2026-10-04
 - **feat(ui)**: 插件配置面板的每个技能行改为显示一句人类可读的简介（中文界面中文、英文界面英文），取代此前只显示 `skills/<目录名>` 的无信息量路径。不直接复用 `SKILL.md` 的 frontmatter description——那是面向模型的触发说明（实测英文 160–551 字符），塞进面板既长又难读；改为在客户端维护一份短简介表，只负责把名字翻译成人话，不参与技能发现。未登记简介的技能回退显示目录名。语言探测不新增宿主依赖（用一个已注册 key 作哨兵比较 `t()` 返回值）。
 - **feat(icon)**: 插件图标替换。旧图标是手写的「深色圆角底 + 白描边云 + 橙色闪电」SVG；新图标以 Cloudflare 官方 Logo 作参考图、经 gpt-image-2 的 edits 端点生成，产出「官方云形态 + 底部负形桥」的标志——延续 Cloudflare 的视觉血统，同时用桥的负形做出自身身份。规格 512×512 PNG、真透明底、86 KB（宿主上限 256 KiB）。`icon.svg` 已删除，`package.json` 的 `icon` / `files[]` 与 `validate-bundle.js` 断言同步。
