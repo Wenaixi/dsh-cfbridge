@@ -660,9 +660,11 @@ async function publishSkillCatalog(
   settings: SettingsRuntime | undefined,
   runtime: SkillRuntime,
   providerName: string,
+  isActive: () => boolean = () => true,
 ): Promise<void> {
   if (settings === undefined || typeof settings.describe !== 'function') return
   const names = await runtime.listNames()
+  if (!isActive()) return
   const view = settings
     .describe({ redactSecrets: true })
     .find((entry) => entry.ns === providerName)
@@ -714,7 +716,7 @@ export function apply(ctx: Context, config: Config = {
       try {
         do {
           pending = false
-          if (!disposed) await publishSkillCatalog(ctx, settings, runtime, providerName)
+          if (!disposed) await publishSkillCatalog(ctx, settings, runtime, providerName, () => !disposed)
         } while (pending && !disposed)
       } finally {
         running = false

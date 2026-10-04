@@ -332,6 +332,9 @@ test('publishes the injected settings catalog and refreshes it after a watched s
         return () => {}
       },
     },
+    get() {
+      throw new Error('ctx.get must not be used for settings')
+    },
     on(_event, listener) {
       listeners.push(listener)
       return () => {
@@ -368,4 +371,51 @@ test('publishes the injected settings catalog and refreshes it after a watched s
   } finally {
     for (const dispose of disposers) dispose()
   }
+})
+
+
+test('does not publish after disposal while catalog discovery is pending', async () => {
+  const root = await fixture()
+  const updates = []
+  const listeners = []
+  const disposers = []
+  let releaseList
+  const listBlocked = new Promise((resolve) => { releaseList = resolve })
+  const settings = {
+    describe() { return [{ ns: 'cfbridge', user: { availableSkills: [] } }] },
+    update(ns, patch) { updates.push({ ns, patch }); return Promise.resolve() },
+    configure() { return () => {} },
+  }
+  const ctx = {
+    logger: { warn() {}, debug() {}, info() {} },
+    settings,
+    skills: {
+      registerProvider(factory) {
+        const provider = factory({
+          invalidate: () => listeners.forEach((listener) => listener()),
+          signal: new AbortController().signal,
+        })
+        const originalList = provider.list
+        provider.list = async (...args) => {
+          await listBlocked
+          return originalList(...args)
+        }
+        return () => {}
+      },
+    },
+    on(_event, listener) {
+      listeners.push(listener)
+      return () => {}
+    },
+    effect(fn) {
+      const dispose = fn()
+      disposers.push(dispose)
+      return dispose
+    },
+  }
+  apply(ctx, { skillDir: root, providerName: 'cfbridge' })
+  for (const dispose of disposers) dispose()
+  releaseList()
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(updates, [])
 })
