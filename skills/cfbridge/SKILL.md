@@ -33,13 +33,12 @@ whenToUse: 任何涉及 Cloudflare API 的请求都应先加载本 Skill；执�
 | 想达到的效果 | 怎么做 |
 | --- | --- |
 | 模型别自作主张调某个技能，但我自己还能用 | 关掉「模型」 |
-| 斜杠命令里别出现某个技能，但模型仍可调用 | 关掉「人类」 |
+| 面板上某技能人类不可调用，但模型仍可调用 | 关掉「人类」 |
 | 这个技能彻底不用了 | 两个都关 |
 
-三种做法，任选其一：
+两种做法，任选其一：
 
 - **图形界面（推荐）**：DSH → 「插件」→ Cloudflare 桥接 → `cfbridge` 行的「配置」，面板里逐个切换。
-- **斜杠命令**（临时调试，重启后失效）：`/cfbridge hide-model wrangler`、`/cfbridge hide-user wrangler`、`/cfbridge enable wrangler`。
 - **写配置**（持久生效）：在 profile 的 `cordis.patch.yml` 的 cfbridge 行写 `modelHiddenSkills` / `userHiddenSkills` / `disabledSkills`。
 
 ## 三工具速查
@@ -246,7 +245,7 @@ Wrangler 启动器（`scripts/wrangler.js`）优先读取当前进程的 `CLOUDF
 | `search` 无结果 | 关键词过窄；改用更宽泛的 `path.includes('xxx')` |
 | 模型猜测端点而不是 search | 不接受猜测结果；强制要求先 search |
 | 某个技能「不见了」 | 它可能被关掉了。去插件页 Cloudflare 桥接 → `cfbridge` 行的「配置」看开关状态；或检查配置里的 `disabledSkills` / `modelHiddenSkills` |
-| 斜杠命令里找不到某技能 | 只关了「人类」那一路。同上，把「人类」开关打开即可 |
+| 面板上某技能只对一侧可见 | 只开了「模型」或「人类」其中一个开关；去 cfbridge 行的「配置」打开另一侧 |
 
 ## 何时不要调用 Cloudflare
 
