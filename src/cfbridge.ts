@@ -640,25 +640,32 @@ function installSkillsWatcher(
   }]
 }
 
+interface SettingsRuntime {
+  describe(options?: { redactSecrets?: boolean }): Array<{
+    ns: string
+    user?: { availableSkills?: unknown }
+  }>
+  update(namespace: string, patch: { availableSkills: string[] }): Promise<unknown>
+  configure(options: { auto: boolean }): (() => void) | void
+}
+
 /**
  * 把发现到的技能清单写回设置面，供面板逐个渲染技能开关。
  *
- * 技能目录在启动时即确定，所以只做一次性发布；清单没变就不写，
- * 避免无谓地触发 profile 重载。写入走宿主官方 settings 面，不自己碰文件。
- * 发布失败不影响技能本身可用（面板少一份展示数据而已），记一笔即可。
+ * 清单发布使用已注入的 settings 实例。目录失效后由调用方重新排队，
+ * 发布过程串行化并只在清单变化时写入，避免旧异步结果覆盖新快照。
  */
 async function publishSkillCatalog(
   ctx: Context,
+  settings: SettingsRuntime | undefined,
   runtime: SkillRuntime,
   providerName: string,
 ): Promise<void> {
-  const settings = typeof ctx.get === 'function' ? ctx.get('settings') : undefined
   if (settings === undefined || typeof settings.describe !== 'function') return
   const names = await runtime.listNames()
-  if (names.length === 0) return
   const view = settings
     .describe({ redactSecrets: true })
-    .find((entry: { ns: string }) => entry.ns === providerName)
+    .find((entry) => entry.ns === providerName)
   const current: unknown = view?.user?.availableSkills
   if (Array.isArray(current) && current.length === names.length
     && current.every((v: unknown, i: number) => v === names[i])) {
@@ -688,31 +695,53 @@ export function apply(ctx: Context, config: Config = {
     model: readStringListConfig(config.modelHiddenSkills),
     user: readStringListConfig(config.userHiddenSkills),
   }
+  const settings = (ctx as Context & { settings?: SettingsRuntime }).settings
+
   // 每条效果各自安装、各自持有自己的清理函数，apply 只负责装配与收尾。
   ctx.effect(() => {
     const [runtime, disposeProvider] = installSkillRuntime(ctx, {
       skillDir, providerName, rank, cacheEnabled, disabledSkills, hiddenSkills,
     })
-    const disposeListener = ctx.on('skills/change', () => ctx.logger.debug?.('[cfbridge] skills catalog changed'))
+    let disposed = false
+    let pending = false
+    let running = false
+    const publish = async () => {
+      if (disposed || running) {
+        pending = true
+        return
+      }
+      running = true
+      try {
+        do {
+          pending = false
+          if (!disposed) await publishSkillCatalog(ctx, settings, runtime, providerName)
+        } while (pending && !disposed)
+      } finally {
+        running = false
+      }
+    }
+    const disposeListener = ctx.on('skills/change', () => {
+      ctx.logger.debug?.('[cfbridge] skills catalog changed')
+      pending = true
+      void publish()
+    })
     const [, disposeWatcher] = config.watchSkills
       ? installSkillsWatcher(ctx, skillDir, runtime)
       : [false, () => {}] as [boolean, () => void]
-    void publishSkillCatalog(ctx, runtime, providerName)
+    void publish()
 
     return () => {
+      disposed = true
+      pending = false
       disposeWatcher()
       disposeListener()
       disposeProvider()
     }
   })
 
-  // 宿主侧设置页：让「插件」页认可本 bundle 有一块自己的配置面。
-  // 这一步不是可选的装饰 —— 客户端的 plugins.bundle.config 插槽只在宿主
-  // 为某个 namespace 提供了配置表单时才会被声明和渲染（见 dsh-context 的同款做法）。
-  // 用可选调用是因为精简的宿主替身（测试里的 fake ctx）可能没有 settings / get()。
-  const settings = typeof ctx.get === 'function' ? ctx.get('settings') : undefined
+  // 宿主侧设置页：让「插件」页认可该 namespace 有配置面。
   if (settings !== undefined && typeof settings.configure === 'function') {
-    ctx.effect(() => settings.configure({ auto: true }), 'cfbridge: settings page')
+    ctx.effect(() => settings.configure({ auto: true }) ?? (() => {}), 'cfbridge: settings page')
   }
 }
 

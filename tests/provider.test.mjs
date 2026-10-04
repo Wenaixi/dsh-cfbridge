@@ -302,3 +302,70 @@ test('projectInvocation applies both visibility axes independently', async () =>
   assert.deepEqual(projectInvocation(alreadyOff, none).invocation,
     { modelInvocable: false, userInvocable: true })
 })
+
+test('publishes the injected settings catalog and refreshes it after a watched skill change', async () => {
+  const root = await fixture()
+  const updates = []
+  const listeners = []
+  const disposers = []
+  const settings = {
+    describe() {
+      return [{ ns: 'cfbridge', user: { availableSkills: ['alpha'] } }]
+    },
+    update(ns, patch) {
+      updates.push({ ns, patch: { ...patch } })
+      return Promise.resolve()
+    },
+    configure() {
+      return () => {}
+    },
+  }
+  const ctx = {
+    logger: { warn() {}, debug() {}, info() {} },
+    settings,
+    skills: {
+      registerProvider(factory) {
+        factory({
+          invalidate: () => listeners.forEach((listener) => listener()),
+          signal: new AbortController().signal,
+        })
+        return () => {}
+      },
+    },
+    on(_event, listener) {
+      listeners.push(listener)
+      return () => {
+        const index = listeners.indexOf(listener)
+        if (index >= 0) listeners.splice(index, 1)
+      }
+    },
+    effect(fn) {
+      const dispose = fn()
+      disposers.push(dispose)
+      return dispose
+    },
+  }
+  try {
+    apply(ctx, { skillDir: root, providerName: 'cfbridge', watchSkills: true })
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(updates, [])
+
+    await mkdir(join(root, 'beta'))
+    await writeFile(join(root, 'beta', 'SKILL.md'), '---\nname: beta\ndescription: Beta skill\n---\nBeta body\n')
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.ok(updates.some(({ patch }) => patch.availableSkills?.includes('beta')), 'catalog should include new skill')
+
+    await rm(join(root, 'alpha'), { recursive: true })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.ok(updates.some(({ patch }) => patch.availableSkills?.join(',') === 'beta'), 'catalog should remove deleted skill')
+
+    await rm(join(root, 'beta'), { recursive: true })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.ok(updates.some(({ patch }) => Array.isArray(patch.availableSkills) && patch.availableSkills.length === 0), 'catalog should publish empty state')
+  } finally {
+    for (const dispose of disposers) dispose()
+  }
+})
