@@ -34,6 +34,10 @@ const ROW_CONFIG_KEY = PACKAGE_NAME + '#' + ROW_ID
 // ---------------------------------------------------------------------------
 
 const zh = {
+  modeSection: '运行模式',
+  modeHint: '选择技能与 MCP 工具的加载范围。',
+  modeGlobal: '全局加载（所有会话可用）',
+  modePreset: 'cfbridge 模式（仅专属模式可用）',
   hostSection: '宿主组件',
   hostHint: '在「包含的组件」里可以逐行启用或停用。',
   skillSection: '技能开关',
@@ -49,6 +53,10 @@ const zh = {
 }
 
 const en = {
+  modeSection: 'Run Mode',
+  modeHint: 'Choose the loading scope for skills and MCP tools.',
+  modeGlobal: 'Global (Available in all sessions)',
+  modePreset: 'cfbridge Mode (Available only in cfbridge mode)',
   hostSection: 'Host components',
   hostHint: 'Enable or disable each one under "Included components".',
   skillSection: 'Skills',
@@ -306,12 +314,28 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
   const disabled = strArray(user.disabledSkills)
   const modelHidden = strArray(user.modelHiddenSkills)
   const userHidden = strArray(user.userHiddenSkills)
+  const rawLoadMode = user.loadMode
+  const loadMode: 'global' | 'preset' = rawLoadMode === 'preset' ? 'preset' : 'global'
   // 清单由 Host 侧 Provider 发现后发布（config.availableSkills），面板不自己扫目录。
   const names = strArray(state.value?.availableSkills)
   const skills = [...new Set([...names, ...disabled, ...modelHidden, ...userHidden])].sort()
   const writable = state.writable && state.status === 'ready'
   // 语言只探测一次，避免每行重复比较。
   const lang = detectLang(t)
+
+  const changeMode = (nextMode: 'global' | 'preset') => {
+    if (form === undefined || nextMode === loadMode) return
+    setBusy('loadMode')
+    setError(null)
+    form
+      .mutate(
+        [{ op: 'set', path: ['loadMode'], value: nextMode }],
+        state.revision,
+      )
+      .then((ok) => { if (!ok) setError(t('failed')) })
+      .catch((e: unknown) => setError(msg(e)))
+      .finally(() => setBusy(null))
+  }
 
   const toggle = (name: string, axis: 'model' | 'user', next: boolean) => {
     if (form === undefined) return
@@ -385,6 +409,71 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
           },
           t('readOnly'),
         ),
+
+    React.createElement(
+      'section',
+      { style: { marginTop: 12, marginBottom: 18 } },
+      head(t('modeSection'), t('modeHint')),
+      React.createElement(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            marginTop: 8,
+            padding: '12px 14px',
+            borderRadius: 'var(--dsw-radius-md, 6px)',
+            background: 'var(--dsw-alias-bg-layer-2)',
+            border: '0.5px solid var(--dsw-alias-border-l2)',
+          },
+        },
+        React.createElement(
+          'label',
+          {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: writable && busy === null ? 'pointer' : 'default',
+              fontSize: 13,
+            },
+          },
+          React.createElement('input', {
+            type: 'radio',
+            name: 'loadMode',
+            value: 'global',
+            checked: loadMode === 'global',
+            disabled: !writable || busy !== null,
+            onChange: () => changeMode('global'),
+            style: { cursor: 'pointer' },
+          }),
+          React.createElement('span', { style: { fontWeight: loadMode === 'global' ? 600 : 400 } }, t('modeGlobal')),
+        ),
+        React.createElement(
+          'label',
+          {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: writable && busy === null ? 'pointer' : 'default',
+              fontSize: 13,
+            },
+          },
+          React.createElement('input', {
+            type: 'radio',
+            name: 'loadMode',
+            value: 'preset',
+            checked: loadMode === 'preset',
+            disabled: !writable || busy !== null,
+            onChange: () => changeMode('preset'),
+            style: { cursor: 'pointer' },
+          }),
+          React.createElement('span', { style: { fontWeight: loadMode === 'preset' ? 600 : 400 } }, t('modePreset')),
+        ),
+      ),
+    ),
 
     React.createElement(
       'section',

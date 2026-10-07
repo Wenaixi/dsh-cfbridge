@@ -104,9 +104,10 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 | --- | --- | --- | --- |
 | `providerName` | string | `'cfbridge'` | Provider 注册标识符（禁止使用保留名 `'runtime'`） |
 | `skillDir` | string | 源码相对路径 | 技能目录绝对或相对路径（默认指向 bundle 内置 `skills/`） |
-| `rank` | number | `550` | 技能提供方排序权重（数值越大优先级越高） |
+| `rank` | number | `0` | 技能提供方排序权重（数值越小优先级越高，0 为最高优先级） |
 | `cache` | boolean | `true` | 是否启用基于文件 mtime 的技能元数据内存缓存 |
 | `watchSkills` | boolean | `false` | 是否开启技能目录递归变动监听（开发模式下自动广播 `skills/change` 触发热刷新） |
+| `loadMode` | string | `'global'` | 运行模式：`'global'` 全局加载，`'preset'` 仅在 cfbridge 模式下加载 |
 | `disabledSkills` | string[] | `[]` | **完全关闭**的技能：模型与人类都不可调用，等同该技能不存在 |
 | `modelHiddenSkills` | string[] | `[]` | **只不给模型**的技能：模型目录看不到，但人类仍可调用 |
 | `userHiddenSkills` | string[] | `[]` | **只不给人类**的技能：面板上人类不可调用，但模型仍可调用 |
@@ -133,7 +134,9 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 
 1. **插件** → 点 **Cloudflare 桥接** 卡片的「查看」，进入详情页。
 2. **组件开关**：详情页下方「包含的组件」里，`mcp-cloudflare` 与 `cfbridge` 两行各带一个开关，可单独停用其中一行（这是宿主原生能力）。
-3. **技能开关**：点 `cfbridge` 那一行的 **配置**，进入技能面板。每个技能有两个**独立**开关：
+3. **运行模式与技能开关**：点 `cfbridge` 那一行的 **配置**，进入面板：
+   - **运行模式**：顶部提供「全局加载」与「cfbridge 模式」单选切换。选择 cfbridge 模式时，宿主将注册专属模式，仅在该模式下加载 MCP 工具与技能，并预置操作与安全规范提示词；
+   - **技能开关**：下方每个技能提供两个**独立**开关：
 
 | 开关 | 关掉后的效果 |
 | --- | --- |

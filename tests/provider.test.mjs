@@ -51,7 +51,7 @@ test('Provider discovers metadata and loads body on demand', async () => {
     invocation: { modelInvocable: true, userInvocable: true },
     source: 'bundled',
     provider: 'cfbridge',
-    rank: 550,
+    rank: 0,
     locator: { path: join(root, 'alpha', 'SKILL.md'), directory: join(root, 'alpha') },
     resourceBase: { kind: 'directory', path: join(root, 'alpha') },
     path: join(root, 'alpha', 'SKILL.md'),
@@ -130,18 +130,47 @@ test('Provider handles hidden, missing, duplicate and invalid skills', async () 
   assert.equal(warnings.length, 3)
   assert.match(warnings.join('\n'), /missing|duplicate|frontmatter/)
 })
-test('Config schema accepts and defaults rank, cache, and watchSkills', async () => {
+test('Config schema accepts and defaults rank, cache, watchSkills, and loadMode', async () => {
   const { Config } = await import('../lib/cfbridge.js')
   const resolved = Config({})
   assert.equal(resolved.providerName, 'cfbridge')
-  assert.equal(resolved.rank, 550)
+  assert.equal(resolved.rank, 0)
   assert.equal(resolved.cache, true)
   assert.equal(resolved.watchSkills, false)
+  assert.equal(resolved.loadMode, 'global')
 
-  const custom = Config({ rank: 800, cache: false, watchSkills: true })
+  const custom = Config({ rank: 800, cache: false, watchSkills: true, loadMode: 'preset' })
   assert.equal(custom.rank, 800)
   assert.equal(custom.cache, false)
   assert.equal(custom.watchSkills, true)
+  assert.equal(custom.loadMode, 'preset')
+})
+
+test('Provider filters skills by preset scope when loadMode is preset', async () => {
+  const root = await fixture()
+  const agentPresets = {
+    composedPreset(scope) {
+      return scope === 'scope-cf' ? 'cfbridge' : 'standard'
+    },
+  }
+  const provider = createSkillProvider({
+    skillDir: root,
+    loadMode: 'preset',
+    agentPresets,
+  })
+
+  // scope-cf 属于 cfbridge 模式，正常返回技能
+  const cfSkills = await provider.list({ scope: 'scope-cf' })
+  assert.equal(cfSkills.length, 1)
+  assert.equal(cfSkills[0].name, 'alpha')
+
+  // scope-other 属于 standard 模式，不返回 Cloudflare 技能
+  const otherSkills = await provider.list({ scope: 'scope-other' })
+  assert.equal(otherSkills.length, 0)
+
+  // 无 scope 时（如设置面板扫描）正常返回
+  const generalSkills = await provider.list({})
+  assert.equal(generalSkills.length, 1)
 })
 test('Provider supports custom rank and reuses cached candidates when mtime is unchanged', async () => {
   const root = await fixture()

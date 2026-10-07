@@ -16,8 +16,10 @@ import type {
 
 const DEFAULT_PROVIDER_NAME = 'cfbridge'
 const RUNTIME_PROVIDER_NAME = 'runtime'
-const PROVIDER_RANK = 550
+const PROVIDER_RANK = 0
 const DEFAULT_SKILL_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'skills')
+
+export type LoadMode = 'global' | 'preset'
 
 export interface Config {
   providerName: string
@@ -25,6 +27,8 @@ export interface Config {
   rank?: number
   cache?: boolean
   watchSkills?: boolean
+  /** 运行模式：global 全局加载，preset 仅在 cfbridge 模式下加载。 */
+  loadMode?: LoadMode
   /** 被单独关闭的技能名列表；命中的技能不进入发现结果，等同不存在。 */
   disabledSkills?: string[]
   /** 不向模型开放的技能名列表；人类仍可调用。 */
@@ -57,6 +61,21 @@ function readStringListConfig(raw: unknown): string[] {
 }
 
 /**
+ * 把配置里的 loadMode 归一为 'global' 或 'preset'。
+ */
+function readLoadModeConfig(raw: unknown): LoadMode {
+  let value: unknown = raw
+  for (let i = 0; i < 4 && typeof value === 'function'; i += 1) {
+    try {
+      value = (value as () => unknown)()
+    } catch {
+      return 'global'
+    }
+  }
+  return value === 'preset' ? 'preset' : 'global'
+}
+
+/**
  * 把一处 schema 标记为 volatile：宿主设置面只允许写入 volatile 字段。
  * Schemastery 的 Meta 是可变对象，没有链式 setter，所以这里直接打标。
  */
@@ -68,9 +87,15 @@ function markVolatile<T>(schema: T): T {
 export const Config = Schema.object({
   providerName: Schema.string().default(DEFAULT_PROVIDER_NAME),
   skillDir: Schema.string().default(DEFAULT_SKILL_DIR),
-  rank: Schema.number().default(PROVIDER_RANK).description('Provider 优先级权重 (默认 550)'),
+  rank: Schema.number().default(PROVIDER_RANK).description('Provider 优先级权重 (默认 0，数值越小优先级越高)'),
   cache: Schema.boolean().default(true).description('是否开启基于 mtime 的元数据内存缓存'),
   watchSkills: Schema.boolean().default(false).description('是否在开发模式下监听技能文件变动'),
+  loadMode: markVolatile(
+    Schema.union([
+      Schema.const('global').description('全局加载（所有会话均可用 MCP 工具与技能）'),
+      Schema.const('preset').description('cfbridge 模式（仅专属模式加载 MCP 工具与技能）'),
+    ]).default('global').description('运行模式'),
+  ),
   // meta.volatile 是宿主 settings 通道的硬要求：只有被标记为 volatile 的字段
   // 才允许在运行时通过设置面写入（见 dsh-settings 的 volatileForm）。
   // 少了它，settings.update 会以 "has no volatile fields" 拒绝 —— 面板的
@@ -97,6 +122,26 @@ export const Config = Schema.object({
   ),
 
 }).description('@wenaixi/cfbridge Provider 配置')
+
+/**
+ * Cloudflare 专属模式预置提示词：自动注入操作规范、检索工作流与安全审批要求。
+ */
+export const CFBRIDGE_SYSTEM_INSTRUCTIONS = `# Cloudflare 专属操作规范与安全指南
+
+你正处于 Cloudflare 专属模式，已就绪 Cloudflare Code Mode MCP 工具与按需技能：
+
+1. **核心原则（search-then-execute）**：
+   - 不确定端点、数据结构或参数时，必须先使用 mcp__cloudflare__docs 或 mcp__cloudflare__search 检索确认，严禁臆测端点。
+   - 检索确认后再使用 mcp__cloudflare__execute 运行接口调用。
+
+2. **操作审批铁律**：
+   - 任何涉及写操作（POST、PUT、PATCH、DELETE）的请求，在执行前必须先明确告知用户你要做什么，并等待用户明确确认。
+
+3. **Wrangler 本地协同**：
+   - 本地开发、构建、离线脚手架和测试优先使用项目本地的 Wrangler CLI，与 MCP 运行时紧密协同。
+
+4. **按需技能参考**：
+   - 涉及特定产品（Workers, Pages, KV, D1, R2, Vectorize, Durable Objects, Agents SDK, Cloudflare One, Turnstile 等）时，按需调用对应技能获取最新规范与最佳实践。`;
 
 export const name = DEFAULT_PROVIDER_NAME
 // settings 必须进 inject：技能清单要在 apply 里发布到设置面，而可选取用
@@ -343,7 +388,7 @@ export interface SkillProviderOptions {
   providerName?: string
   /** 日志出口，默认 console。 */
   logger?: Logger
-  /** 发现优先级权重，默认 550。 */
+  /** 发现优先级权重，默认 0。 */
   rank?: number
   /** 是否启用基于 mtime 的元数据内存缓存，默认 true。 */
   cacheEnabled?: boolean
@@ -353,6 +398,10 @@ export interface SkillProviderOptions {
   disabledSkills?: readonly string[]
   /** 两个方向独立的隐藏名单，默认空。 */
   hiddenSkills?: SkillVisibility
+  /** 运行模式：global 全局加载，preset 仅在 cfbridge 模式下加载。 */
+  loadMode?: LoadMode
+  /** 智能体预设服务句柄，用于在 preset 模式下探测会话所属模式。 */
+  agentPresets?: { composedPreset?: (scope: unknown) => string | undefined }
 }
 
 /**
@@ -372,6 +421,8 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
     onInvalidate,
     disabledSkills = [],
     hiddenSkills = {},
+    loadMode = 'global',
+    agentPresets,
   } = options
   const root = resolve(skillDir)
   // 关闭名单在 list() 的最早位置生效：候选不进入结果，等同该技能不存在。
@@ -384,6 +435,13 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
   const userHidden = new Set(hiddenSkills.user ?? [])
   type CacheEntry = { mtimeMs: number; candidate: SkillCandidate }
   const cache = new Map<string, CacheEntry>()
+  const isModeAllowed = (scope: unknown) => {
+    if (loadMode !== 'preset') return true
+    if (scope === undefined) return true
+    if (typeof agentPresets?.composedPreset !== 'function') return true
+    return agentPresets.composedPreset(scope) === 'cfbridge'
+  }
+
   return {
     name: providerName,
     /** 运行时替换关闭名单；调用方随后应触发一次目录失效。 */
@@ -412,6 +470,7 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
     },
     async list(options = {}) {
       throwIfAborted(options)
+      if (!isModeAllowed((options as { scope?: unknown }).scope)) return []
       let entries
       try {
         entries = await readdir(root, { withFileTypes: true })
@@ -484,6 +543,7 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
     },
     async get(candidate, options = {}) {
       throwIfAborted(options)
+      if (!isModeAllowed((options as { scope?: unknown }).scope)) return undefined
       // 关闭名单在加载阶段同样生效：调用方拿着关闭前的旧候选取正文时不放行。
       if (disabled.has(candidate.name)) return undefined
       const locator = locatorOf(candidate)
@@ -560,6 +620,8 @@ function installSkillRuntime(ctx: Context, options: {
   cacheEnabled: boolean
   disabledSkills: readonly string[]
   hiddenSkills: SkillVisibility
+  loadMode: LoadMode
+  agentPresets?: { composedPreset?: (scope: unknown) => string | undefined }
 }): [SkillRuntime, () => void] {
   let liveProvider: MutableSkillProvider | undefined
   // 宿主 control.invalidate 与 provider.invalidate 的合流入口。
@@ -576,6 +638,8 @@ function installSkillRuntime(ctx: Context, options: {
       onInvalidate: control.invalidate,
       disabledSkills: options.disabledSkills,
       hiddenSkills: options.hiddenSkills,
+      loadMode: options.loadMode,
+      agentPresets: options.agentPresets,
     })
     liveProvider = provider
     // 闭包捕获安全：provider 只持有 control.invalidate 这一个函数引用，
@@ -691,6 +755,7 @@ export function apply(ctx: Context, config: Config = {
   const skillDir = resolveSkillDir(config.skillDir)
   const rank = config.rank ?? PROVIDER_RANK
   const cacheEnabled = config.cache ?? true
+  const loadMode = readLoadModeConfig(config.loadMode)
   // 去重并丢弃空串：配置由 UI 写回，脏值不应变成一次真实比对。
   const disabledSkills = readStringListConfig(config.disabledSkills)
   const hiddenSkills: SkillVisibility = {
@@ -698,11 +763,23 @@ export function apply(ctx: Context, config: Config = {
     user: readStringListConfig(config.userHiddenSkills),
   }
   const settings = (ctx as Context & { settings?: SettingsRuntime }).settings
+  const agentPresets = (ctx as Context & { agentPresets?: {
+    definitions?: Map<string, { config?: { plugins?: unknown[] } }>
+    register?: (definition: Record<string, unknown>) => Promise<() => Promise<void>>
+    composedPreset?: (scope: unknown) => string | undefined
+  } }).agentPresets
+  const systemPrompt = (ctx as Context & { systemPrompt?: {
+    section?: (spec: { name: string; order: number; text: (context: { scope?: unknown }) => string }) => () => void
+  } }).systemPrompt
+  const tools = (ctx as Context & { tools?: {
+    restrict?: (filter: { deny?: string[] }) => () => void
+  } }).tools
 
   // 每条效果各自安装、各自持有自己的清理函数，apply 只负责装配与收尾。
   ctx.effect(() => {
     const [runtime, disposeProvider] = installSkillRuntime(ctx, {
       skillDir, providerName, rank, cacheEnabled, disabledSkills, hiddenSkills,
+      loadMode, agentPresets,
     })
     let disposed = false
     let pending = false
@@ -732,9 +809,60 @@ export function apply(ctx: Context, config: Config = {
       : [false, () => {}] as [boolean, () => void]
     void publish()
 
+    // preset 模式下：注册 cfbridge 专属模式
+    let unregisterPreset: (() => Promise<void>) | undefined
+    if (loadMode === 'preset' && agentPresets !== undefined && typeof agentPresets.register === 'function') {
+      const standardDef = agentPresets.definitions?.get?.('standard')
+      const basePlugins = Array.isArray(standardDef?.config?.plugins) ? standardDef.config.plugins : []
+      agentPresets.register({
+        id: 'cfbridge',
+        name: 'Cloudflare',
+        description: 'Cloudflare 专属模式：仅在本模式加载 Cloudflare MCP 工具与 14 个按需技能，预置操作规范',
+        order: 10,
+        plugins: basePlugins,
+      }).then((unreg) => {
+        if (disposed) void unreg()
+        else unregisterPreset = unreg
+      }).catch((err: unknown) => {
+        ctx.logger.debug?.('[cfbridge] preset registration: ' + loggerMessage(err))
+      })
+    }
+
+    // 专属模式预置提示词：当处于 cfbridge 模式时自动注入核心规范
+    const disposeSection = (systemPrompt !== undefined && typeof systemPrompt.section === 'function')
+      ? systemPrompt.section({
+          name: 'cfbridge:instructions',
+          order: 550,
+          text: (context: { scope?: unknown }) => {
+            if (loadMode === 'preset') {
+              const presetId = agentPresets?.composedPreset?.(context?.scope)
+              if (presetId !== 'cfbridge') return ''
+            }
+            return CFBRIDGE_SYSTEM_INSTRUCTIONS
+          },
+        })
+      : () => {}
+
+    // preset 模式下对非 cfbridge 会话屏蔽 Cloudflare MCP 工具
+    const disposeAgentListener = (loadMode === 'preset' && tools !== undefined && typeof tools.restrict === 'function')
+      ? (ctx as any).on('agent/created', (agent: { ctx?: { tools?: { restrict?: (filter: { deny?: string[] }) => () => void } } }) => {
+          try {
+            const presetId = agentPresets?.composedPreset?.(agent.ctx)
+            if (presetId !== 'cfbridge') {
+              agent.ctx?.tools?.restrict?.({
+                deny: ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'mcp__cloudflare__execute'],
+              })
+            }
+          } catch {}
+        })
+      : () => {}
+
     return () => {
       disposed = true
       pending = false
+      if (unregisterPreset) void unregisterPreset()
+      disposeAgentListener()
+      disposeSection()
       disposeWatcher()
       disposeListener()
       disposeProvider()

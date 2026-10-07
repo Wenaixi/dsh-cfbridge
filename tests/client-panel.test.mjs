@@ -215,3 +215,33 @@ test('closing the last open axis upgrades to disabledSkills instead of two hidde
     userHiddenSkills: [],
   })
 })
+
+test('mode radio switches mutate loadMode field', async () => {
+  const { row, render } = await mountClientPanel()
+  const mutated = []
+  const form = {
+    state: ZERO_REVISION_STATE(
+      { loadMode: 'global', disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [] },
+      { availableSkills: ['cloudflare'] },
+    ).state,
+    mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
+  }
+
+  const nodes = render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
+  const radios = nodes.filter((n) => n.type === 'input' && n.props?.type === 'radio')
+  assert.equal(radios.length, 2, '两个运行模式单选框')
+  assert.equal(radios[0].props.value, 'global')
+  assert.equal(radios[0].props.checked, true)
+  assert.equal(radios[1].props.value, 'preset')
+  assert.equal(radios[1].props.checked, false)
+
+  radios[1].props.onChange()
+  await new Promise((r) => setImmediate(r))
+
+  assert.equal(mutated.length, 1)
+  const [entry] = mutated
+  assert.equal(entry.ops.length, 1)
+  assert.equal(entry.ops[0].op, 'set')
+  assert.equal(entry.ops[0].path[0], 'loadMode')
+  assert.equal(entry.ops[0].value, 'preset')
+})

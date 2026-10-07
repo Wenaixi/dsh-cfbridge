@@ -102,7 +102,7 @@ async function verifyProviderContract(root) {
   } catch (error) {
     record('Config normalizes without throwing', false, String(error && error.message))
   }
-  record('Provider rank is 550', rank === 550, 'got: ' + String(rank))
+  record('Provider rank is 0', rank === 0, 'got: ' + String(rank))
 
   // 行为契约：apply 必须注册恰好一个 Provider，且它真的能发现技能。
   const ctx = makeHostStub()
