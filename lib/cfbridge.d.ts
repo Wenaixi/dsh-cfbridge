@@ -125,12 +125,14 @@ export interface SkillProviderOptions {
     disabledSkills?: readonly string[];
     /** 两个方向独立的隐藏名单，默认空。 */
     hiddenSkills?: SkillVisibility;
-    /** 运行模式：global 全局加载，preset 仅在 cfbridge 模式下加载。 */
-    loadMode?: LoadMode;
-    /** 智能体预设服务句柄，用于在 preset 模式下探测会话所属模式。 */
+    /** 运行模式：global 全局加载，preset 仅在 cfbridge 模式下加载（支持响应式函数）。 */
+    loadMode?: LoadMode | (() => LoadMode);
+    /** 智能体预设服务句柄，用于在 preset 模式下探测会话所属模式（支持对象或动态函数）。 */
     agentPresets?: {
         composedPreset?: (scope: unknown) => string | undefined;
-    };
+    } | (() => {
+        composedPreset?: (scope: unknown) => string | undefined;
+    } | undefined);
 }
 /**
  * 创建一个技能 Provider。

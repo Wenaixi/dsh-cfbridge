@@ -361,8 +361,9 @@ test('publishes the injected settings catalog and refreshes it after a watched s
         return () => {}
       },
     },
-    get() {
-      throw new Error('ctx.get must not be used for settings')
+    get(name) {
+      if (name === 'settings') throw new Error('ctx.get must not be used for settings')
+      return undefined
     },
     on(_event, listener) {
       listeners.push(listener)
