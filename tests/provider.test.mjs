@@ -163,14 +163,99 @@ test('Provider filters skills by preset scope when loadMode is preset', async ()
   const cfSkills = await provider.list({ scope: 'scope-cf' })
   assert.equal(cfSkills.length, 1)
   assert.equal(cfSkills[0].name, 'alpha')
+  const cfLoaded = await provider.get(cfSkills[0], { scope: 'scope-cf' })
+  assert.equal(cfLoaded?.name, 'alpha')
 
   // scope-other 属于 standard 模式，不返回 Cloudflare 技能
   const otherSkills = await provider.list({ scope: 'scope-other' })
   assert.equal(otherSkills.length, 0)
+  const otherLoaded = await provider.get(cfSkills[0], { scope: 'scope-other' })
+  assert.equal(otherLoaded, undefined, '非 cfbridge 模式会话禁止通过 get() 穿透加载')
 
   // 无 scope 时（如设置面板扫描）正常返回
   const generalSkills = await provider.list({})
   assert.equal(generalSkills.length, 1)
+})
+
+test('apply restricts tools and conditions instructions by preset scope in preset mode', async () => {
+  const root = await fixture()
+  const restricted = []
+  let registeredSection = null
+  let agentListener = null
+
+  const mockPresets = {
+    composedPreset: (scope) => (scope === 'scope-cf' ? 'cfbridge' : 'standard'),
+    register: async () => async () => {},
+    definitions: new Map([['standard', { config: { plugins: [] } }]]),
+  }
+  const mockSystemPrompt = {
+    section: (spec) => {
+      registeredSection = spec
+      return () => {}
+    },
+  }
+  const mockTools = {
+    restrict: () => () => {},
+  }
+
+  const mockCtx = {
+    logger: { warn() {}, debug() {}, info() {} },
+    skills: { registerProvider: () => () => {} },
+    get(name) {
+      if (name === 'agentPresets') return mockPresets
+      if (name === 'systemPrompt') return mockSystemPrompt
+      if (name === 'tools') return mockTools
+      return undefined
+    },
+    on(event, handler) {
+      if (event === 'agent/created') agentListener = handler
+      return () => {}
+    },
+    effect(fn) {
+      return fn()
+    },
+  }
+
+  apply(mockCtx, { skillDir: root, loadMode: 'preset' })
+
+  // 1. 验证提示词小节只在 cfbridge 模式注入
+  assert.ok(registeredSection, '必须向 systemPrompt 注册提示词小节')
+  assert.equal(registeredSection.text({ scope: 'scope-standard' }), '')
+  assert.match(registeredSection.text({ scope: 'scope-cf' }), /Cloudflare 专属操作规范/)
+
+  // 2. 验证 agent/created 触发 tools.restrict
+  assert.ok(typeof agentListener === 'function', '必须注册 agent/created 监听器')
+  const standardAgent = {
+    agent: {
+      ctx: {
+        tools: {
+          restrict: (filter) => { restricted.push(filter) },
+        },
+      },
+    },
+  }
+  agentListener(standardAgent)
+  assert.equal(restricted.length, 1, '标准会话必须被施加工具限制')
+  assert.deepEqual(restricted[0].deny, [
+    'mcp__cloudflare__docs',
+    'mcp__cloudflare__search',
+    'mcp__cloudflare__execute',
+  ])
+
+  // 3. 验证 cfbridge 专属会话不被限制
+  restricted.length = 0
+  const cfAgent = {
+    agent: {
+      ctx: {
+        tools: {
+          restrict: (filter) => { restricted.push(filter) },
+        },
+      },
+    },
+  }
+  mockPresets.composedPreset = (scope) => (scope === cfAgent.agent.ctx ? 'cfbridge' : 'standard')
+  agentListener(cfAgent)
+  assert.equal(restricted.length, 0, 'cfbridge 专属会话绝不可被限制工具')
 })
 test('Provider supports custom rank and reuses cached candidates when mtime is unchanged', async () => {
   const root = await fixture()

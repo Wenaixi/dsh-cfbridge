@@ -6,7 +6,7 @@
 //   - 技能开关是本插件独有的能力，通过宿主送到 props 上的表单控制器写入。
 //
 // 这里刻意不碰任何 Remote 服务、不等任何 ctx.inject：
-// plugins.bundle.config 的 owner props 本身就是 { view, form }，
+// plugins.row.config 的 owner props 本身就是 { view, form }，
 // form 是宿主配置表单控制器（state + mutate），写入落盘、版本栅栏、
 // 重载判定都由宿主负责。这比自建通道少了整整一层跨端协议。
 //
@@ -324,7 +324,7 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
   const lang = detectLang(t)
 
   const changeMode = (nextMode: 'global' | 'preset') => {
-    if (form === undefined || nextMode === loadMode) return
+    if (form === undefined || nextMode === loadMode || busy !== null) return
     setBusy('loadMode')
     setError(null)
     form
@@ -338,7 +338,7 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
   }
 
   const toggle = (name: string, axis: 'model' | 'user', next: boolean) => {
-    if (form === undefined) return
+    if (form === undefined || busy !== null) return
     // 先还原「两轴当前的真实开合状态」：disabledSkills 表示两轴都关，
     // 所以它必须同时投影到两个 hidden 集合，不能当成第三个独立字段。
     // 少了这一步，历史落盘形态（技能只在 disabledSkills 里）下只打开一轴时，
@@ -390,7 +390,7 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
       : React.createElement(
           'div',
           { role: 'status', style: { padding: '10px 0', color: 'var(--dsw-alias-state-error-primary)' } },
-          t('failed') + ': ' + error,
+          error === t('failed') ? error : t('failed') + ': ' + error,
         ),
     writable
       ? null
@@ -446,7 +446,7 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
             checked: loadMode === 'global',
             disabled: !writable || busy !== null,
             onChange: () => changeMode('global'),
-            style: { cursor: 'pointer' },
+            style: { cursor: writable && busy === null ? 'pointer' : 'default' },
           }),
           React.createElement('span', { style: { fontWeight: loadMode === 'global' ? 600 : 400 } }, t('modeGlobal')),
         ),
@@ -468,7 +468,7 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
             checked: loadMode === 'preset',
             disabled: !writable || busy !== null,
             onChange: () => changeMode('preset'),
-            style: { cursor: 'pointer' },
+            style: { cursor: writable && busy === null ? 'pointer' : 'default' },
           }),
           React.createElement('span', { style: { fontWeight: loadMode === 'preset' ? 600 : 400 } }, t('modePreset')),
         ),
@@ -513,7 +513,7 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
 
 /**
  * 只声明 slots：其余一律不需要。
- * plugins.bundle.config 由「插件」页在挂载时声明为子插槽，注入会在那一刻挂起，
+ * plugins.row.config 由「插件」页在挂载时声明为子插槽，注入会在那一刻挂起，
  * 页面打开后自动放行 —— 不必自己判断时机，也不必 ctx.inject 等待任何服务。
  */
 export function apply(ctx: any): void {

@@ -120,6 +120,7 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
     - id: cfbridge
       name: '@wenaixi/cfbridge'
       config:
+        # 覆写默认的 rank 0（例如降为系统级 600）
         rank: 600
         cache: true
         watchSkills: true

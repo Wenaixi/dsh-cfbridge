@@ -30,6 +30,7 @@ test('release runs the canonical suite and keeps version and pack guards', () =>
   const commands = runCommands(workflows.release, 'publish-npm')
   assert.ok(commands.includes('npm test'), 'Release 必须调用综合套件')
   assert.ok(!commands.includes('npm run check'), '综合套件已包含 check，不应重复')
+  assert.ok(!commands.includes('npm run validate:bundle'), '综合套件含严格结构校验，不应重复')
   assert.ok(commands.includes('npm pack --dry-run'), '打包预检必须保留')
   const tagGuard = commands.some((command) => command.includes('GITHUB_REF_NAME') && command.includes('PKG_VERSION'))
   assert.ok(tagGuard, 'tag 与 package.json 版本一致性校验必须保留')

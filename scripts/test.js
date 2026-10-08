@@ -32,7 +32,7 @@ function runStep(step) {
     command[0] = npmCommand
     command.splice(1, 0, ...npmArgs)
   }
-  const result = spawnSync(command[0], command.slice(1), { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'], shell: false })
+  const result = spawnSync(command[0], command.slice(1), { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'], shell: false, timeout: 120000 })
   if (result.error) console.error(result.error.message)
   return result.status === 0
 }

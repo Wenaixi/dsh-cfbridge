@@ -32,7 +32,7 @@
 3. 重启 DSH，在新会话选择器中选「Cloudflare 模式」。
 
 > 注意：`npm run install:preset` 在任何已发布版本（含 v0.2.0）中都未注册，
-> 按旧文档执行会直接报 "missing script"。当前 v0.6.0 仓库里的
+> 按旧文档执行会直接报 "missing script"。当前仓库里的
 > `scripts/install-preset.js` 是引导到 `npm run install:bundle` 的软 404 指引。
 
 > 不建议在 v0.3.0 之后继续维护本目录；如需保留更长时间，请开一个 issue 说明用例。

@@ -1,4 +1,4 @@
-# @wenaixi/cfbridge — DSH Bundle Patch（host composition，v0.6.0）
+# @wenaixi/cfbridge — DSH Bundle Patch（host composition）
 #
 # 安装后作为 web profile 的一个 Bundle 层全局生效；所有会话均自动获得
 # Cloudflare Code Mode MCP 三工具与 cfbridge SkillProvider 提供的 14 个按需技能。

@@ -833,38 +833,49 @@ export function apply(ctx: Context, config: Config = {
     // 响应式预设管理器：响应设置变化，动态注册或注销 cfbridge 专属模式
     let unregisterPreset: (() => Promise<void>) | undefined
     let presetSyncing = false
+    let presetPending = false
+    let retryTimer: NodeJS.Timeout | undefined
 
     const syncPreset = async () => {
-      if (disposed || presetSyncing) return
+      if (disposed || presetSyncing) {
+        presetPending = true
+        return
+      }
       presetSyncing = true
       try {
-        const mode = getLoadMode()
-        const presets = getAgentPresets()
-        if (mode === 'preset') {
-          if (!unregisterPreset && presets !== undefined && typeof presets.register === 'function') {
-            const standardDef = presets.definitions?.get?.('standard') ?? Array.from(presets.definitions?.values?.() ?? []).find((d: any) => Array.isArray(d?.config?.plugins) && d.config.plugins.length > 0)
-            const basePlugins = Array.isArray(standardDef?.config?.plugins) ? standardDef.config.plugins : []
-            if (basePlugins.length === 0 && presets.definitions && presets.definitions.size === 0) {
-              setTimeout(() => { if (!disposed) void syncPreset() }, 500).unref()
-              return
+        do {
+          presetPending = false
+          if (disposed) break
+          const mode = getLoadMode()
+          const presets = getAgentPresets()
+          if (mode === 'preset') {
+            if (!unregisterPreset && presets !== undefined && typeof presets.register === 'function') {
+              const standardDef = presets.definitions?.get?.('standard') ?? Array.from(presets.definitions?.values?.() ?? []).find((d: any) => Array.isArray(d?.config?.plugins) && d.config.plugins.length > 0)
+              const basePlugins = Array.isArray(standardDef?.config?.plugins) ? standardDef.config.plugins : []
+              if (basePlugins.length === 0 && presets.definitions && presets.definitions.size === 0) {
+                if (retryTimer) clearTimeout(retryTimer)
+                retryTimer = setTimeout(() => { if (!disposed) void syncPreset() }, 500)
+                retryTimer.unref()
+                return
+              }
+              const unreg = await presets.register({
+                id: 'cfbridge',
+                name: 'Cloudflare',
+                description: 'Cloudflare 专属模式：仅在本模式加载 Cloudflare MCP 工具与 14 个按需技能，预置操作规范',
+                order: 10,
+                plugins: basePlugins,
+              })
+              if (disposed) void unreg().catch(() => {})
+              else unregisterPreset = unreg
             }
-            const unreg = await presets.register({
-              id: 'cfbridge',
-              name: 'Cloudflare',
-              description: 'Cloudflare 专属模式：仅在本模式加载 Cloudflare MCP 工具与 14 个按需技能，预置操作规范',
-              order: 10,
-              plugins: basePlugins,
-            })
-            if (disposed) void unreg()
-            else unregisterPreset = unreg
+          } else {
+            if (unregisterPreset) {
+              const fn = unregisterPreset
+              unregisterPreset = undefined
+              await fn().catch(() => {})
+            }
           }
-        } else {
-          if (unregisterPreset) {
-            const fn = unregisterPreset
-            unregisterPreset = undefined
-            await fn()
-          }
-        }
+        } while (presetPending && !disposed)
       } catch (err: unknown) {
         ctx.logger.warn?.('[cfbridge] preset registration: ' + loggerMessage(err))
       } finally {
@@ -900,25 +911,32 @@ export function apply(ctx: Context, config: Config = {
       : () => {}
 
     // preset 模式下对非 cfbridge 会话屏蔽 Cloudflare MCP 工具
-    const disposeAgentListener = (ctx as any).on('agent/created', (agent: { ctx?: { tools?: { restrict?: (filter: { deny?: string[] }) => () => void } } }) => {
+    const disposeAgentListener = (ctx as any).on('agent/created', (payload: any) => {
       if (getLoadMode() !== 'preset') return
-      const t = getTools()
-      if (t === undefined || typeof t.restrict !== 'function') return
+      const targetAgent = payload?.agent ?? payload
+      const agentCtx = targetAgent?.ctx
+      if (!agentCtx) return
+      const toolsService = getTools()
+      if (toolsService === undefined || typeof toolsService.restrict !== 'function') return
       try {
-        const presetId = getAgentPresets()?.composedPreset?.(agent.ctx)
+        const presetId = getAgentPresets()?.composedPreset?.(agentCtx)
         if (presetId !== 'cfbridge') {
-          agent.ctx?.tools?.restrict?.({
+          agentCtx.tools?.restrict?.({
             deny: ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'mcp__cloudflare__execute'],
           })
         }
-      } catch {}
-    })
+      } catch (e) {
+        ctx.logger.debug?.('[cfbridge] tools restrict failed: ' + loggerMessage(e))
+      }
+    }, { global: true })
 
     return () => {
       disposed = true
       pending = false
+      presetPending = false
       clearTimeout(bootTimer)
-      if (unregisterPreset) void unregisterPreset()
+      if (retryTimer) clearTimeout(retryTimer)
+      if (unregisterPreset) void unregisterPreset().catch(() => {})
       disposeSettingsListener()
       disposeAgentListener()
       disposeSection()

@@ -1,3 +1,12 @@
+## Unreleased
+- **feat(mode)**: 支持通过设置面板与配置自由切换运行模式（`loadMode`：`'global'` 全局加载 / `'preset'` cfbridge 专属模式）：
+  - `global` 模式下（默认），Cloudflare MCP 三工具与 14 个技能在所有会话全局可用；
+  - `preset` 模式下，插件响应式向宿主注册 `cfbridge` 智能体预设（继承标准模式 19 个基础插件，显示为「Cloudflare」），自动向模型会话预置操作规范与安全审批提示词（`CFBRIDGE_SYSTEM_INSTRUCTIONS`），并通过作用域隔离（`provider.list/get` 范围限制）与 `tools.restrict` 对非 cfbridge 模式会话屏蔽 Cloudflare MCP 工具与技能；
+  - 切换模式时自动注册/注销专属预设，完全可逆。
+- **feat(rank)**: 将 Provider 优先级权重默认值提升为全系统最高 `rank: 0`。宿主 `dsh-skill` 按升序裁决同名条目（首位胜出），`rank 0` 保证在全系统所有层级（项目级 100/200、内置级 600）中绝对优先胜出。
+- **feat(client)**: 客户端面板顶部新增「运行模式」单选卡片，支持操作即写实时落盘，并引入 `busy !== null` 并发防重击保护。
+- **test**: 增补针对 `loadMode: 'preset'` 的作用域隔离、MCP 工具拦截、动态提示词注入及单选面板 mutate 的行为测试。
+
 ## 0.10.2 — 2026-10-04
 - **docs**: 移除 skills/cfbridge/SKILL.md 中残留的 `/cfbridge` 斜杠命令指引（第 36/42/249 行）。该命令于 0.10.0 移除（commit 64df76b）时同步了 README 与客户端文案，唯独漏改技能本体文档——它是随 npm 包发布的模型可读操作指南，会教模型调用不存在的命令。
 - **refactor(provider)**: 清理 `src/cfbridge.ts` 移除 `/cfbridge` 命令后残留的四处过时注释（328/378/382/534 行附近），改为中性表述（宿主控制面 / 技能清单发布）。仅注释改动，无行为变化。
