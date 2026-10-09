@@ -73,7 +73,26 @@ DSH Bundle（全局常驻，按需开关）
 
 ## 官方 Skills 入口（与 cfbridge 互补）
 
-领域知识由 [cloudflare/skills](https://github.com/cloudflare/skills) 的 `cloudflare` Skill 提供。**何时加载它**：不确定该选哪个 Cloudflare 产品（KV/D1/R2？Workers/Pages?）；需要 30+ 产品决策树或 `references/` 索引；需要判断该加载哪个子 Skill；任何 Cloudflare 开发任务的起点。其余子 Skill（`wrangler` / `agents-sdk` / `durable-objects` / `cloudflare-one` 等 12 个）由它按需指引，本包已 vendoring 13 个 SKILL.md 到 `skills/<name>/`（离线可用）。
+领域知识由 [cloudflare/skills](https://github.com/cloudflare/skills) 的 `cloudflare` Skill 提供。**何时加载它**：不确定该选哪个 Cloudflare 产品（KV/D1/R2？Workers/Pages?）；需要 30+ 产品决策树或 `references/` 索引；需要判断该加载哪个子 Skill；任何 Cloudflare 开发任务的起点。其余子 Skill 由它按需指引，本包已 vendoring 13 个 SKILL.md 到 `skills/<name>/`（离线可用）。
+
+### 14 个技能完整清单
+
+| 技能名称 | 类型 | 中文职能与定位 | 适用场景与触发特征 |
+| --- | --- | --- | --- |
+| `cfbridge` | 核心桥接 | 全局 Bridge、search-then-execute 工作流与写操作审批 | 任何 Cloudflare API 调用的前置薄桥 |
+| `cloudflare` | 官方总入口 | 30+ 产品选型决策树、架构指南与子技能路由 | 不确定用哪个产品、开发任务的起点 |
+| `wrangler` | 官方工具 | Wrangler CLI 语法、配置与本地多资源协同 | 本地开发、构建、离线脚手架与部署验证 |
+| `agents-sdk` | 官方应用 | 基于 Workers 构建有状态 AI 智能体与工作流 | Agents SDK、Durable Execution 与实时应用 |
+| `durable-objects` | 官方存储 | 有状态协调、事务型 SQLite 存储与 WebSockets | 分布式协调、房间状态同步与告警触发 |
+| `cloudflare-one` | 官方网络 | Zero Trust、Access、Gateway、Tunnel 与 SASE | 零信任网络访问、边界打通与隧道配置 |
+| `cloudflare-one-migrations` | 官方迁移 | 从传统 VPN / 防火墙栈平滑迁移到 Cloudflare One | 企业安全架构迁移与策略对照评估 |
+| `cloudflare-email-service` | 官方通信 | 事务型邮件发送与 Email Routing 规则处理 | 邮件验证码、通知发送与入站邮件处理 |
+| `sandbox-stable` | 官方沙箱 | Cloudflare Sandbox 稳定版环境运行与命令执行 | 生产环境沙箱容器、文件系统与会话操作 |
+| `sandbox-next` | 官方沙箱 | Cloudflare Sandbox 1.0 预览版特性与异步执行 | 预览版沙箱特性、AI 运行器与挂载管理 |
+| `sandbox-migrate-to-next` | 官方迁移 | 从 Sandbox 稳定版升级至 1.0 预览版指导 | 沙箱代码重构、包名迁移与契约适配 |
+| `turnstile-spin` | 官方安全 | Turnstile 智能人机验证端到端部署与服务端验签 | 表单防刷、免验证码人机校验与 API 防护 |
+| `web-perf` | 官方优化 | Chrome DevTools MCP 分析、Core Web Vitals 调优 | 页面加载性能审计、LCP/INP/CLS 诊断 |
+| `workers-best-practices` | 官方规范 | Workers 生产最佳实践审查与常见反模式排查 | 代码上线前审查、流式处理与全局状态避坑 |
 
 不用 DSH 时也可独立安装（任选其一，与 cfbridge 共存）：
 
@@ -151,10 +170,10 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 ## 验证
 
 ```powershell
-npm run check              # 仓库配置 + 安全检查
-npm run validate:bundle -- --strict-router  # manifest + 14 个技能结构校验
-npm run test:wrangler      # Wrangler CLI 只读验证
-npm run test               # 构建、类型检查、Provider、demo、静态校验与 Wrangler
+npm run check              # 仓库配置 + 安全检查（本机装 bundle 时 85 项，CI/干净环境 84 项，两边均 0 失败）
+npm run validate:bundle -- --strict-router  # manifest + 14 个技能结构校验（98 项）
+npm run test:wrangler      # Wrangler CLI 只读验证（4 项）
+npm run test               # 综合质量门禁（13/13 步骤全绿）：构建、类型检查、Provider、面板、demo 与安全校验
 npm run dump:config        # 查看当前 profile 中 cfbridge 这一层（--raw 不过滤）
 ```
 

@@ -1,7 +1,7 @@
 ---
 name: cfbridge
 description: Cloudflare Code Mode MCP 全局 Bridge：装后所有会话自动获得 mcp__cloudflare__docs/search/execute 三工具与本操作指南；含 search-then-execute 工作流、写操作审批规范、Token 权限边界、技能开关方式与 Wrangler 透传指引。
-whenToUse: 任何涉及 Cloudflare API 的请求都应先加载本 Skill；执行前用 mcp__cloudflare__docs 或 mcp__cloudflare__search 确认端点，再用 mcp__cloudflare__execute 执行。若用户想停用某个技能或限制谁能调用，见「技能开关」一节。
+whenToUse: 触发词包括「用/加载/走 cfbridge」、「Cloudflare API」、「操作 Cloudflare 资源」。任何涉及 Cloudflare API 的请求都应先加载本 Skill；执行前用 mcp__cloudflare__docs 或 mcp__cloudflare__search 确认端点，再用 mcp__cloudflare__execute 执行。运行模式与技能开关详见下文。
 ---
 
 # cfbridge — Cloudflare 全局 Bridge 操作指南
@@ -26,6 +26,15 @@ whenToUse: 任何涉及 Cloudflare API 的请求都应先加载本 Skill；执�
 1. 写操作（POST/PUT/PATCH/DELETE）执行前，**必须先告诉用户你要做什么并等他同意**。
 2. 端点、参数、限额一律以 `search` / `docs` 的检索结果为准，**检索优于记忆**。
 
+## 运行模式（loadMode）
+
+cfbridge 支持两种运行模式，可通过面板单选框或配置项切换：
+
+| 模式 | 选项值 | 行为与隔离边界 |
+| --- | --- | --- |
+| **全局模式**（默认） | `global` | 全系统所有会话全局可用 Cloudflare MCP 三工具与 14 个按需技能。 |
+| **专属预设模式** | `preset` | 仅在切换到 `cfbridge` 专属智能体预设的会话中加载 Cloudflare 工具与技能，并自动注入操作规范系统提示词；普通会话自动屏蔽 Cloudflare MCP 工具与技能，避免非 Cloudflare 会话被特权工具干扰。 |
+
 ## 技能开关（可以只关一边）
 
 14 个 Cloudflare 技能每个都能单独控制，而且**「模型能用」和「人能用」是两个独立的开关**：
@@ -38,8 +47,8 @@ whenToUse: 任何涉及 Cloudflare API 的请求都应先加载本 Skill；执�
 
 两种做法，任选其一：
 
-- **图形界面（推荐）**：DSH → 「插件」→ Cloudflare 桥接 → `cfbridge` 行的「配置」，面板里逐个切换。
-- **写配置**（持久生效）：在 profile 的 `cordis.patch.yml` 的 cfbridge 行写 `modelHiddenSkills` / `userHiddenSkills` / `disabledSkills`。
+- **图形界面（推荐）**：DSH → 「插件」→ Cloudflare 桥接 → `cfbridge` 行的「配置」，面板里切换运行模式或逐个调整技能开关。
+- **写配置**（持久生效）：在 profile 的 `cordis.patch.yml` 的 cfbridge 行配置 `loadMode: 'global' | 'preset'`，以及 `modelHiddenSkills` / `userHiddenSkills` / `disabledSkills`。
 
 ## 三工具速查
 
