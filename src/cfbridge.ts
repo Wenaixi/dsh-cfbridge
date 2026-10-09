@@ -238,7 +238,7 @@ function closingFrontmatterLine(raw: string, start: number): { start: number; bo
   while (lineStart <= raw.length) {
     const newline = raw.indexOf('\n', lineStart)
     const lineEnd = newline < 0 ? raw.length : newline
-    if (raw.slice(lineStart, lineEnd).replace(/\r$/, '') === '---') {
+    if (raw.slice(lineStart, lineEnd).trim() === '---') {
       return { start: lineStart, bodyStart: newline < 0 ? raw.length : newline + 1 }
     }
     if (newline < 0) return undefined
@@ -281,7 +281,8 @@ function loggerMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-function isAbortError(error: unknown): boolean {
+function isAbortError(error: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true
   return error instanceof Error && error.name === 'AbortError'
 }
 
@@ -477,7 +478,7 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
       try {
         entries = await readdir(root, { withFileTypes: true })
       } catch (error) {
-        if (isAbortError(error)) throw error
+        if (isAbortError(error, options.signal)) throw error
         logger.warn('[cfbridge] skillDir not found: ' + root)
         return []
       }
@@ -536,7 +537,7 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
           }
           candidates.push(project(candidate))
         } catch (error) {
-          if (isAbortError(error)) throw error
+          if (isAbortError(error, options.signal)) throw error
           cache.delete(path)
           logger.warn('[cfbridge] skip ' + path + ': ' + loggerMessage(error))
         }
@@ -554,7 +555,7 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
       try {
         raw = await readFile(locator.path, { encoding: 'utf8', signal: options.signal })
       } catch (error) {
-        if (isAbortError(error)) throw error
+        if (isAbortError(error, options.signal)) throw error
         logger.warn('[cfbridge] get ' + candidate.name + ': read failed: ' + loggerMessage(error))
         return undefined
       }
@@ -805,12 +806,14 @@ export function apply(ctx: Context, config: Config = {
     let disposed = false
     let pending = false
     let running = false
+    let isPublishingCatalog = false
     const publish = async () => {
       if (disposed || running) {
         pending = true
         return
       }
       running = true
+      isPublishingCatalog = true
       try {
         do {
           pending = false
@@ -818,6 +821,7 @@ export function apply(ctx: Context, config: Config = {
         } while (pending && !disposed)
       } finally {
         running = false
+        isPublishingCatalog = false
       }
     }
     const disposeListener = ctx.on('skills/change', () => {
@@ -889,7 +893,9 @@ export function apply(ctx: Context, config: Config = {
 
     const disposeSettingsListener = (ctx as any).on('settings/document-updated', (ns: string) => {
       if (ns === providerName) {
-        runtime.invalidate()
+        if (!isPublishingCatalog) {
+          runtime.invalidate()
+        }
         void syncPreset()
       }
     }, { global: true })
@@ -911,19 +917,29 @@ export function apply(ctx: Context, config: Config = {
       : () => {}
 
     // preset 模式下对非 cfbridge 会话屏蔽 Cloudflare MCP 工具
+    const CLOUDFLARE_TOOLS = ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'mcp__cloudflare__execute']
     const disposeAgentListener = (ctx as any).on('agent/created', (payload: any) => {
       if (getLoadMode() !== 'preset') return
       const targetAgent = payload?.agent ?? payload
       const agentCtx = targetAgent?.ctx
       if (!agentCtx) return
       const toolsService = getTools()
-      if (toolsService === undefined || typeof toolsService.restrict !== 'function') return
+      if (toolsService === undefined) return
       try {
         const presetId = getAgentPresets()?.composedPreset?.(agentCtx)
         if (presetId !== 'cfbridge') {
-          agentCtx.tools?.restrict?.({
-            deny: ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'mcp__cloudflare__execute'],
-          })
+          const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
+          const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
+          if (denyTargets.length > 0 && typeof agentCtx.tools?.restrict === 'function') {
+            agentCtx.tools.restrict({ deny: denyTargets })
+          }
+          if (typeof agentCtx.tools?.guard === 'function') {
+            agentCtx.tools.guard((exec: { name: string }) => {
+              if (CLOUDFLARE_TOOLS.includes(exec.name)) {
+                return 'Cloudflare MCP 工具仅在 cfbridge 模式下可用'
+              }
+            })
+          }
         }
       } catch (e) {
         ctx.logger.debug?.('[cfbridge] tools restrict failed: ' + loggerMessage(e))
