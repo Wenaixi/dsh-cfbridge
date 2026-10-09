@@ -286,7 +286,8 @@ function head(title: string, hint: string): React.ReactElement {
   )
 }
 
-function Panel(props: PanelProps, t: Translate): React.ReactElement {
+function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
+  const t = props.t ?? fallbackT
   const { form } = props
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
@@ -495,7 +496,7 @@ function Panel(props: PanelProps, t: Translate): React.ReactElement {
                 summary: skillSummary(name, lang),
                 modelInvocable: !disabled.includes(name) && !modelHidden.includes(name),
                 userInvocable: !disabled.includes(name) && !userHidden.includes(name),
-                busy: busy === name,
+                busy: busy !== null,
                 writable,
                 t,
                 onToggle: toggle,
