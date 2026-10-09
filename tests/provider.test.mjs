@@ -8,8 +8,14 @@ import { apply, createSkillProvider, isSkillCatalogEvent } from '../lib/cfbridge
 
 const { ALL_SKILLS: SKILLS } = createRequire(import.meta.url)('../scripts/lib/skills.js')
 
+const tempDirs = []
+function trackTemp(dir) {
+  tempDirs.push(dir)
+  return dir
+}
+
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), 'cfbridge-provider-'))
+  const root = trackTemp(await mkdtemp(join(tmpdir(), 'cfbridge-provider-')))
   await mkdir(join(root, 'alpha'))
   await writeFile(join(root, 'alpha', 'SKILL.md'), '---\nname: alpha\ndescription: Alpha skill\nwhenToUse: Use alpha\n---\nAlpha body\n')
   await mkdir(join(root, 'broken'))
@@ -62,7 +68,7 @@ test('Provider discovers metadata and loads body on demand', async () => {
 })
 
 test('Provider accepts a comment and BOM preamble before frontmatter', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'cfbridge-preamble-'))
+  const root = trackTemp(await mkdtemp(join(tmpdir(), 'cfbridge-preamble-')))
   await mkdir(join(root, 'preamble'))
   await writeFile(join(root, 'preamble', 'SKILL.md'), '<!-- generated header -->\n\ufeff<!-- second header -->\n---\nname: preamble\ndescription: Preamble skill\n---\nPreamble body\n')
   const provider = createSkillProvider({ skillDir: root, providerName: 'cfbridge', logger: { warn() {} } })
@@ -114,7 +120,7 @@ test('apply registers one Provider factory synchronously', () => {
 })
 
 test('Provider handles hidden, missing, duplicate and invalid skills', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'cfbridge-edge-'))
+  const root = trackTemp(await mkdtemp(join(tmpdir(), 'cfbridge-edge-')))
   await mkdir(join(root, '.hidden'))
   await mkdir(join(root, 'missing'))
   await mkdir(join(root, 'first'))
@@ -533,4 +539,8 @@ test('does not publish after disposal while catalog discovery is pending', async
   releaseList()
   await new Promise((resolve) => setImmediate(resolve))
   assert.deepEqual(updates, [])
+})
+
+test.after(async () => {
+  await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true }).catch(() => {})))
 })
