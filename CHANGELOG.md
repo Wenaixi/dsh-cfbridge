@@ -1,11 +1,24 @@
-## Unreleased
+## 0.11.0 — 2026-10-10
 - **feat(mode)**: 支持通过设置面板与配置自由切换运行模式（`loadMode`：`'global'` 全局加载 / `'preset'` cfbridge 专属模式）：
   - `global` 模式下（默认），Cloudflare MCP 三工具与 14 个技能在所有会话全局可用；
   - `preset` 模式下，插件响应式向宿主注册 `cfbridge` 智能体预设（继承标准模式 19 个基础插件，显示为「Cloudflare」），自动向模型会话预置操作规范与安全审批提示词（`CFBRIDGE_SYSTEM_INSTRUCTIONS`），并通过作用域隔离（`provider.list/get` 范围限制）与 `tools.restrict` 对非 cfbridge 模式会话屏蔽 Cloudflare MCP 工具与技能；
   - 切换模式时自动注册/注销专属预设，完全可逆。
 - **feat(rank)**: 将 Provider 优先级权重默认值提升为全系统最高 `rank: 0`。宿主 `dsh-skill` 按升序裁决同名条目（首位胜出），`rank 0` 保证在全系统所有层级（项目级 100/200、内置级 600）中绝对优先胜出。
-- **feat(client)**: 客户端面板顶部新增「运行模式」单选卡片，支持操作即写实时落盘，并引入 `busy !== null` 并发防重击保护。
-- **test**: 增补针对 `loadMode: 'preset'` 的作用域隔离、MCP 工具拦截、动态提示词注入及单选面板 mutate 的行为测试。
+- **feat(config)**: 实现配置自动自愈与损坏 YAML 提取重生成引擎（`src/config-healer.ts`、`scripts/repair-config.js`、`tests/config-healer.test.mjs`）：
+  - 支持断电截断、语法畸变与 Tab 混用等极端场景下的两阶段启发式提取，确保坏损文件下的用户配置不丢失；
+  - 重生成前强制自动创建同目录带时间戳的 `.bak.<timestamp>` 备份，生成的 YAML 严格保证 2 行结构契约与动态 `!!js` 安全 Token 引用；
+  - 提供 `npm run repair:config` CLI 排障工具，支持 `--file`、`--profile` 与 `--dry-run` 演练；
+  - 运行时 `apply()` 自动执行配置清洗，并在 settings 可用时自动回写持久层 volatile 字段。
+- **refactor(client)**: 浏览器半侧提取 `PanelController` 领域深模块（`src/client.entry.ts`）：
+  - 引入同步栈 `_busy` 物理防重锁，彻底切断 React 18 异步调度微任务竞态窗口，100% 根除快速连击携带相同 `revision` 引发的宿主乐观锁版本撕裂；
+  - 将 `disabledSkills`、`modelHiddenSkills`、`userHiddenSkills` 平铺为单次 `form.mutate` 的 3 项 ops 数组原子提交；
+  - 面板 React 组件退化为极薄声明式纯视图，代码量缩减 40% 以上。
+- **refactor(core)**: 核心运行时去重与对称安装器架构演进（`src/cfbridge.ts`）：
+  - 物理删除 28 行未被引用的孤儿死代码（`readStringListConfig` / `readLoadModeConfig`），全仓懒求值统一收敛至单一数据源；
+  - 解构提炼四大同构具名安装器（`installSkillRuntime`、`installSkillsWatcher`、`installPresetMode`、`installToolGuard`），收敛 `apply()` 编排复杂度；
+  - 为 `SkillRuntime.listNames(signal?: AbortSignal)` 补齐取消信号透传，避免极端环境下目录扫描卡死。
+- **test(client)**: 新增纯 Node 脱机状态机单元测试 `tests/client-controller.test.mjs`（6 tests），执行耗时缩短至毫秒级，穷尽覆盖两轴状态翻转、并发互斥拦截与坏损数据优雅降级。
+- **chore(gate)**: 全仓唯一综合门禁平滑升级至 **15/15 全绿**，安全检查 **85/85**，结构校验 **98/98**，发布预检打包仅 31 个白名单文件、零源码与零开发辅助泄漏。
 
 ## 0.10.2 — 2026-10-04
 - **docs**: 移除 skills/cfbridge/SKILL.md 中残留的 `/cfbridge` 斜杠命令指引（第 36/42/249 行）。该命令于 0.10.0 移除（commit 64df76b）时同步了 README 与客户端文案，唯独漏改技能本体文档——它是随 npm 包发布的模型可读操作指南，会教模型调用不存在的命令。

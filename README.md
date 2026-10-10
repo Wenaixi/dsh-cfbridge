@@ -167,14 +167,15 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 
 面板的写入直接落在 profile 的 `cordis.patch.yml`，改动即时生效、无需重启。
 
-## 验证
+## 验证与维护
 
 ```powershell
 npm run check              # 仓库配置 + 安全检查（本机装 bundle 时 85 项，CI/干净环境 84 项，两边均 0 失败）
 npm run validate:bundle -- --strict-router  # manifest + 14 个技能结构校验（98 项）
 npm run test:wrangler      # Wrangler CLI 只读验证（4 项）
-npm run test               # 综合质量门禁（13/13 步骤全绿）：构建、类型检查、Provider、面板、demo 与安全校验
+npm run test               # 综合质量门禁（15/15 步骤全绿）：构建、双向类型检查、Provider、配置自愈、面板与脱机控制器单测、安全校验
 npm run dump:config        # 查看当前 profile 中 cfbridge 这一层（--raw 不过滤）
+npm run repair:config      # 配置自动体检与自愈：支持断电截断/语法损坏 YAML 自动提取抢救、强制 .bak 备份与干净重生成
 ```
 
 ## 启停控制
