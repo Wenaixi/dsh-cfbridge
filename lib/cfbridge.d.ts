@@ -164,7 +164,7 @@ export interface SkillRuntime {
     /** 清目录缓存并通知宿主失效。Provider 尚未就绪时是空操作。 */
     invalidate(): void;
     /** 用真实技能目录列一次候选；Provider 未就绪或读取失败时返回空数组。 */
-    listNames(): Promise<string[]>;
+    listNames(signal?: AbortSignal): Promise<string[]>;
 }
 export declare function apply(ctx: Context, config?: Config): void;
 declare const _default: {

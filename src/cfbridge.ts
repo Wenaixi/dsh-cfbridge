@@ -72,42 +72,6 @@ export interface Config {
 }
 
 /**
- * 把配置里的 disabledSkills 归一成字符串数组。
- *
- * 这个字段是 volatile 的，而 volatile 字段在宿主里以懒求值形态传递
- * （见 dsh-app-boot 的 lazy 投影），所以它可能是：数组、返回数组的函数、
- * 或包装过的对象。这里统一收敛，调用方只面对数组。
- */
-function readStringListConfig(raw: unknown): string[] {
-  let value: unknown = raw
-  // 懒求值包装：取出最内层的真实值，最多解几层，避免意外自引用。
-  for (let i = 0; i < 4 && typeof value === 'function'; i += 1) {
-    try {
-      value = (value as () => unknown)()
-    } catch {
-      return []
-    }
-  }
-  if (!Array.isArray(value)) return []
-  return value.filter((v): v is string => typeof v === 'string' && v !== '')
-}
-
-/**
- * 把配置里的 loadMode 归一为 'global' 或 'preset'。
- */
-function readLoadModeConfig(raw: unknown): LoadMode {
-  let value: unknown = raw
-  for (let i = 0; i < 4 && typeof value === 'function'; i += 1) {
-    try {
-      value = (value as () => unknown)()
-    } catch {
-      return 'global'
-    }
-  }
-  return value === 'preset' ? 'preset' : 'global'
-}
-
-/**
  * 把一处 schema 标记为 volatile：宿主设置面只允许写入 volatile 字段。
  * Schemastery 的 Meta 是可变对象，没有链式 setter，所以这里直接打标。
  */
@@ -640,7 +604,7 @@ export interface SkillRuntime {
   /** 清目录缓存并通知宿主失效。Provider 尚未就绪时是空操作。 */
   invalidate(): void
   /** 用真实技能目录列一次候选；Provider 未就绪或读取失败时返回空数组。 */
-  listNames(): Promise<string[]>
+  listNames(signal?: AbortSignal): Promise<string[]>
 }
 
 /**
@@ -688,11 +652,11 @@ function installSkillRuntime(ctx: Context, options: {
     {
       current: () => liveProvider,
       invalidate: () => invalidateCatalog(),
-      async listNames() {
+      async listNames(signal?: AbortSignal) {
         const provider = liveProvider
         if (provider === undefined) return []
         try {
-          const listed = await provider.list({})
+          const listed = await provider.list({ signal })
           // list() 有两种合法返回：直接给候选数组，或带上 complete 标记的观测对象。
           // readonly 数组让 Array.isArray 收窄不彻底，因此显式判形状。
           const candidates: readonly SkillCandidate[] =
@@ -746,6 +710,138 @@ interface SettingsRuntime {
   }>
   update(namespace: string, patch: { availableSkills: string[] }): Promise<unknown>
   configure(options: { auto: boolean }): (() => void) | void
+}
+
+/**
+ * 响应式专属模式预设管理器：动态注册或注销 cfbridge 专属模式预设与规范提示词。
+ */
+function installPresetMode(ctx: Context, options: {
+  getLoadMode: () => LoadMode
+  getAgentPresets: () => any
+  getSystemPrompt: () => any
+}): [() => void, () => void] {
+  let disposed = false
+  let unregisterPreset: (() => Promise<void>) | undefined
+  let presetSyncing = false
+  let presetPending = false
+  let retryTimer: NodeJS.Timeout | undefined
+
+  const syncPreset = async () => {
+    if (disposed || presetSyncing) {
+      presetPending = true
+      return
+    }
+    presetSyncing = true
+    try {
+      do {
+        presetPending = false
+        if (disposed) break
+        const mode = options.getLoadMode()
+        const presets = options.getAgentPresets()
+        if (mode === 'preset') {
+          if (!unregisterPreset && presets !== undefined && typeof presets.register === 'function') {
+            const standardDef = presets.definitions?.get?.('standard') ?? Array.from(presets.definitions?.values?.() ?? []).find((d: any) => Array.isArray(d?.config?.plugins) && d.config.plugins.length > 0)
+            const basePlugins = Array.isArray(standardDef?.config?.plugins) ? standardDef.config.plugins : []
+            if (basePlugins.length === 0 && presets.definitions && presets.definitions.size === 0) {
+              if (retryTimer) clearTimeout(retryTimer)
+              retryTimer = setTimeout(() => { if (!disposed) void syncPreset() }, 500)
+              retryTimer.unref()
+              return
+            }
+            const unreg = await presets.register({
+              id: 'cfbridge',
+              name: 'Cloudflare',
+              description: 'Cloudflare 专属模式：仅在本模式加载 Cloudflare MCP 工具与 14 个按需技能，预置操作规范',
+              order: 10,
+              plugins: basePlugins,
+            })
+            if (disposed) void unreg().catch(() => {})
+            else unregisterPreset = unreg
+          }
+        } else {
+          if (unregisterPreset) {
+            const fn = unregisterPreset
+            unregisterPreset = undefined
+            await fn().catch(() => {})
+          }
+        }
+      } while (presetPending && !disposed)
+    } catch (err: unknown) {
+      ctx.logger.warn?.('[cfbridge] preset registration: ' + loggerMessage(err))
+    } finally {
+      presetSyncing = false
+    }
+  }
+
+  void syncPreset()
+  const bootTimer = setTimeout(() => { void syncPreset() }, 800)
+  bootTimer.unref()
+
+  const sp = options.getSystemPrompt()
+  const disposeSection = (sp !== undefined && typeof sp.section === 'function')
+    ? sp.section({
+        name: 'cfbridge:instructions',
+        order: 550,
+        text: (context: { scope?: unknown }) => {
+          if (options.getLoadMode() === 'preset') {
+            const presetId = options.getAgentPresets()?.composedPreset?.(context?.scope)
+            if (presetId !== 'cfbridge') return ''
+          }
+          return CFBRIDGE_SYSTEM_INSTRUCTIONS
+        },
+      })
+    : () => {}
+
+  return [
+    () => { void syncPreset() },
+    () => {
+      disposed = true
+      presetPending = false
+      clearTimeout(bootTimer)
+      if (retryTimer) clearTimeout(retryTimer)
+      if (unregisterPreset) void unregisterPreset().catch(() => {})
+      disposeSection()
+    },
+  ]
+}
+
+const CLOUDFLARE_TOOLS = ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'mcp__cloudflare__execute']
+
+/**
+ * 特权工具隔离防线：preset 模式下对非 cfbridge 会话屏蔽 Cloudflare MCP 工具。
+ */
+function installToolGuard(ctx: Context, options: {
+  getLoadMode: () => LoadMode
+  getAgentPresets: () => any
+  getTools: () => any
+}): () => void {
+  return (ctx as any).on('agent/created', (payload: any) => {
+    if (options.getLoadMode() !== 'preset') return
+    const targetAgent = payload?.agent ?? payload
+    const agentCtx = targetAgent?.ctx
+    if (!agentCtx) return
+    const toolsService = options.getTools()
+    if (toolsService === undefined) return
+    try {
+      const presetId = options.getAgentPresets()?.composedPreset?.(agentCtx)
+      if (presetId !== 'cfbridge') {
+        const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
+        const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
+        if (denyTargets.length > 0 && typeof agentCtx.tools?.restrict === 'function') {
+          agentCtx.tools.restrict({ deny: denyTargets })
+        }
+        if (typeof agentCtx.tools?.guard === 'function') {
+          agentCtx.tools.guard((exec: { name: string }) => {
+            if (CLOUDFLARE_TOOLS.includes(exec.name)) {
+              return 'Cloudflare MCP 工具仅在 cfbridge 模式下可用'
+            }
+          })
+        }
+      }
+    } catch (e) {
+      ctx.logger.debug?.('[cfbridge] tools restrict failed: ' + loggerMessage(e))
+    }
+  }, { global: true })
 }
 
 /**
@@ -804,7 +900,9 @@ export function apply(ctx: Context, config: Config = {
       disabledSkills: healed.disabledSkills,
       modelHiddenSkills: healed.modelHiddenSkills,
       userHiddenSkills: healed.userHiddenSkills,
-    } as any).catch(() => {})
+    } as any).catch((err: unknown) => {
+      ctx.logger.warn?.('[cfbridge] 自愈配置持久化回写失败: ' + loggerMessage(err))
+    })
   }
 
   const getLoadMode = (): LoadMode => {
@@ -883,128 +981,34 @@ export function apply(ctx: Context, config: Config = {
       : [false, () => {}] as [boolean, () => void]
     void publish()
 
-    // 响应式预设管理器：响应设置变化，动态注册或注销 cfbridge 专属模式
-    let unregisterPreset: (() => Promise<void>) | undefined
-    let presetSyncing = false
-    let presetPending = false
-    let retryTimer: NodeJS.Timeout | undefined
+    // 安装专属模式与特权工具拦截两大效果
+    const [syncPreset, disposePreset] = installPresetMode(ctx, {
+      getLoadMode,
+      getAgentPresets,
+      getSystemPrompt,
+    })
 
-    const syncPreset = async () => {
-      if (disposed || presetSyncing) {
-        presetPending = true
-        return
-      }
-      presetSyncing = true
-      try {
-        do {
-          presetPending = false
-          if (disposed) break
-          const mode = getLoadMode()
-          const presets = getAgentPresets()
-          if (mode === 'preset') {
-            if (!unregisterPreset && presets !== undefined && typeof presets.register === 'function') {
-              const standardDef = presets.definitions?.get?.('standard') ?? Array.from(presets.definitions?.values?.() ?? []).find((d: any) => Array.isArray(d?.config?.plugins) && d.config.plugins.length > 0)
-              const basePlugins = Array.isArray(standardDef?.config?.plugins) ? standardDef.config.plugins : []
-              if (basePlugins.length === 0 && presets.definitions && presets.definitions.size === 0) {
-                if (retryTimer) clearTimeout(retryTimer)
-                retryTimer = setTimeout(() => { if (!disposed) void syncPreset() }, 500)
-                retryTimer.unref()
-                return
-              }
-              const unreg = await presets.register({
-                id: 'cfbridge',
-                name: 'Cloudflare',
-                description: 'Cloudflare 专属模式：仅在本模式加载 Cloudflare MCP 工具与 14 个按需技能，预置操作规范',
-                order: 10,
-                plugins: basePlugins,
-              })
-              if (disposed) void unreg().catch(() => {})
-              else unregisterPreset = unreg
-            }
-          } else {
-            if (unregisterPreset) {
-              const fn = unregisterPreset
-              unregisterPreset = undefined
-              await fn().catch(() => {})
-            }
-          }
-        } while (presetPending && !disposed)
-      } catch (err: unknown) {
-        ctx.logger.warn?.('[cfbridge] preset registration: ' + loggerMessage(err))
-      } finally {
-        presetSyncing = false
-      }
-    }
-
-    void syncPreset()
-    const bootTimer = setTimeout(() => { void syncPreset() }, 800)
-    bootTimer.unref()
+    const disposeToolGuard = installToolGuard(ctx, {
+      getLoadMode,
+      getAgentPresets,
+      getTools,
+    })
 
     const disposeSettingsListener = (ctx as any).on('settings/document-updated', (ns: string) => {
       if (ns === providerName) {
         if (!isPublishingCatalog) {
           runtime.invalidate()
         }
-        void syncPreset()
-      }
-    }, { global: true })
-
-    // 专属模式预置提示词：当处于 cfbridge 模式时自动注入核心规范
-    const sp = getSystemPrompt()
-    const disposeSection = (sp !== undefined && typeof sp.section === 'function')
-      ? sp.section({
-          name: 'cfbridge:instructions',
-          order: 550,
-          text: (context: { scope?: unknown }) => {
-            if (getLoadMode() === 'preset') {
-              const presetId = getAgentPresets()?.composedPreset?.(context?.scope)
-              if (presetId !== 'cfbridge') return ''
-            }
-            return CFBRIDGE_SYSTEM_INSTRUCTIONS
-          },
-        })
-      : () => {}
-
-    // preset 模式下对非 cfbridge 会话屏蔽 Cloudflare MCP 工具
-    const CLOUDFLARE_TOOLS = ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'mcp__cloudflare__execute']
-    const disposeAgentListener = (ctx as any).on('agent/created', (payload: any) => {
-      if (getLoadMode() !== 'preset') return
-      const targetAgent = payload?.agent ?? payload
-      const agentCtx = targetAgent?.ctx
-      if (!agentCtx) return
-      const toolsService = getTools()
-      if (toolsService === undefined) return
-      try {
-        const presetId = getAgentPresets()?.composedPreset?.(agentCtx)
-        if (presetId !== 'cfbridge') {
-          const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
-          const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
-          if (denyTargets.length > 0 && typeof agentCtx.tools?.restrict === 'function') {
-            agentCtx.tools.restrict({ deny: denyTargets })
-          }
-          if (typeof agentCtx.tools?.guard === 'function') {
-            agentCtx.tools.guard((exec: { name: string }) => {
-              if (CLOUDFLARE_TOOLS.includes(exec.name)) {
-                return 'Cloudflare MCP 工具仅在 cfbridge 模式下可用'
-              }
-            })
-          }
-        }
-      } catch (e) {
-        ctx.logger.debug?.('[cfbridge] tools restrict failed: ' + loggerMessage(e))
+        syncPreset()
       }
     }, { global: true })
 
     return () => {
       disposed = true
       pending = false
-      presetPending = false
-      clearTimeout(bootTimer)
-      if (retryTimer) clearTimeout(retryTimer)
-      if (unregisterPreset) void unregisterPreset().catch(() => {})
       disposeSettingsListener()
-      disposeAgentListener()
-      disposeSection()
+      disposeToolGuard()
+      disposePreset()
       disposeWatcher()
       disposeListener()
       disposeProvider()
