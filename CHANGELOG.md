@@ -1,3 +1,9 @@
+## 0.11.1 — 2026-10-10
+- **docs**: 根目录主 `README.md` 全面重构为高质感全英文档，排版美学与五联徽章体系（npm / MIT / DSH Bundle / Node >= 22 / pnpm >= 11）对齐 `dsh-superpower` 风格。
+- **docs**: 中文说明书精修留存为 `README.zh.md`，并在 `package.json.files` 白名单中正式注册，根除 npm 线上发布后多语言跳转链接沦为 404 死链的反模式。
+- **chore**: 根目录 `.gitignore` 正式收录 `.superpower/` 全目录忽略，彻底消除任务草稿文件的 Git 跟踪风险。
+- **release**: 修复重推同名 tag 触发 npm E403（禁止覆写已发布版本）问题，正式平滑晋升为 0.11.1。
+
 ## 0.11.0 — 2026-10-10
 - **feat(mode)**: 支持通过设置面板与配置自由切换运行模式（`loadMode`：`'global'` 全局加载 / `'preset'` cfbridge 专属模式）：
   - `global` 模式下（默认），Cloudflare MCP 三工具与 14 个技能在所有会话全局可用；

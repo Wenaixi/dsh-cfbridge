@@ -18,7 +18,7 @@ async function main() {
     pass('package.json readable')
     if (pkg.name === '@wenaixi/cfbridge') pass('package name is @wenaixi/cfbridge')
     else fail('package name is @wenaixi/cfbridge', pkg.name)
-    if (pkg.version === '0.11.0') pass('package version is 0.11.0')
+    if (pkg.version === '0.11.1') pass('package version is 0.11.0')
     else fail('package version is 0.11.0', pkg.version)
     if (pkg.type === 'module') pass('package is an ESM module')
     else fail('package is an ESM module', pkg.type)
