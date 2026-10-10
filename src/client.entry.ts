@@ -289,79 +289,144 @@ function head(title: string, hint: string): React.ReactElement {
   )
 }
 
-function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
-  const t = props.t ?? fallbackT
-  const { form } = props
-  const [error, setError] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState<string | null>(null)
+export interface SkillRowModel {
+  readonly name: string
+  readonly summary: string
+  readonly modelInvocable: boolean
+  readonly userInvocable: boolean
+}
 
-  // 摘要位交给宿主渲染说明文案；这里只画页面视图。
-  if (props.view !== 'page') {
-    return React.createElement('span', null, t('skillHint'))
+export interface PanelSnapshot {
+  readonly status: 'loading' | 'ready' | 'unavailable'
+  readonly writable: boolean
+  readonly loadMode: 'global' | 'preset'
+  readonly skills: readonly SkillRowModel[]
+  readonly busy: boolean
+  readonly error: string | null
+}
+
+/**
+ * 客户端配置面板领域控制器（深模块）。
+ *
+ * 封装数据清洗、双轴开合投影、同步互斥防重锁与单次原子 ops 批处理提交。
+ * 不引入事件总线与 useSyncExternalStore，严格践行 Ponytail 极简原则（宿主每次下发全新 form props）。
+ */
+export class PanelController {
+  private form?: PageForm
+  private t: Translate
+  private lang: 'zh' | 'en'
+  private _busy = false
+  private _error: string | null = null
+
+  constructor(form?: PageForm, t: Translate = (k) => k) {
+    this.form = form
+    this.t = t
+    this.lang = detectLang(t)
   }
 
-  const state = form?.state
-  if (state === undefined || state.status === 'loading') {
-    return React.createElement(
-      'div',
-      { style: { padding: '12px 0', color: 'var(--dsw-alias-label-tertiary)' } },
-      t('loading'),
-    )
+  update(form?: PageForm, t?: Translate): void {
+    this.form = form
+    if (t) {
+      this.t = t
+      this.lang = detectLang(t)
+    }
   }
 
-  // 三个 volatile 字段是同一件事的三个投影：
-  //   disabledSkills    —— 完全关闭（模型与人类都不可调用）
-  //   modelHiddenSkills —— 只不给模型
-  //   userHiddenSkills  —— 只不给人类
-  // 面板把它们合成每行的两个开关，写入时再拆回去。
-  const user = (state.user && typeof state.user === 'object' && !Array.isArray(state.user) ? state.user : {}) as Record<string, unknown>
-  const value = (state.value && typeof state.value === 'object' && !Array.isArray(state.value) ? state.value : {}) as Record<string, unknown>
-  const disabled = strArray(user.disabledSkills)
-  const modelHidden = strArray(user.modelHiddenSkills)
-  const userHidden = strArray(user.userHiddenSkills)
-  const rawLoadMode = user.loadMode ?? value.loadMode
-  const loadMode: 'global' | 'preset' = rawLoadMode === 'preset' ? 'preset' : 'global'
-  // 清单由 Host 侧 Provider 发现后发布（config.availableSkills），面板不自己扫目录。
-  const names = strArray(value.availableSkills)
-  const skills = [...new Set([...names, ...disabled, ...modelHidden, ...userHidden])].sort()
-  const writable = state.writable && state.status === 'ready'
-  // 语言只探测一次，避免每行重复比较。
-  const lang = detectLang(t)
+  isBusy(): boolean {
+    return this._busy
+  }
 
-  const changeMode = (nextMode: 'global' | 'preset') => {
-    if (form === undefined || nextMode === loadMode || busy !== null) return
-    setBusy('loadMode')
-    setError(null)
-    form
-      .mutate(
+  getError(): string | null {
+    return this._error
+  }
+
+  getSnapshot(): PanelSnapshot {
+    const state = this.form?.state
+    const writable = Boolean(state?.writable && state?.status === 'ready')
+    if (!state || state.status === 'loading') {
+      return {
+        status: state?.status ?? 'unavailable',
+        writable,
+        loadMode: 'global',
+        skills: [],
+        busy: this._busy,
+        error: this._error,
+      }
+    }
+
+    const user = (state.user && typeof state.user === 'object' && !Array.isArray(state.user) ? state.user : {}) as Record<string, unknown>
+    const value = (state.value && typeof state.value === 'object' && !Array.isArray(state.value) ? state.value : {}) as Record<string, unknown>
+    const disabled = strArray(user.disabledSkills)
+    const modelHidden = strArray(user.modelHiddenSkills)
+    const userHidden = strArray(user.userHiddenSkills)
+    const rawMode = user.loadMode ?? value.loadMode
+    const loadMode: 'global' | 'preset' = rawMode === 'preset' ? 'preset' : 'global'
+    const names = strArray(value.availableSkills)
+    const allNames = [...new Set([...names, ...disabled, ...modelHidden, ...userHidden])].sort()
+
+    const skills: SkillRowModel[] = allNames.map((name) => ({
+      name,
+      summary: skillSummary(name, this.lang),
+      modelInvocable: !disabled.includes(name) && !modelHidden.includes(name),
+      userInvocable: !disabled.includes(name) && !userHidden.includes(name),
+    }))
+
+    return {
+      status: state.status,
+      writable,
+      loadMode,
+      skills,
+      busy: this._busy,
+      error: this._error,
+    }
+  }
+
+  // 同步互斥防重锁：同步栈内立即加锁，秒级拦截微任务竞态
+  async setMode(nextMode: 'global' | 'preset'): Promise<boolean> {
+    const snap = this.getSnapshot()
+    if (!snap.writable || this._busy || nextMode === snap.loadMode || !this.form) return false
+    this._busy = true
+    this._error = null
+    try {
+      const ok = await this.form.mutate(
         [{ op: 'set', path: ['loadMode'], value: nextMode }],
-        state.revision,
+        this.form.state.revision,
       )
-      .then((ok) => { if (!ok) setError(t('failed')) })
-      .catch((e: unknown) => setError(msg(e)))
-      .finally(() => setBusy(null))
+      if (!ok) this._error = this.t('failed')
+      return ok
+    } catch (e) {
+      this._error = msg(e)
+      return false
+    } finally {
+      this._busy = false
+    }
   }
 
-  const toggle = (name: string, axis: 'model' | 'user', next: boolean) => {
-    if (form === undefined || busy !== null) return
-    // 先还原「两轴当前的真实开合状态」：disabledSkills 表示两轴都关，
-    // 所以它必须同时投影到两个 hidden 集合，不能当成第三个独立字段。
-    // 少了这一步，历史落盘形态（技能只在 disabledSkills 里）下只打开一轴时，
-    // 另一轴会被静默打开 —— 用户没碰过的开关自己变了。
+  // 单次原子 ops 批处理平铺（三字段单次原子提交）
+  async toggle(name: string, axis: 'model' | 'user', next?: boolean): Promise<boolean> {
+    const snap = this.getSnapshot()
+    if (!snap.writable || this._busy || !this.form) return false
+    const state = this.form.state
+    const user = (state.user && typeof state.user === 'object' && !Array.isArray(state.user) ? state.user : {}) as Record<string, unknown>
+    const disabled = strArray(user.disabledSkills)
+    const modelHidden = strArray(user.modelHiddenSkills)
+    const userHidden = strArray(user.userHiddenSkills)
+
     const wasOff = disabled.includes(name)
     const modelOff = wasOff || modelHidden.includes(name)
     const userOff = wasOff || userHidden.includes(name)
-    // 只翻转被点击的那一轴，另一轴保持原状。
-    const nextModelOff = axis === 'model' ? !next : modelOff
-    const nextUserOff = axis === 'user' ? !next : userOff
+
+    const targetNext = next ?? (axis === 'model' ? modelOff : userOff)
+    const nextModelOff = axis === 'model' ? !targetNext : modelOff
+    const nextUserOff = axis === 'user' ? !targetNext : userOff
+
     const hiddenModel = new Set(modelHidden)
     const hiddenUser = new Set(userHidden)
     if (nextModelOff) hiddenModel.add(name)
     else hiddenModel.delete(name)
     if (nextUserOff) hiddenUser.add(name)
     else hiddenUser.delete(name)
-    // 两个都关 = 完全关闭：用 disabledSkills 单一表达，并把它从两个 hidden 列表里移除，
-    // 否则同一个事实有两个来源，读回时语义就会漂移。
+
     const off = new Set(disabled)
     if (nextModelOff && nextUserOff) {
       off.add(name)
@@ -370,10 +435,11 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
     } else {
       off.delete(name)
     }
-    setBusy(name)
-    setError(null)
-    form
-      .mutate(
+
+    this._busy = true
+    this._error = null
+    try {
+      const ok = await this.form.mutate(
         [
           { op: 'set', path: ['disabledSkills'], value: [...off] },
           { op: 'set', path: ['modelHiddenSkills'], value: [...hiddenModel] },
@@ -381,23 +447,61 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
         ],
         state.revision,
       )
-      .then((ok) => { if (!ok) setError(t('failed')) })
-      .catch((e: unknown) => setError(msg(e)))
-      .finally(() => setBusy(null))
+      if (!ok) this._error = this.t('failed')
+      return ok
+    } catch (e) {
+      this._error = msg(e)
+      return false
+    } finally {
+      this._busy = false
+    }
+  }
+}
+
+function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
+  const t = props.t ?? fallbackT
+  const [, setTick] = React.useState(0)
+  const [controller] = React.useState(() => new PanelController(props.form, t))
+  controller.update(props.form, t)
+
+  if (props.view !== 'page') {
+    return React.createElement('span', null, t('skillHint'))
+  }
+
+  const snap = controller.getSnapshot()
+  if (snap.status === 'loading') {
+    return React.createElement(
+      'div',
+      { style: { padding: '12px 0', color: 'var(--dsw-alias-label-tertiary)' } },
+      t('loading'),
+    )
+  }
+
+  const trigger = (action: () => Promise<boolean>) => {
+    setTick((v) => v + 1)
+    action().finally(() => setTick((v) => v + 1))
+  }
+
+  const changeMode = (nextMode: 'global' | 'preset') => {
+    trigger(() => controller.setMode(nextMode))
+  }
+
+  const toggle = (name: string, axis: 'model' | 'user', next: boolean) => {
+    trigger(() => controller.toggle(name, axis, next))
   }
 
   return React.createElement(
     'div',
     { style: { padding: '4px 0', maxWidth: 680 } },
 
-    error === null
+    snap.error === null
       ? null
       : React.createElement(
           'div',
           { role: 'status', style: { padding: '10px 0', color: 'var(--dsw-alias-state-error-primary)' } },
-          error === t('failed') ? error : t('failed') + ': ' + error,
+          snap.error === t('failed') ? snap.error : t('failed') + ': ' + snap.error,
         ),
-    writable
+    snap.writable
       ? null
       : React.createElement(
           'p',
@@ -440,7 +544,7 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              cursor: writable && busy === null ? 'pointer' : 'default',
+              cursor: snap.writable && !snap.busy ? 'pointer' : 'default',
               fontSize: 13,
             },
           },
@@ -448,12 +552,12 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
             type: 'radio',
             name: 'loadMode',
             value: 'global',
-            checked: loadMode === 'global',
-            disabled: !writable || busy !== null,
+            checked: snap.loadMode === 'global',
+            disabled: !snap.writable || snap.busy,
             onChange: () => changeMode('global'),
-            style: { cursor: writable && busy === null ? 'pointer' : 'default' },
+            style: { cursor: snap.writable && !snap.busy ? 'pointer' : 'default' },
           }),
-          React.createElement('span', { style: { fontWeight: loadMode === 'global' ? 600 : 400 } }, t('modeGlobal')),
+          React.createElement('span', { style: { fontWeight: snap.loadMode === 'global' ? 600 : 400 } }, t('modeGlobal')),
         ),
         React.createElement(
           'label',
@@ -462,7 +566,7 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              cursor: writable && busy === null ? 'pointer' : 'default',
+              cursor: snap.writable && !snap.busy ? 'pointer' : 'default',
               fontSize: 13,
             },
           },
@@ -470,21 +574,28 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
             type: 'radio',
             name: 'loadMode',
             value: 'preset',
-            checked: loadMode === 'preset',
-            disabled: !writable || busy !== null,
+            checked: snap.loadMode === 'preset',
+            disabled: !snap.writable || snap.busy,
             onChange: () => changeMode('preset'),
-            style: { cursor: writable && busy === null ? 'pointer' : 'default' },
+            style: { cursor: snap.writable && !snap.busy ? 'pointer' : 'default' },
           }),
-          React.createElement('span', { style: { fontWeight: loadMode === 'preset' ? 600 : 400 } }, t('modePreset')),
+          React.createElement('span', { style: { fontWeight: snap.loadMode === 'preset' ? 600 : 400 } }, t('modePreset')),
         ),
       ),
     ),
 
     React.createElement(
       'section',
+      { style: { marginBottom: 18 } },
+      head(t('hostSection'), t('hostHint')),
+      React.createElement(Guide, { t }),
+    ),
+
+    React.createElement(
+      'section',
       { style: { marginTop: 18 } },
       head(t('skillSection'), t('skillHint')),
-      skills.length === 0
+      snap.skills.length === 0
         ? React.createElement(
             'p',
             { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' } },
@@ -493,15 +604,15 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
         : React.createElement(
             'ul',
             { style: { listStyle: 'none', margin: 0, padding: 0 } },
-            skills.map((name) =>
+            snap.skills.map((skill: SkillRowModel) =>
               React.createElement(SkillRow, {
-                key: name,
-                name,
-                summary: skillSummary(name, lang),
-                modelInvocable: !disabled.includes(name) && !modelHidden.includes(name),
-                userInvocable: !disabled.includes(name) && !userHidden.includes(name),
-                busy: busy !== null,
-                writable,
+                key: skill.name,
+                name: skill.name,
+                summary: skill.summary,
+                modelInvocable: skill.modelInvocable,
+                userInvocable: skill.userInvocable,
+                busy: snap.busy,
+                writable: snap.writable,
                 t,
                 onToggle: toggle,
               }),
@@ -557,4 +668,4 @@ export function apply(ctx: any): void {
   )
 }
 
-export default { apply, inject: ['slots', 'locale'] }
+export default { apply, PanelController, inject: ['slots', 'locale'] }
