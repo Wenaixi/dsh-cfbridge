@@ -105,7 +105,18 @@ dsh-cloudflare-bridge-plan*.json
 # === Superpowers 计划 workspace（每计划一个目录，仅本机） ===
 # 这些目录承载 SDD 计划产物：ledger、brief、review package。
 # 本地计划执行者的进度记录存在这里，不进仓库；进程内残留文件也不应混入提交。
-.superpowers/sdd/
+# === 过程性计划工作区与草稿（单复数全覆盖） ===
+.superpowers/
+.superpower/
+**/.superpowers/
+**/.superpower/
+.scratch/
+**/.scratch/
+
+# === 图标设计候选与草稿资源 ===
+assets/
+assets/icon-candidates/
+**/icon-candidates/
 
 # === 本地测试与回放数据 ===
 playwright-report/
