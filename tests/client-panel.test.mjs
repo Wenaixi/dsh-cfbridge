@@ -31,7 +31,7 @@ async function mountClientPanel() {
   }
   const reactStub = {
     createElement,
-    useState(initial) { return [initial, () => {}] },
+    useState(initial) { return [typeof initial === 'function' ? initial() : initial, () => {}] },
     Fragment: Symbol('Fragment'),
   }
   const primitivesStub = {
