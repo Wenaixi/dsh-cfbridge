@@ -347,7 +347,7 @@ export class PanelController {
       return {
         status: state?.status ?? 'unavailable',
         writable,
-        loadMode: 'global',
+        loadMode: 'preset',
         skills: [],
         busy: this._busy,
         error: this._error,
@@ -360,7 +360,7 @@ export class PanelController {
     const modelHidden = strArray(user.modelHiddenSkills)
     const userHidden = strArray(user.userHiddenSkills)
     const rawMode = user.loadMode ?? value.loadMode
-    const loadMode: 'global' | 'preset' = rawMode === 'preset' ? 'preset' : 'global'
+    const loadMode: 'global' | 'preset' = rawMode === 'global' ? 'global' : 'preset'
     const names = strArray(value.availableSkills)
     const allNames = [...new Set([...names, ...disabled, ...modelHidden, ...userHidden])].sort()
 

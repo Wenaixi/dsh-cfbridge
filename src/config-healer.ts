@@ -137,15 +137,15 @@ export function healConfig(raw: unknown): HealResult {
   }
 
   // 2. loadMode
-  const rawMode = unwrapLazy<unknown>(target.loadMode, 'global')
-  let loadMode: LoadMode = 'global'
-  if (rawMode === 'preset') {
-    loadMode = 'preset'
-  } else if (rawMode === 'global') {
+  const rawMode = unwrapLazy<unknown>(target.loadMode, 'preset')
+  let loadMode: LoadMode = 'preset'
+  if (rawMode === 'global') {
     loadMode = 'global'
+  } else if (rawMode === 'preset') {
+    loadMode = 'preset'
   } else {
     changed = true
-    repairs.push(`loadMode 包含非法值 "${String(rawMode)}"，已回退为 "global"`)
+    repairs.push(`loadMode 包含非法值 "${String(rawMode)}"，已回退为 "preset"`)
   }
 
   // 3. rank
@@ -429,8 +429,10 @@ export function generatePatchYaml(options: {
 
   // 构造 cfbridge 自定义配置块
   const customConfig: string[] = []
-  if (healed.loadMode === 'preset') {
+  if (cfbridgeConfig.loadMode === 'preset') {
     customConfig.push('        loadMode: preset')
+  } else if (healed.loadMode === 'global') {
+    customConfig.push('        loadMode: global')
   }
   if (healed.rank !== PROVIDER_RANK) {
     customConfig.push(`        rank: ${healed.rank}`)

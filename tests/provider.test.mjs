@@ -143,13 +143,13 @@ test('Config schema accepts and defaults rank, cache, watchSkills, and loadMode'
   assert.equal(resolved.rank, 0)
   assert.equal(resolved.cache, true)
   assert.equal(resolved.watchSkills, false)
-  assert.equal(resolved.loadMode, 'global')
+  assert.equal(resolved.loadMode, 'preset')
 
-  const custom = Config({ rank: 800, cache: false, watchSkills: true, loadMode: 'preset' })
+  const custom = Config({ rank: 800, cache: false, watchSkills: true, loadMode: 'global' })
   assert.equal(custom.rank, 800)
   assert.equal(custom.cache, false)
   assert.equal(custom.watchSkills, true)
-  assert.equal(custom.loadMode, 'preset')
+  assert.equal(custom.loadMode, 'global')
 })
 
 test('Provider filters skills by preset scope when loadMode is preset', async () => {

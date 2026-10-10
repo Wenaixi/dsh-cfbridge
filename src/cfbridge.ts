@@ -90,7 +90,7 @@ export const Config = Schema.object({
     Schema.union([
       Schema.const('global').description('全局加载（所有会话均可用 MCP 工具与技能）'),
       Schema.const('preset').description('cfbridge 模式（仅专属模式加载 MCP 工具与技能）'),
-    ]).default('global').description('运行模式'),
+    ]).default('preset').description('运行模式'),
   ),
   // meta.volatile 是宿主 settings 通道的硬要求：只有被标记为 volatile 的字段
   // 才允许在运行时通过设置面写入（见 dsh-settings 的 volatileForm）。
@@ -418,7 +418,7 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
     onInvalidate,
     disabledSkills = [],
     hiddenSkills = {},
-    loadMode = 'global',
+    loadMode = 'preset',
     agentPresets,
   } = options
   const root = resolve(skillDir)

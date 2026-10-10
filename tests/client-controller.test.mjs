@@ -48,7 +48,7 @@ function mockForm(stateOverrides = {}, onMutate) {
       disabledSkills: [],
       modelHiddenSkills: [],
       userHiddenSkills: [],
-      loadMode: 'global',
+      loadMode: 'preset',
     },
     value: {
       availableSkills: ['wrangler', 'cloudflare'],
@@ -73,7 +73,7 @@ test('PanelController initializes cleanly even with malformed or empty state', a
   const snap = controller.getSnapshot()
   assert.equal(snap.status, 'ready')
   assert.equal(snap.writable, true)
-  assert.equal(snap.loadMode, 'global')
+  assert.equal(snap.loadMode, 'preset')
   assert.deepEqual(toJson(snap.skills), [])
   assert.equal(snap.busy, false)
   assert.equal(snap.error, null)

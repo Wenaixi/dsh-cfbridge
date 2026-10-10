@@ -245,3 +245,33 @@ test('mode radio switches mutate loadMode field', async () => {
   assert.equal(entry.ops[0].path[0], 'loadMode')
   assert.equal(entry.ops[0].value, 'preset')
 })
+
+test('mode radio defaults to preset when loadMode is unspecified', async () => {
+  const { row, render } = await mountClientPanel()
+  const mutated = []
+  const form = {
+    state: ZERO_REVISION_STATE(
+      { disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [] },
+      { availableSkills: ['cloudflare'] },
+    ).state,
+    mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
+  }
+
+  const nodes = render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
+  const radios = nodes.filter((n) => n.type === 'input' && n.props?.type === 'radio')
+  assert.equal(radios.length, 2, '两个运行模式单选框')
+  assert.equal(radios[0].props.value, 'global')
+  assert.equal(radios[0].props.checked, false)
+  assert.equal(radios[1].props.value, 'preset')
+  assert.equal(radios[1].props.checked, true, '默认必须选中 preset 模式')
+
+  radios[0].props.onChange()
+  await new Promise((r) => setImmediate(r))
+
+  assert.equal(mutated.length, 1)
+  const [entry] = mutated
+  assert.equal(entry.ops.length, 1)
+  assert.equal(entry.ops[0].op, 'set')
+  assert.equal(entry.ops[0].path[0], 'loadMode')
+  assert.equal(entry.ops[0].value, 'global')
+})

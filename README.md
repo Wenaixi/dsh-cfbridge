@@ -79,8 +79,8 @@ cfbridge supports two operating modes, togglable via the plugin settings UI or c
 
 | Mode | Value | Scope & Isolation Boundary |
 |---|---|---|
-| **Global Mode** (Default) | `global` | Cloudflare MCP tools and all 14 skills are globally available in all conversations. |
-| **cfbridge Preset Mode** | `preset` | Dynamically registers dedicated `cfbridge` agent preset and injects `CFBRIDGE_SYSTEM_INSTRUCTIONS` operational guidelines. Non-cfbridge sessions are isolated from Cloudflare tools via dual-layer defense (`tools.restrict` + `agentCtx.tools.guard`). |
+| **cfbridge Preset Mode** (Default) | `preset` | Dynamically registers dedicated `cfbridge` agent preset and injects `CFBRIDGE_SYSTEM_INSTRUCTIONS` operational guidelines. Non-cfbridge sessions are isolated from Cloudflare tools via dual-layer defense (`tools.restrict` + `agentCtx.tools.guard`). |
+| **Global Mode** | `global` | Cloudflare MCP tools and all 14 skills are globally available in all conversations. |
 
 ---
 
@@ -145,7 +145,7 @@ cfbridge exports a standard Schemastery Schema, customizable in your profile's `
 | `rank` | number | `0` | Sorting weight (lower number = higher priority; 0 is highest) |
 | `cache` | boolean | `true` | Enable in-memory mtime cache for skill metadata |
 | `watchSkills` | boolean | `false` | Watch skill markdown files for live HMR reload in development |
-| `loadMode` | string | `'global'` | Run mode: `'global'` or `'preset'` |
+| `loadMode` | string | `'preset'` | Run mode: `'preset'` (default) or `'global'` |
 | `disabledSkills` | string[] | `[]` | Fully disabled skills (both model and human toggles off) |
 | `modelHiddenSkills` | string[] | `[]` | Skills hidden from model invocation |
 | `userHiddenSkills` | string[] | `[]` | Skills hidden from human slash-command invocation |
