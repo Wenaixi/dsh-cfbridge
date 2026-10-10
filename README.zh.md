@@ -1,0 +1,237 @@
+# cfbridge
+
+[English](./README.md) | [中文](./README.zh.md)
+
+[![npm](https://img.shields.io/npm/v/@wenaixi%2Fcfbridge?label=npm)](https://www.npmjs.com/package/@wenaixi/cfbridge)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![DSH](https://img.shields.io/badge/DSH-Bundle-7c3aed)](https://github.com/deepseek-ai/deepseek-harness)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-5FA04E)](https://nodejs.org)
+[![CI](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wenaixi/dsh-cfbridge/actions/workflows/ci.yml)
+
+<img src="./icon.png" alt="@wenaixi/cfbridge" width="128" height="128">
+
+> Cloudflare 官方 Code Mode MCP 在 DeepSeek Harness（DSH）中的全局 Bundle 桥接。
+
+DSH Bundle 组合包：装到 web profile 后**所有会话全局可见** Cloudflare 官方 Code Mode MCP 三工具（docs / search / execute）与配套 SkillProvider，配合项目本地 Wrangler CLI 透传。入口是 TypeScript `src/cfbridge.ts` 的提交产物 `lib/cfbridge.js`；走 `dsh.bundle` 原生分发。仓库 [Wenaixi/dsh-cfbridge](https://github.com/Wenaixi/dsh-cfbridge) · npm [@wenaixi/cfbridge](https://www.npmjs.com/package/@wenaixi/cfbridge)。
+
+## 安装
+
+**前提**：DSH 可启动（`dsh --profile web`）；本次重构的本地验证请先阅读 [`demo/README.md`](./demo/README.md) 并使用独立 `DSH_HOME`；已装 pnpm（`dsh plugin` 透传给它）；Cloudflare API token —— 推荐 account token（`cfat_`，带 `Account Resources: Read`），DNS 操作用 Zone 范围的用户 token（`cfut_`）。
+
+**第 1 步 — 写入 token**（私有文件，git 忽略，勿写入任何被跟踪文件）：
+
+```dotenv
+# %USERPROFILE%\.dsh\.env
+CLOUDFLARE_API_TOKEN=请替换为你的token
+```
+
+**第 2 步 — 安装 Bundle**（任选其一，其他 profile 把 `web` 换成对应名字）：
+
+```powershell
+# 方式 A — npm（推荐）
+dsh plugin --profile web add @wenaixi/cfbridge
+
+# 方式 B — GitHub 直装（仓库已提交 lib/ 构建产物；若 pnpm 阻止 prepare，请允许本地构建脚本）
+dsh plugin --profile web add github:Wenaixi/dsh-cfbridge
+
+# 方式 C — clone 后本地安装
+git clone https://github.com/Wenaixi/dsh-cfbridge.git; cd dsh-cfbridge
+npm install
+npm run install:bundle            # 默认装到 web；其他 profile 加 -- --profile <name>
+```
+
+`install:bundle` 内部做两件事：调 `dsh plugin --profile <name> add .` 把包加入 `dsh.profile.bundles`；再 `--dump-config` 验证 `cfbridge` 层与 `mcp-cloudflare` / `cfbridge` 两行出现。
+
+本地重构版本采用 TypeScript：发布包包含 `lib/` 构建产物，源码改动后先执行 `npm run build`。安装后 Provider 会从 `skills/*/SKILL.md` 读取索引，并按需加载正文。
+
+**第 3 步 — 重启并验证**：重启 `dsh --profile web` 后任意新会话应看到 `mcp__cloudflare__docs/search/execute` 与 `cfbridge` Skill；也可用 `dsh --profile web --dump-config | Select-String "cfbridge"` 检查。
+
+## 它是什么
+
+```text
+DSH Bundle（全局常驻，按需开关）
+  └─ 安装到 web profile（默认）后所有会话自动挂载
+       ├─ mcp__cloudflare__docs     ← Cloudflare 文档语义搜索
+       ├─ mcp__cloudflare__search   ← OpenAPI 端点检索
+       ├─ mcp__cloudflare__execute  ← 官方隔离 sandbox 内执行
+       ├─ cfbridge SkillProvider     ← 14 个技能索引按需发现，正文按需读取
+       ├─ cfbridge Skill            ← 薄桥：search-then-execute、写操作审批、Token 边界
+       ├─ 13 vendored Skills        ← 其余官方 Cloudflare 技能原样离线可用
+       └─ npm run wrangler ...      ← 项目本地 Wrangler CLI 透传
+```
+
+**Skill 加载真相**：索引阶段仅注入每个 Skill 的 `name/description/whenToUse`（约 120–180 tok/个，14 个合计约 1.7–2.5k tok），全文仅在需要时单篇加载（如 `wrangler` 约 4.5k tok），不会一次性灌入全部。
+
+## 使用：你触发，LLM 接管
+
+你只需显式说一句「用 / 加载 / 走 `cfbridge` …」触发；是否再加载子 Skill、何时 search → execute、写操作是否征求确认，全部由 LLM 自主决策：
+
+| 你（触发） | LLM 自动接管 |
+|------|------|
+| “用 cfbridge 查一下我账号下有哪些 Zone / D1 / KV” | `search` 找端点 → `execute` 只读调用 |
+| “加载 cfbridge，帮我写一个 Durable Object 聊天室” | 判定需领域知识 → 加载 `cloudflare` Skill → 决策树指向 `durable-objects` → 生成代码 → `wrangler` 校验 |
+| “走 cfbridge 用 Workers 部署这个脚本” | 视情况加载 `cloudflare` → `wrangler deploy`（写操作前先复述并征求确认） |
+| “用 cfbridge 选存储方案，KV 还是 D1 还是 R2？” | 加载 `cloudflare` → “Need storage?” 决策树 → 给出建议 |
+
+**规则（已写入 Skill，LLM 会遵守）**：任何 API 调用前先 `search`/`docs` 再 `execute`（检索优于记忆）；写操作（deploy / KV-D1-R2 写 / DNS 改 / secret）先复述“对 YY 资源做 XX”并等确认，不可逆操作二次确认。
+
+**一句话心智模型**：你负责一句话触发；`cfbridge` 是薄桥（挂三工具 + 审批规范），`cloudflare` 是总入口（决策树 → 指引到 `wrangler` 等 12 个子 Skill），路由全由模型决策。
+
+## 官方 Skills 入口（与 cfbridge 互补）
+
+领域知识由 [cloudflare/skills](https://github.com/cloudflare/skills) 的 `cloudflare` Skill 提供。**何时加载它**：不确定该选哪个 Cloudflare 产品（KV/D1/R2？Workers/Pages?）；需要 30+ 产品决策树或 `references/` 索引；需要判断该加载哪个子 Skill；任何 Cloudflare 开发任务的起点。其余子 Skill 由它按需指引，本包已 vendoring 13 个 SKILL.md 到 `skills/<name>/`（离线可用）。
+
+### 14 个技能完整清单
+
+| 技能名称 | 类型 | 中文职能与定位 | 适用场景与触发特征 |
+| --- | --- | --- | --- |
+| `cfbridge` | 核心桥接 | 全局 Bridge、search-then-execute 工作流与写操作审批 | 任何 Cloudflare API 调用的前置薄桥 |
+| `cloudflare` | 官方总入口 | 30+ 产品选型决策树、架构指南与子技能路由 | 不确定用哪个产品、开发任务的起点 |
+| `wrangler` | 官方工具 | Wrangler CLI 语法、配置与本地多资源协同 | 本地开发、构建、离线脚手架与部署验证 |
+| `agents-sdk` | 官方应用 | 基于 Workers 构建有状态 AI 智能体与工作流 | Agents SDK、Durable Execution 与实时应用 |
+| `durable-objects` | 官方存储 | 有状态协调、事务型 SQLite 存储与 WebSockets | 分布式协调、房间状态同步与告警触发 |
+| `cloudflare-one` | 官方网络 | Zero Trust、Access、Gateway、Tunnel 与 SASE | 零信任网络访问、边界打通与隧道配置 |
+| `cloudflare-one-migrations` | 官方迁移 | 从传统 VPN / 防火墙栈平滑迁移到 Cloudflare One | 企业安全架构迁移与策略对照评估 |
+| `cloudflare-email-service` | 官方通信 | 事务型邮件发送与 Email Routing 规则处理 | 邮件验证码、通知发送与入站邮件处理 |
+| `sandbox-stable` | 官方沙箱 | Cloudflare Sandbox 稳定版环境运行与命令执行 | 生产环境沙箱容器、文件系统与会话操作 |
+| `sandbox-next` | 官方沙箱 | Cloudflare Sandbox 1.0 预览版特性与异步执行 | 预览版沙箱特性、AI 运行器与挂载管理 |
+| `sandbox-migrate-to-next` | 官方迁移 | 从 Sandbox 稳定版升级至 1.0 预览版指导 | 沙箱代码重构、包名迁移与契约适配 |
+| `turnstile-spin` | 官方安全 | Turnstile 智能人机验证端到端部署与服务端验签 | 表单防刷、免验证码人机校验与 API 防护 |
+| `web-perf` | 官方优化 | Chrome DevTools MCP 分析、Core Web Vitals 调优 | 页面加载性能审计、LCP/INP/CLS 诊断 |
+| `workers-best-practices` | 官方规范 | Workers 生产最佳实践审查与常见反模式排查 | 代码上线前审查、流式处理与全局状态避坑 |
+
+不用 DSH 时也可独立安装（任选其一，与 cfbridge 共存）：
+
+| Agent | 命令 |
+|-------|------|
+| Claude Code | `/plugin marketplace add cloudflare/skills` → `/plugin install cloudflare@cloudflare` |
+| Cursor | Settings → Rules → Add Rule → Remote Rule (Github) → `cloudflare/skills` |
+| 任意 Agent | `npx skills add https://github.com/cloudflare/skills` |
+| 手动 | 按 https://github.com/cloudflare/skills#clone--copy 克隆拷贝 |
+
+## 形态：Bundle / Preset / 动态插件
+
+| 形态 | 生效粒度 | 何时选 |
+|------|---------|-------|
+| **Bundle（主推）** | 装到 profile 后所有会话全局可见 | 需要 `mcp__cloudflare__*` 常驻，推荐默认 |
+| **Agent Preset** | 仅选中该 preset 的会话可见 | 只想在特定项目用，不想全局常驻（从 shipped `standard` copy 后移入对应 preset） |
+| **动态 Cordis Plugin** | 运行时注册，卸载即消失 | 临时演示 / A-B 对比 |
+
+> 约束（遵循 dsh-plugin-dev）：Bundle 的 `cordis.patch.yml` 不声明 `persona` / `agent-instructions` / `tool-fs` 等 host 已有层；`failOnStartupError: false`；Authorization 用 `!!js` 动态引 `process.env.CLOUDFLARE_API_TOKEN`；勿与 Preset 同时注册 `mcp__cloudflare__*`。
+
+**它不是什么**：不是按 preset 选择（装完全会话可见）；不是动态 Cordis 插件（走原生 `dsh.bundle` 分发）；不复制端点列表（直连官方 Code Mode MCP，永远最新）；不污染用户 patch 层（独立层追加于 `dsh.profile.bundles`）。
+
+## 配置项（Config Schema）
+
+cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml` 中自由覆写：
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `providerName` | string | `'cfbridge'` | Provider 注册标识符（禁止使用保留名 `'runtime'`） |
+| `skillDir` | string | 源码相对路径 | 技能目录绝对或相对路径（默认指向 bundle 内置 `skills/`） |
+| `rank` | number | `0` | 技能提供方排序权重（数值越小优先级越高，0 为最高优先级） |
+| `cache` | boolean | `true` | 是否启用基于文件 mtime 的技能元数据内存缓存 |
+| `watchSkills` | boolean | `false` | 是否开启技能目录递归变动监听（开发模式下自动广播 `skills/change` 触发热刷新） |
+| `loadMode` | string | `'global'` | 运行模式：`'global'` 全局加载，`'preset'` 仅在 cfbridge 模式下加载 |
+| `disabledSkills` | string[] | `[]` | **完全关闭**的技能：模型与人类都不可调用，等同该技能不存在 |
+| `modelHiddenSkills` | string[] | `[]` | **只不给模型**的技能：模型目录看不到，但人类仍可调用 |
+| `userHiddenSkills` | string[] | `[]` | **只不给人类**的技能：面板上人类不可调用，但模型仍可调用 |
+| `availableSkills` | string[] | `[]` | 技能清单快照，由插件发现后自动写回，供插件页面板渲染（不建议手改） |
+
+配置示例（可在自己的 patch overlay 中覆盖）：
+
+```yaml
+- insert:
+    - id: cfbridge
+      name: '@wenaixi/cfbridge'
+      config:
+        # 覆写默认的 rank 0（例如降为系统级 600）
+        rank: 600
+        cache: true
+        watchSkills: true
+        # 只想让模型看不到 wrangler，但面板上人类仍可调用它
+        modelHiddenSkills:
+          - wrangler
+```
+
+## 在插件页开关（图形界面）
+
+安装后打开 DSH 的「插件」页即可逐项控制，无需手改配置：
+
+1. **插件** → 点 **Cloudflare 桥接** 卡片的「查看」，进入详情页。
+2. **组件开关**：详情页下方「包含的组件」里，`mcp-cloudflare` 与 `cfbridge` 两行各带一个开关，可单独停用其中一行（这是宿主原生能力）。
+3. **运行模式与技能开关**：点 `cfbridge` 那一行的 **配置**，进入面板：
+   - **运行模式**：顶部提供「全局加载」与「cfbridge 模式」单选切换。选择 cfbridge 模式时，宿主将注册专属模式，仅在该模式下加载 MCP 工具与技能，并预置操作与安全规范提示词；
+   - **技能开关**：下方每个技能提供两个**独立**开关：
+
+| 开关 | 关掉后的效果 |
+| --- | --- |
+| **模型** | 模型在技能目录里看不到它（不会主动调用） |
+| **人类** | 人类不可调用它（仍可被模型调用） |
+
+两个都关 = **完全关闭**，该技能等同不存在（模型与人类都拿不到）。
+
+面板的写入直接落在 profile 的 `cordis.patch.yml`，改动即时生效、无需重启。
+
+## 验证与维护
+
+```powershell
+npm run check              # 仓库配置 + 安全检查（本机装 bundle 时 85 项，CI/干净环境 84 项，两边均 0 失败）
+npm run validate:bundle -- --strict-router  # manifest + 14 个技能结构校验（98 项）
+npm run test:wrangler      # Wrangler CLI 只读验证（4 项）
+npm run test               # 综合质量门禁（15/15 步骤全绿）：构建、双向类型检查、Provider、配置自愈、面板与脱机控制器单测、安全校验
+npm run dump:config        # 查看当前 profile 中 cfbridge 这一层（--raw 不过滤）
+npm run repair:config      # 配置自动体检与自愈：支持断电截断/语法损坏 YAML 自动提取抢救、强制 .bak 备份与干净重生成
+```
+
+## 启停控制
+
+```powershell
+# 启用
+dsh plugin --profile web add @wenaixi/cfbridge
+# 停用（uninstall:bundle 会清理 dependency、bundles 层及旧版 skill 软链残留）
+dsh plugin --profile web remove @wenaixi/cfbridge
+# 或：npm run uninstall:bundle -- --profile web
+```
+
+**热切换（disabled 覆写，不卸载）**：在 `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml` 末尾追加完整重写 `mcp-cloudflare` 的块（DSH 后层按行胜出，必须重述整行 config）：
+
+```yaml
+- insert:
+    - id: mcp-cloudflare
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: true
+      config:
+        serverName: cloudflare
+        transport: streamable-http
+        url: https://mcp.cloudflare.com/mcp
+        headers:
+          Authorization: !!js '`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 30000
+          maxAttempts: 10
+```
+
+重启后 `mcp__cloudflare__*` 消失；删除该段并重启即恢复。（若 DSH 未来提供原生 `disable` 命令，本节将迁移。）
+
+## 安全规则
+
+1. Token 仅存 `$DSH_HOME/.env`（git 忽略），配置中一律 `!!js process.env...` 动态引用。
+2. 不写入任何被跟踪文件、commit 或 issue；不打印到日志。
+3. 最小权限 token；DNS 单独用 Zone 范围的用户 token。
+4. 不再使用或疑似泄漏时立即在 Cloudflare Dashboard 撤销。
+5. **勿将 Bundle 与旧 preset 同时启用** —— 同一 `serverName: cloudflare` 会导致工具注册两次。发现旧 `~/.dsh/.agent-presets/cfbridge/` 时运行 `npm run migrate:from-preset -- --yes` 清理。
+
+## 维护
+
+- **同步官方 Skills 快照**：`npm run sync:vendor`（仅补缺失）/ `sync:vendor:force`（强制刷新）。快照头部含 `vendored from cloudflare/skills@main on YYYY-MM-DD` 注释；SKILL.md 内的 raw.githubusercontent.com 链接作为“永远最新”兜底。
+- **版本**：本地 `package.json` 为权威，跟随 npm `latest`。发布流程：改 version → 补 CHANGELOG.md 小节 → 打 `vX.Y.Z` tag 推送，CI 自动测试 + npm publish + GitHub Release。
+- **验证入口只有一个**：CI 与 Release 都调用 `npm test`（13 步：构建、Host 与客户端两类类型检查、Provider/元数据/客户端面板/Wrangler 入口/门禁契约/脚本共享模块/demo 七个行为测试文件、安全检查、严格结构校验、Wrangler 只读）。改门禁只改 `scripts/test.js`，不要在 workflow 里另写一套——`tests/workflow-gate.test.mjs` 会断言这一点。
+- **行尾与元数据判定**：仓库无 `.gitattributes`，同一文件在 Windows 工作区是 CRLF、在 Linux checkout 是 LF。SKILL.md 的索引元数据判定（`scripts/lib/skill-metadata.js`）必须在两种行尾下都成立，已实测 14 个技能全部通过；该判定由门禁与测试共用，只有一份实现。
+- **已验证能力（门禁）**：门禁不再读源码文本，改为 `import` 构建产物断言真实行为（新增 `scripts/lib/provider-contract.js`，`check.js` 与 `validate-bundle.js` 共用）—— 对照实验证明旧做法会双向失效（常量改名即误报、Provider 注册被短路仍全绿）；客户端半侧 `src/client.entry.ts` 此前完全不被类型检查，现由 `tsconfig.client.json` + 类型桩覆盖并接入 `npm test`；技能开关的 invocation 投影收敛为单一泛型实现 `projectInvocation`（`list()` 与 `get()` 共用）；`SkillProviderOptions` 具名选项对象取代 8 个位置参数；`apply()` 拆为 `SkillRuntime` 接缝加四条独立效果安装器。
+- **已验证能力（隔离 DSH 新实例实测）**：tarball 与目录两种安装路径、`--dump-config` 展开 `mcp-cloudflare`/`cfbridge` 两层、14 个技能发现与按需读取、mtime 缓存自动失效、`invalidate()` 清缓存、watcher 实时热刷新（增/删目录、编辑 SKILL.md 均广播 `skills/change`）、SkillRegistry 注册/重名拒绝/注销/事件广播链路、`install:bundle`/`uninstall:bundle` 幂等与旧软链清理、插件页面板逐技能开关（14 技能 × 模型/人类两个开关）与落盘回读；无 token 时优雅降级（`failOnStartupError: false`，wrangler 透传友好报错）；追踪文件与历史均无 token。
+- 作者 **Wenaixi** · MIT · 设计文档见 [`docs/superpowers/`](./docs/superpowers/) · 相关：[Cloudflare MCP](https://github.com/cloudflare/mcp) · [Wrangler 文档](https://developers.cloudflare.com/workers/wrangler/) · [DSH Bundle 文档](https://github.com/deepseek-ai/deepseek-harness)

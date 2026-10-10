@@ -42,7 +42,8 @@
     "icon.png",
     "README.md",
     "LICENSE",
-    ".env.example"
+    ".env.example",
+    "README.zh.md"
   ],
   "publishConfig": {
     "access": "public",
