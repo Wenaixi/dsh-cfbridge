@@ -146,6 +146,7 @@ cfbridge exports a standard Schemastery Schema, customizable in your profile's `
 | `cache` | boolean | `true` | Enable in-memory mtime cache for skill metadata |
 | `watchSkills` | boolean | `false` | Watch skill markdown files for live HMR reload in development |
 | `loadMode` | string | `'preset'` | Run mode: `'preset'` (default) or `'global'` |
+| `mcpEnabled` | boolean | `true` | Enable Cloudflare MCP tools (docs / search / execute) |
 | `disabledSkills` | string[] | `[]` | Fully disabled skills (both model and human toggles off) |
 | `modelHiddenSkills` | string[] | `[]` | Skills hidden from model invocation |
 | `userHiddenSkills` | string[] | `[]` | Skills hidden from human slash-command invocation |

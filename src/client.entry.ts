@@ -1,14 +1,10 @@
 // @wenaixi/cfbridge 浏览器半侧（双面插件的 client 面）。
 //
-// 目标：在「插件」页的 cfbridge 详情页里给用户一张开关面板。
-//   - 宿主组件（Cloudflare MCP / cfbridge Provider）的启用态只读展示；
-//     真正的逐行开关由宿主自己的「包含的组件」列表提供，面板不重复实现。
-//   - 技能开关是本插件独有的能力，通过宿主送到 props 上的表单控制器写入。
-//
-// 这里刻意不碰任何 Remote 服务、不等任何 ctx.inject：
-// plugins.row.config 的 owner props 本身就是 { view, form }，
-// form 是宿主配置表单控制器（state + mutate），写入落盘、版本栅栏、
-// 重载判定都由宿主负责。这比自建通道少了整整一层跨端协议。
+// 目标：在「插件」页的 cfbridge 详情页里给用户一张现代、精致、高质感的控制面板。
+//   - 运行模式卡片式单选（cfbridge 专属模式 / 全局加载模式）
+//   - Cloudflare Code Mode MCP 工具总控开关（docs / search / execute）
+//   - 技能一元化开关管理（合并双轴为单一开关，支持实时搜索与批量启停）
+//   - 遵循 frontend-design 专业美学准则，原生适配 DSH 暗色/亮色主题。
 //
 // 本文件由 scripts/build-client.js 转译为 lib/client.js（CJS factory），是唯一来源。
 
@@ -19,14 +15,9 @@ import * as UI from '@deepseek-ai/dsh-client-ui-primitives'
 const PACKAGE_NAME = '@wenaixi/cfbridge'
 /** 语言包命名空间。 */
 const NS = 'cfbridge'
-/**
- * 本插件在 profile patch 里的行 id。
- *
- * 它同时是三个身份：settings 描述面的 namespace、settings.update 的写入键，
- * 以及宿主 plugins.row.config 的 entryKey 组成（宿主按 <包名>#<行id> 拼键）。
- */
+/** 本插件在 profile patch 里的行 id。 */
 const ROW_ID = 'cfbridge'
-/** plugins.row.config 的键 = <bundle>#<rowId>（与宿主 rowConfigKey 同一算法）。 */
+/** plugins.row.config 的键 = <bundle>#<rowId>。 */
 const ROW_CONFIG_KEY = PACKAGE_NAME + '#' + ROW_ID
 
 // ---------------------------------------------------------------------------
@@ -34,59 +25,99 @@ const ROW_CONFIG_KEY = PACKAGE_NAME + '#' + ROW_ID
 // ---------------------------------------------------------------------------
 
 const zh = {
+  headerBadge: 'Cloudflare 边缘能力桥接',
   modeSection: '运行模式',
-  modeHint: '选择技能与 MCP 工具的加载范围。',
-  modeGlobal: '全局加载（所有会话可用）',
-  modePreset: 'cfbridge 模式（仅专属模式可用）',
-  hostSection: '宿主组件',
-  hostHint: '在「包含的组件」里可以逐行启用或停用。',
-  skillSection: '技能开关',
-  skillHint: '每个技能有两个独立开关：模型可调用、人类可调用。两个都关等于完全关闭。',
+  modeHint: '定义特权工具与技能的会话作用域及安全隔离边界。',
+  modePreset: 'cfbridge 专属模式',
+  modePresetBadge: '推荐',
+  modePresetDesc: '动态注册专属智能体预设并注入操作规范，普通会话严格隔离特权工具，杜绝非 Cloudflare 会话被特权干扰。',
+  modeGlobal: '全局加载模式',
+  modeGlobalDesc: '所有普通会话与智能体均可直接调用 Cloudflare MCP 三工具与 14 个专项技能。',
+  mcpSection: 'Cloudflare MCP 工具 (Code Mode)',
+  mcpHint: '基于 Cloudflare Code Mode 的三个核心特权工具。',
+  mcpStatusOn: 'MCP 工具已激活',
+  mcpStatusOff: 'MCP 工具已完全关闭',
+  mcpToolDocs: 'docs · 官方文档与 API 检索',
+  mcpToolSearch: 'search · REST API 端点与架构查询',
+  mcpToolExecute: 'execute · 沙箱安全代码执行',
+  mcpDisabledBanner: 'Cloudflare MCP 工具已在全系统所有会话中物理停用（禁止调用 docs / search / execute）',
+  skillSection: '技能库管理',
+  skillHint: '按需加载的专项技能库。关闭的技能不参与模型检索与人类调用。',
+  searchPlaceholder: '搜索技能名称或功能描述…',
+  enabledCount: '已启用',
+  enableAll: '全部启用',
+  disableAll: '全部停用',
+  noMatchingSkills: '没有找到匹配的技能条目',
   skillName: '技能',
-  model: '模型',
-  user: '人类',
+  skillActive: '已启用',
+  skillInactive: '已停用',
   loading: '正在读取…',
   failed: '保存失败',
   readOnly: '当前实例的配置不可写。',
   noSkills: '没有发现技能。',
-  guideText: '开关位置：下方「包含的组件」可逐行启用或停用 MCP 与 Provider；技能开关在 cfbridge 行的「配置」页里，每个技能有「模型」与「人类」两个独立开关。',
+  guideTitle: '说明与 Token 提示',
+  guideText: 'Cloudflare API Token 通过 %USERPROFILE%\\.dsh\\.env 中的 CLOUDFLARE_API_TOKEN 传入；修改 Token 后需重启宿主进程。下方列表可一键启停各个专项技能。',
 }
 
 const en = {
-  modeSection: 'Run Mode',
-  modeHint: 'Choose the loading scope for skills and MCP tools.',
-  modeGlobal: 'Global (Available in all sessions)',
-  modePreset: 'cfbridge Mode (Available only in cfbridge mode)',
-  hostSection: 'Host components',
-  hostHint: 'Enable or disable each one under "Included components".',
-  skillSection: 'Skills',
-  skillHint: 'Each skill has two independent switches: model-invocable and user-invocable. Both off means fully disabled.',
+  headerBadge: 'Cloudflare Edge Capabilities',
+  modeSection: 'Operating Mode',
+  modeHint: 'Define the scope and isolation boundary for privileged tools and skills.',
+  modePreset: 'cfbridge Preset Mode',
+  modePresetBadge: 'Recommended',
+  modePresetDesc: 'Dedicated agent preset with safety rules; completely isolated from standard chats to prevent interference.',
+  modeGlobal: 'Global Mode',
+  modeGlobalDesc: 'Cloudflare MCP tools and all 14 skills are globally available in all conversations.',
+  mcpSection: 'Cloudflare MCP Tools (Code Mode)',
+  mcpHint: 'Three privileged tools based on Cloudflare Code Mode.',
+  mcpStatusOn: 'MCP Tools Active',
+  mcpStatusOff: 'MCP Tools Disabled',
+  mcpToolDocs: 'docs · Docs & API schema lookup',
+  mcpToolSearch: 'search · REST endpoints discovery',
+  mcpToolExecute: 'execute · Safe sandbox execution',
+  mcpDisabledBanner: 'Cloudflare MCP tools are physically disabled across all sessions (docs / search / execute)',
+  skillSection: 'Skills Management',
+  skillHint: 'On-demand specialized skills. Disabled skills are excluded from model catalog and user selection.',
+  searchPlaceholder: 'Search skill name or description...',
+  enabledCount: 'Enabled',
+  enableAll: 'Enable All',
+  disableAll: 'Disable All',
+  noMatchingSkills: 'No matching skills found',
   skillName: 'Skill',
-  model: 'Model',
-  user: 'Human',
+  skillActive: 'Active',
+  skillInactive: 'Disabled',
   loading: 'Reading…',
   failed: 'Save failed',
   readOnly: 'Configuration is read-only in this instance.',
   noSkills: 'No skills found.',
-  guideText: 'Where the switches are: "Included components" below toggles the MCP and Provider rows; skill switches live in the cfbridge row config page, with independent Model and Human switches per skill.',
+  guideTitle: 'Configuration & Token Notice',
+  guideText: 'Cloudflare API Token is read from %USERPROFILE%\\.dsh\\.env; token rotation requires restarting DSH. Individual skills can be toggled below.',
 }
 
 type Dict = typeof zh
 type Translate = (key: keyof Dict) => string
 
 // ---------------------------------------------------------------------------
-// 技能简介（面板每行显示的一句话说明）
+// 技能分类与人话简介
 // ---------------------------------------------------------------------------
-//
-// 为什么不直接用 SKILL.md frontmatter 里的 description：那是**面向模型**的
-// 触发说明（英文，实测 160–551 字符，形如 "Load when creating stateful agents,
-// durable workflows, ..."），塞进面板既长又难读，且面板是中文界面。
-// 因此这里维护一份人类可读的短简介，并在 tests 中锁定：
-//   - 每个技能都必须有简介（新增技能忘了写会红）
-//   - 简介长度有上限（防止有人把整段描述贴进来）
-//
-// 与技能清单的关系：清单由 Host 侧 Provider 发现后发布（config.availableSkills），
-// 本表只负责"把名字翻译成人话"，不参与发现。表里多出的条目不会渲染。
+
+const SKILL_CATEGORY: Record<string, string> = {
+  cfbridge: 'Core',
+  cloudflare: 'Platform',
+  wrangler: 'CLI',
+  'agents-sdk': 'AI / Agents',
+  'durable-objects': 'Storage',
+  'cloudflare-one': 'Zero Trust',
+  'cloudflare-one-migrations': 'Migration',
+  'cloudflare-email-service': 'Email',
+  'sandbox-stable': 'Containers',
+  'sandbox-next': 'Containers',
+  'sandbox-migrate-to-next': 'Migration',
+  'turnstile-spin': 'Security',
+  'web-perf': 'Performance',
+  'workers-best-practices': 'Standards',
+}
+
 const SKILL_SUMMARY: Record<string, { zh: string; en: string }> = {
   'agents-sdk': { zh: '用 Agents SDK 构建有状态 AI Agent', en: 'Build stateful AI agents with the Agents SDK' },
   cfbridge: { zh: 'Cloudflare MCP 桥接与技能开关指南', en: 'Cloudflare MCP bridge and skill-switch guide' },
@@ -104,26 +135,17 @@ const SKILL_SUMMARY: Record<string, { zh: string; en: string }> = {
   wrangler: { zh: 'Wrangler CLI 命令指南', en: 'Wrangler CLI command reference' },
 }
 
-/**
- * 探测当前语言。
- *
- * 宿主送给面板的 props 只有 t / ui / form / view，不含语言字段；
- * 而 ctx.locale.bind(NS) 返回的 t 已按当前语言解析。这里用一个中英文案
- * 明显不同的已注册 key 做哨兵：读回来的值等于哪份字典，当前就是哪种语言。
- * 比新增宿主依赖更稳，也不改变任何既有契约。
- */
 function detectLang(t: Translate): 'zh' | 'en' {
   return t('skillName') === zh.skillName ? 'zh' : 'en'
 }
 
-/** 取某个技能当前语言的简介；没有登记则返回空串（面板据此回退为目录名）。 */
 function skillSummary(name: string, lang: 'zh' | 'en'): string {
   const entry = SKILL_SUMMARY[name]
   return entry === undefined ? '' : entry[lang]
 }
 
 // ---------------------------------------------------------------------------
-// 宿主送到 props 上的表单控制器（面板只用到其中两个成员）
+// 宿主表单控制器类型
 // ---------------------------------------------------------------------------
 
 interface FormState {
@@ -149,11 +171,11 @@ interface Primitives {
 }
 
 interface PanelProps {
-  /** 页面只要求 'page' 视图；'summary' 是同一插槽的摘要位，不要在这里渲染表单。 */
   readonly view?: 'summary' | 'page'
   readonly form?: PageForm
   readonly t: Translate
   readonly ui: Primitives
+  readonly [key: string]: unknown
 }
 
 const primitives = UI as unknown as Primitives
@@ -169,129 +191,11 @@ function strArray(value: unknown): string[] {
     .map((v) => v.trim())
 }
 
-/**
- * 一行：标题 + 说明 + 状态点 + 可选开关。
- * 状态点自身 aria-hidden，状态文案必须由渲染方给出（无障碍配对要求）。
- */
-/** 一个带标签的开关：无障碍要求 label 必须由渲染方给出（组件读不到 locale）。 */
-function LabelledSwitch(props: {
-  label: string
-  checked: boolean
-  disabled?: boolean
-  onChange: (next: boolean) => void
-}): React.ReactElement {
-  return React.createElement(
-    'label',
-    { style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 } },
-    React.createElement(primitives.Switch, {
-      checked: props.checked,
-      disabled: props.disabled === true,
-      label: props.label,
-      onChange: props.onChange,
-    }),
-    React.createElement(
-      'span',
-      { style: { color: 'var(--dsw-alias-label-tertiary)' } },
-      props.label,
-    ),
-  )
-}
-
-/**
- * 一行技能：名字 + 说明 + 两个独立开关（模型 / 人类）。
- * 两个都关等于完全关闭；这与 Host 侧 disabledSkills 的语义一致，
- * 所以面板把三个 volatile 字段当作同一件事的三个投影来写。
- */
-function SkillRow(props: {
-  name: string
-  /** 一句话简介（当前语言）；为空串时不渲染说明行。由调用方按语言取好再传入。 */
-  summary: string
-  modelInvocable: boolean
-  userInvocable: boolean
-  /** 本行是否正在保存（由调用方按技能名比对后传来，这里只当布尔用）。 */
-  busy: boolean
-  writable: boolean
-  t: Translate
-  onToggle: (name: string, axis: 'model' | 'user', next: boolean) => void
-}): React.ReactElement {
-  const { name, summary, modelInvocable, userInvocable, busy, writable, t, onToggle } = props
-  const off = !modelInvocable && !userInvocable
-  return React.createElement(
-    'li',
-    {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        padding: '10px 0',
-        borderBottom: '0.5px solid var(--dsw-alias-border-l2)',
-      },
-    },
-    React.createElement(
-      'div',
-      { style: { flex: 1, minWidth: 0 } },
-      React.createElement(
-        'div',
-        { style: { fontWeight: 500, color: off ? 'var(--dsw-alias-label-tertiary)' : undefined } },
-        name,
-      ),
-      // 说明行：优先显示人话简介；没有登记简介时回退为目录名，
-      // 保证任何情况下这一行都不是空白（新技能在补简介前也能看出它是什么）。
-      React.createElement(
-        'div',
-        { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', marginTop: 2 } },
-        summary === '' ? 'skills/' + name : summary,
-      ),
-    ),
-    React.createElement(LabelledSwitch, {
-      label: t('model'),
-      checked: modelInvocable,
-      disabled: !writable || busy,
-      onChange: (next: boolean) => onToggle(name, 'model', next),
-    }),
-    React.createElement(LabelledSwitch, {
-      label: t('user'),
-      checked: userInvocable,
-      disabled: !writable || busy,
-      onChange: (next: boolean) => onToggle(name, 'user', next),
-    }),
-  )
-}
-
-/** bundle 详情页的引导块：告诉用户两处开关分别在哪个位置。 */
-function Guide(props: { t: Translate }): React.ReactElement {
-  return React.createElement(
-    'p',
-    {
-      style: {
-        fontSize: 12,
-        padding: '8px 10px',
-        borderRadius: 'var(--dsw-radius-sm)',
-        background: 'var(--dsw-alias-bg-layer-2)',
-        color: 'var(--dsw-alias-label-secondary)',
-        border: '0.5px solid var(--dsw-alias-border-l2)',
-      },
-    },
-    props.t('guideText'),
-  )
-}
-
-function head(title: string, hint: string): React.ReactElement {
-  return React.createElement(
-    'div',
-    { style: { marginBottom: 6 } },
-    React.createElement('h4', { style: { fontSize: 13, fontWeight: 600, margin: 0 } }, title),
-    React.createElement(
-      'p',
-      { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', margin: '4px 0 0' } },
-      hint,
-    ),
-  )
-}
-
 export interface SkillRowModel {
   readonly name: string
   readonly summary: string
+  readonly category: string
+  readonly enabled: boolean
   readonly modelInvocable: boolean
   readonly userInvocable: boolean
 }
@@ -300,17 +204,16 @@ export interface PanelSnapshot {
   readonly status: 'loading' | 'ready' | 'unavailable'
   readonly writable: boolean
   readonly loadMode: 'global' | 'preset'
+  readonly mcpEnabled: boolean
   readonly skills: readonly SkillRowModel[]
   readonly busy: boolean
   readonly error: string | null
 }
 
-/**
- * 客户端配置面板领域控制器（深模块）。
- *
- * 封装数据清洗、双轴开合投影、同步互斥防重锁与单次原子 ops 批处理提交。
- * 不引入事件总线与 useSyncExternalStore，严格践行 Ponytail 极简原则（宿主每次下发全新 form props）。
- */
+// ---------------------------------------------------------------------------
+// 客户端控制器（深模块）
+// ---------------------------------------------------------------------------
+
 export class PanelController {
   private form?: PageForm
   private t: Translate
@@ -348,6 +251,7 @@ export class PanelController {
         status: state?.status ?? 'unavailable',
         writable,
         loadMode: 'preset',
+        mcpEnabled: true,
         skills: [],
         busy: this._busy,
         error: this._error,
@@ -359,29 +263,41 @@ export class PanelController {
     const disabled = strArray(user.disabledSkills)
     const modelHidden = strArray(user.modelHiddenSkills)
     const userHidden = strArray(user.userHiddenSkills)
+
     const rawMode = user.loadMode ?? value.loadMode
     const loadMode: 'global' | 'preset' = rawMode === 'global' ? 'global' : 'preset'
+
+    const rawMcp = user.mcpEnabled ?? value.mcpEnabled
+    const mcpEnabled = typeof rawMcp === 'boolean' ? rawMcp : true
+
     const names = strArray(value.availableSkills)
     const allNames = [...new Set([...names, ...disabled, ...modelHidden, ...userHidden])].sort()
 
-    const skills: SkillRowModel[] = allNames.map((name) => ({
-      name,
-      summary: skillSummary(name, this.lang),
-      modelInvocable: !disabled.includes(name) && !modelHidden.includes(name),
-      userInvocable: !disabled.includes(name) && !userHidden.includes(name),
-    }))
+    const skills: SkillRowModel[] = allNames.map((name) => {
+      const isOff = disabled.includes(name) || (modelHidden.includes(name) && userHidden.includes(name))
+      const enabled = !isOff
+      return {
+        name,
+        summary: skillSummary(name, this.lang),
+        category: SKILL_CATEGORY[name] ?? 'General',
+        enabled,
+        modelInvocable: enabled,
+        userInvocable: enabled,
+      }
+    })
 
     return {
       status: state.status,
       writable,
       loadMode,
+      mcpEnabled,
       skills,
       busy: this._busy,
       error: this._error,
     }
   }
 
-  // 同步互斥防重锁：同步栈内立即加锁，秒级拦截微任务竞态
+  // 运行模式切换（同步互斥防重锁）
   async setMode(nextMode: 'global' | 'preset'): Promise<boolean> {
     const snap = this.getSnapshot()
     if (!snap.writable || this._busy || nextMode === snap.loadMode || !this.form) return false
@@ -402,38 +318,57 @@ export class PanelController {
     }
   }
 
-  // 单次原子 ops 批处理平铺（三字段单次原子提交）
-  async toggle(name: string, axis: 'model' | 'user', next?: boolean): Promise<boolean> {
+  // MCP 工具总控开关切换
+  async setMcpEnabled(next: boolean): Promise<boolean> {
+    const snap = this.getSnapshot()
+    if (!snap.writable || this._busy || next === snap.mcpEnabled || !this.form) return false
+    this._busy = true
+    this._error = null
+    try {
+      const ok = await this.form.mutate(
+        [{ op: 'set', path: ['mcpEnabled'], value: next }],
+        this.form.state.revision,
+      )
+      if (!ok) this._error = this.t('failed')
+      return ok
+    } catch (e) {
+      this._error = msg(e)
+      return false
+    } finally {
+      this._busy = false
+    }
+  }
+
+  // 单一技能开关翻转（单次原子 3-ops 批处理提交）
+  // 保持重载兼容：toggle(name, next) 或 toggle(name, 'model'|'user', next)
+  async toggle(name: string, nextOrAxis?: boolean | 'model' | 'user', explicitNext?: boolean): Promise<boolean> {
     const snap = this.getSnapshot()
     if (!snap.writable || this._busy || !this.form) return false
     const state = this.form.state
     const user = (state.user && typeof state.user === 'object' && !Array.isArray(state.user) ? state.user : {}) as Record<string, unknown>
-    const disabled = strArray(user.disabledSkills)
-    const modelHidden = strArray(user.modelHiddenSkills)
-    const userHidden = strArray(user.userHiddenSkills)
+    const disabled = new Set(strArray(user.disabledSkills))
+    const modelHidden = new Set(strArray(user.modelHiddenSkills))
+    const userHidden = new Set(strArray(user.userHiddenSkills))
 
-    const wasOff = disabled.includes(name)
-    const modelOff = wasOff || modelHidden.includes(name)
-    const userOff = wasOff || userHidden.includes(name)
+    const isCurrentOff = disabled.has(name) || (modelHidden.has(name) && userHidden.has(name))
 
-    const targetNext = next ?? (axis === 'model' ? modelOff : userOff)
-    const nextModelOff = axis === 'model' ? !targetNext : modelOff
-    const nextUserOff = axis === 'user' ? !targetNext : userOff
-
-    const hiddenModel = new Set(modelHidden)
-    const hiddenUser = new Set(userHidden)
-    if (nextModelOff) hiddenModel.add(name)
-    else hiddenModel.delete(name)
-    if (nextUserOff) hiddenUser.add(name)
-    else hiddenUser.delete(name)
-
-    const off = new Set(disabled)
-    if (nextModelOff && nextUserOff) {
-      off.add(name)
-      hiddenModel.delete(name)
-      hiddenUser.delete(name)
+    let next: boolean
+    if (typeof explicitNext === 'boolean') {
+      next = explicitNext
+    } else if (typeof nextOrAxis === 'boolean') {
+      next = nextOrAxis
     } else {
-      off.delete(name)
+      next = isCurrentOff
+    }
+
+    if (next) {
+      disabled.delete(name)
+      modelHidden.delete(name)
+      userHidden.delete(name)
+    } else {
+      disabled.add(name)
+      modelHidden.delete(name)
+      userHidden.delete(name)
     }
 
     this._busy = true
@@ -441,9 +376,38 @@ export class PanelController {
     try {
       const ok = await this.form.mutate(
         [
-          { op: 'set', path: ['disabledSkills'], value: [...off] },
-          { op: 'set', path: ['modelHiddenSkills'], value: [...hiddenModel] },
-          { op: 'set', path: ['userHiddenSkills'], value: [...hiddenUser] },
+          { op: 'set', path: ['disabledSkills'], value: [...disabled].sort() },
+          { op: 'set', path: ['modelHiddenSkills'], value: [...modelHidden].sort() },
+          { op: 'set', path: ['userHiddenSkills'], value: [...userHidden].sort() },
+        ],
+        state.revision,
+      )
+      if (!ok) this._error = this.t('failed')
+      return ok
+    } catch (e) {
+      this._error = msg(e)
+      return false
+    } finally {
+      this._busy = false
+    }
+  }
+
+  // 批量全开 / 全关
+  async setAllSkills(enable: boolean): Promise<boolean> {
+    const snap = this.getSnapshot()
+    if (!snap.writable || this._busy || !this.form) return false
+    const state = this.form.state
+    const allNames = snap.skills.map((s) => s.name)
+    const nextDisabled = enable ? [] : [...allNames].sort()
+
+    this._busy = true
+    this._error = null
+    try {
+      const ok = await this.form.mutate(
+        [
+          { op: 'set', path: ['disabledSkills'], value: nextDisabled },
+          { op: 'set', path: ['modelHiddenSkills'], value: [] },
+          { op: 'set', path: ['userHiddenSkills'], value: [] },
         ],
         state.revision,
       )
@@ -458,10 +422,423 @@ export class PanelController {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 现代化前端组件（Frontend Design 专业设计系统）
+// ---------------------------------------------------------------------------
+
+const CF_ORANGE = '#f6821f'
+
+function Badge(props: { label: string; color?: string; bg?: string }): React.ReactElement {
+  return React.createElement(
+    'span',
+    {
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '2px 7px',
+        fontSize: 11,
+        fontWeight: 600,
+        borderRadius: 999,
+        lineHeight: 1.2,
+        color: props.color ?? CF_ORANGE,
+        background: props.bg ?? 'rgba(246, 130, 31, 0.12)',
+        border: '0.5px solid rgba(246, 130, 31, 0.25)',
+      },
+    },
+    props.label,
+  )
+}
+
+function HeroBanner(props: { snap: PanelSnapshot; t: Translate }): React.ReactElement {
+  const { snap, t } = props
+  const enabledCount = snap.skills.filter((s) => s.enabled).length
+
+  return React.createElement(
+    'div',
+    {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 12,
+        padding: '14px 18px',
+        marginBottom: 20,
+        borderRadius: 'var(--dsw-radius-md, 8px)',
+        background: 'var(--dsw-alias-bg-layer-2)',
+        border: '0.5px solid var(--dsw-alias-border-l2)',
+      },
+    },
+    React.createElement(
+      'div',
+      { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+      React.createElement('div', {
+        style: {
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          background: CF_ORANGE,
+          boxShadow: '0 0 10px rgba(246, 130, 31, 0.6)',
+        },
+      }),
+      React.createElement(
+        'span',
+        { style: { fontSize: 14, fontWeight: 600, letterSpacing: -0.2 } },
+        t('headerBadge'),
+      ),
+    ),
+    React.createElement(
+      'div',
+      { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+      React.createElement(Badge, {
+        label: snap.loadMode === 'preset' ? t('modePreset') : t('modeGlobal'),
+        color: snap.loadMode === 'preset' ? CF_ORANGE : 'var(--dsw-alias-label-secondary)',
+        bg: snap.loadMode === 'preset' ? 'rgba(246, 130, 31, 0.12)' : 'var(--dsw-alias-bg-layer-1)',
+      }),
+      React.createElement(Badge, {
+        label: snap.mcpEnabled ? t('mcpStatusOn') : t('mcpStatusOff'),
+        color: snap.mcpEnabled ? '#10b981' : 'var(--dsw-alias-state-error-primary)',
+        bg: snap.mcpEnabled ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+      }),
+      React.createElement(Badge, {
+        label: `${enabledCount}/${snap.skills.length} ${t('enabledCount')}`,
+        color: 'var(--dsw-alias-label-secondary)',
+        bg: 'var(--dsw-alias-bg-layer-1)',
+      }),
+    ),
+  )
+}
+
+function ModeCard(props: {
+  mode: 'preset' | 'global'
+  title: string
+  desc: string
+  badge?: string
+  checked: boolean
+  disabled: boolean
+  onClick: () => void
+}): React.ReactElement {
+  const { title, desc, badge, checked, disabled, onClick } = props
+  return React.createElement(
+    'div',
+    {
+      onClick: disabled ? undefined : onClick,
+      style: {
+        flex: 1,
+        minWidth: 240,
+        padding: '14px 16px',
+        borderRadius: 'var(--dsw-radius-md, 8px)',
+        border: checked
+          ? `1.5px solid ${CF_ORANGE}`
+          : '0.5px solid var(--dsw-alias-border-l2)',
+        background: checked
+          ? 'rgba(246, 130, 31, 0.05)'
+          : 'var(--dsw-alias-bg-layer-2)',
+        cursor: disabled ? 'default' : 'pointer',
+        transition: 'all 0.18s ease',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      },
+    },
+    React.createElement(
+      'div',
+      { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+      React.createElement(
+        'div',
+        { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        React.createElement('input', {
+          type: 'radio',
+          name: 'loadMode',
+          value: props.mode,
+          checked,
+          disabled,
+          onChange: onClick,
+          style: { cursor: disabled ? 'default' : 'pointer', accentColor: CF_ORANGE, margin: 0 },
+        }),
+        React.createElement(
+          'span',
+          { style: { fontSize: 13, fontWeight: checked ? 600 : 500, color: 'var(--dsw-alias-label-primary)' } },
+          title,
+        ),
+      ),
+      badge ? React.createElement(Badge, { label: badge }) : null,
+    ),
+    React.createElement(
+      'p',
+      {
+        style: {
+          fontSize: 12,
+          lineHeight: 1.5,
+          color: 'var(--dsw-alias-label-tertiary)',
+          margin: '2px 0 0 24px',
+        },
+      },
+      desc,
+    ),
+  )
+}
+
+function McpMasterCard(props: {
+  snap: PanelSnapshot
+  t: Translate
+  onToggle: (next: boolean) => void
+}): React.ReactElement {
+  const { snap, t, onToggle } = props
+  return React.createElement(
+    'div',
+    {
+      style: {
+        marginBottom: 24,
+        padding: '16px 18px',
+        borderRadius: 'var(--dsw-radius-md, 8px)',
+        background: 'var(--dsw-alias-bg-layer-2)',
+        border: '0.5px solid var(--dsw-alias-border-l2)',
+      },
+    },
+    React.createElement(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        },
+      },
+      React.createElement(
+        'div',
+        null,
+        React.createElement(
+          'div',
+          { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('h4', { style: { fontSize: 14, fontWeight: 600, margin: 0 } }, t('mcpSection')),
+          React.createElement(Badge, {
+            label: snap.mcpEnabled ? t('mcpStatusOn') : t('mcpStatusOff'),
+            color: snap.mcpEnabled ? '#10b981' : 'var(--dsw-alias-state-error-primary)',
+            bg: snap.mcpEnabled ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+          }),
+        ),
+        React.createElement(
+          'p',
+          {
+            style: {
+              fontSize: 12,
+              color: 'var(--dsw-alias-label-tertiary)',
+              margin: '4px 0 0',
+            },
+          },
+          t('mcpHint'),
+        ),
+      ),
+      React.createElement(primitives.Switch, {
+        checked: snap.mcpEnabled,
+        disabled: !snap.writable || snap.busy,
+        label: t('mcpSection'),
+        onChange: onToggle,
+      }),
+    ),
+    React.createElement(
+      'div',
+      {
+        style: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 8,
+          marginTop: 14,
+          opacity: snap.mcpEnabled ? 1 : 0.45,
+          transition: 'opacity 0.2s ease',
+        },
+      },
+      React.createElement(
+        'div',
+        {
+          style: {
+            fontSize: 12,
+            padding: '8px 10px',
+            borderRadius: 'var(--dsw-radius-sm, 4px)',
+            background: 'var(--dsw-alias-bg-layer-1)',
+            border: '0.5px solid var(--dsw-alias-border-l1)',
+          },
+        },
+        t('mcpToolDocs'),
+      ),
+      React.createElement(
+        'div',
+        {
+          style: {
+            fontSize: 12,
+            padding: '8px 10px',
+            borderRadius: 'var(--dsw-radius-sm, 4px)',
+            background: 'var(--dsw-alias-bg-layer-1)',
+            border: '0.5px solid var(--dsw-alias-border-l1)',
+          },
+        },
+        t('mcpToolSearch'),
+      ),
+      React.createElement(
+        'div',
+        {
+          style: {
+            fontSize: 12,
+            padding: '8px 10px',
+            borderRadius: 'var(--dsw-radius-sm, 4px)',
+            background: 'var(--dsw-alias-bg-layer-1)',
+            border: '0.5px solid var(--dsw-alias-border-l1)',
+          },
+        },
+        t('mcpToolExecute'),
+      ),
+    ),
+    !snap.mcpEnabled
+      ? React.createElement(
+          'div',
+          {
+            style: {
+              marginTop: 12,
+              padding: '8px 12px',
+              fontSize: 12,
+              borderRadius: 'var(--dsw-radius-sm, 4px)',
+              background: 'rgba(239, 68, 68, 0.08)',
+              color: 'var(--dsw-alias-state-error-primary)',
+              border: '0.5px solid rgba(239, 68, 68, 0.2)',
+            },
+          },
+          t('mcpDisabledBanner'),
+        )
+      : null,
+  )
+}
+
+function SkillCard(props: {
+  skill: SkillRowModel
+  busy: boolean
+  writable: boolean
+  t: Translate
+  onToggle: (name: string, next: boolean) => void
+}): React.ReactElement {
+  const { skill, busy, writable, t, onToggle } = props
+
+  return React.createElement(
+    'div',
+    {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        padding: '12px 14px',
+        borderRadius: 'var(--dsw-radius-md, 6px)',
+        background: 'var(--dsw-alias-bg-layer-2)',
+        border: '0.5px solid var(--dsw-alias-border-l2)',
+        opacity: skill.enabled ? 1 : 0.55,
+        transition: 'all 0.18s ease',
+      },
+    },
+    React.createElement(
+      'div',
+      { style: { flex: 1, minWidth: 0 } },
+      React.createElement(
+        'div',
+        { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        React.createElement(
+          'span',
+          {
+            style: {
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              fontSize: 13,
+              fontWeight: 600,
+              color: skill.enabled ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-tertiary)',
+            },
+          },
+          skill.name,
+        ),
+        React.createElement(
+          'span',
+          {
+            style: {
+              fontSize: 10,
+              padding: '1px 6px',
+              borderRadius: 4,
+              background: 'var(--dsw-alias-bg-layer-1)',
+              color: 'var(--dsw-alias-label-secondary)',
+              border: '0.5px solid var(--dsw-alias-border-l1)',
+              fontWeight: 500,
+            },
+          },
+          skill.category,
+        ),
+      ),
+      React.createElement(
+        'p',
+        {
+          style: {
+            fontSize: 12,
+            color: 'var(--dsw-alias-label-tertiary)',
+            margin: '4px 0 0',
+            lineHeight: 1.4,
+          },
+        },
+        skill.summary === '' ? 'skills/' + skill.name : skill.summary,
+      ),
+    ),
+    React.createElement(
+      'div',
+      { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+      React.createElement(
+        'span',
+        {
+          style: {
+            fontSize: 11,
+            color: skill.enabled ? CF_ORANGE : 'var(--dsw-alias-label-tertiary)',
+            fontWeight: 500,
+          },
+        },
+        skill.enabled ? t('skillActive') : t('skillInactive'),
+      ),
+      React.createElement(primitives.Switch, {
+        checked: skill.enabled,
+        disabled: !writable || busy,
+        label: skill.name,
+        onChange: (next: boolean) => onToggle(skill.name, next),
+      }),
+    ),
+  )
+}
+
+function Guide(props: { t: Translate }): React.ReactElement {
+  return React.createElement(
+    'div',
+    {
+      style: {
+        fontSize: 12,
+        lineHeight: 1.5,
+        padding: '12px 14px',
+        borderRadius: 'var(--dsw-radius-md, 6px)',
+        background: 'var(--dsw-alias-bg-layer-2)',
+        color: 'var(--dsw-alias-label-secondary)',
+        border: '0.5px solid var(--dsw-alias-border-l2)',
+        borderLeft: `3px solid ${CF_ORANGE}`,
+      },
+    },
+    React.createElement(
+      'div',
+      { style: { fontWeight: 600, color: 'var(--dsw-alias-label-primary)', marginBottom: 4 } },
+      props.t('guideTitle'),
+    ),
+    props.t('guideText'),
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 页面主视图组件
+// ---------------------------------------------------------------------------
+
 function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
   const t = props.t ?? fallbackT
   const [, setTick] = React.useState(0)
   const [controller] = React.useState(new PanelController(props.form, t))
+  const [filterText, setFilterText] = React.useState('')
   controller.update(props.form, t)
 
   if (props.view !== 'page') {
@@ -472,7 +849,7 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
   if (snap.status === 'loading') {
     return React.createElement(
       'div',
-      { style: { padding: '12px 0', color: 'var(--dsw-alias-label-tertiary)' } },
+      { style: { padding: '16px 0', color: 'var(--dsw-alias-label-tertiary)' } },
       t('loading'),
     )
   }
@@ -486,21 +863,36 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
     trigger(() => controller.setMode(nextMode))
   }
 
-  const toggle = (name: string, axis: 'model' | 'user', next: boolean) => {
-    trigger(() => controller.toggle(name, axis, next))
+  const toggleMcp = (next: boolean) => {
+    trigger(() => controller.setMcpEnabled(next))
   }
+
+  const toggleSkill = (name: string, next: boolean) => {
+    trigger(() => controller.toggle(name, next))
+  }
+
+  const setAllSkills = (enable: boolean) => {
+    trigger(() => controller.setAllSkills(enable))
+  }
+
+  const filteredSkills = snap.skills.filter((skill) => {
+    if (!filterText.trim()) return true
+    const q = filterText.toLowerCase().trim()
+    return skill.name.toLowerCase().includes(q) || skill.summary.toLowerCase().includes(q) || skill.category.toLowerCase().includes(q)
+  })
 
   return React.createElement(
     'div',
-    { style: { padding: '4px 0', maxWidth: 680 } },
+    { style: { padding: '8px 0', maxWidth: 720 } },
 
     snap.error === null
       ? null
       : React.createElement(
           'div',
-          { role: 'status', style: { padding: '10px 0', color: 'var(--dsw-alias-state-error-primary)' } },
+          { role: 'status', style: { padding: '10px 14px', marginBottom: 12, borderRadius: 6, background: 'rgba(239, 68, 68, 0.1)', color: 'var(--dsw-alias-state-error-primary)' } },
           snap.error === t('failed') ? snap.error : t('failed') + ': ' + snap.error,
         ),
+
     snap.writable
       ? null
       : React.createElement(
@@ -508,8 +900,8 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
           {
             style: {
               fontSize: 12,
-              padding: '8px 10px',
-              margin: '0 0 4px',
+              padding: '8px 12px',
+              margin: '0 0 12px',
               borderRadius: 'var(--dsw-radius-sm)',
               background: 'var(--dsw-alias-bg-layer-2)',
               color: 'var(--dsw-alias-state-warn-primary)',
@@ -519,126 +911,176 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
           t('readOnly'),
         ),
 
+    // 头部状态微型展板
+    React.createElement(HeroBanner, { snap, t }),
+
+    // 1. 运行模式选择（双列卡片）
     React.createElement(
       'section',
-      { style: { marginTop: 12, marginBottom: 18 } },
-      head(t('modeSection'), t('modeHint')),
+      { style: { marginBottom: 24 } },
+      React.createElement(
+        'div',
+        { style: { marginBottom: 10 } },
+        React.createElement('h3', { style: { fontSize: 14, fontWeight: 600, margin: 0 } }, t('modeSection')),
+        React.createElement('p', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', margin: '4px 0 0' } }, t('modeHint')),
+      ),
+      React.createElement(
+        'div',
+        { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
+        React.createElement(ModeCard, {
+          mode: 'preset',
+          title: t('modePreset'),
+          desc: t('modePresetDesc'),
+          badge: t('modePresetBadge'),
+          checked: snap.loadMode === 'preset',
+          disabled: !snap.writable || snap.busy,
+          onClick: () => changeMode('preset'),
+        }),
+        React.createElement(ModeCard, {
+          mode: 'global',
+          title: t('modeGlobal'),
+          desc: t('modeGlobalDesc'),
+          checked: snap.loadMode === 'global',
+          disabled: !snap.writable || snap.busy,
+          onClick: () => changeMode('global'),
+        }),
+      ),
+    ),
+
+    // 2. Cloudflare MCP 工具总控卡片
+    React.createElement(McpMasterCard, {
+      snap,
+      t,
+      onToggle: toggleMcp,
+    }),
+
+    // 3. 技能库列表与即时搜索工具栏
+    React.createElement(
+      'section',
+      { style: { marginBottom: 24 } },
       React.createElement(
         'div',
         {
           style: {
             display: 'flex',
-            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: 10,
-            marginTop: 8,
-            padding: '12px 14px',
-            borderRadius: 'var(--dsw-radius-md, 6px)',
-            background: 'var(--dsw-alias-bg-layer-2)',
-            border: '0.5px solid var(--dsw-alias-border-l2)',
+            marginBottom: 12,
           },
         },
         React.createElement(
-          'label',
-          {
-            style: {
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: snap.writable && !snap.busy ? 'pointer' : 'default',
-              fontSize: 13,
-            },
-          },
-          React.createElement('input', {
-            type: 'radio',
-            name: 'loadMode',
-            value: 'global',
-            checked: snap.loadMode === 'global',
-            disabled: !snap.writable || snap.busy,
-            onChange: () => changeMode('global'),
-            style: { cursor: snap.writable && !snap.busy ? 'pointer' : 'default' },
-          }),
-          React.createElement('span', { style: { fontWeight: snap.loadMode === 'global' ? 600 : 400 } }, t('modeGlobal')),
+          'div',
+          null,
+          React.createElement('h3', { style: { fontSize: 14, fontWeight: 600, margin: 0 } }, t('skillSection')),
+          React.createElement('p', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', margin: '4px 0 0' } }, t('skillHint')),
         ),
         React.createElement(
-          'label',
-          {
-            style: {
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: snap.writable && !snap.busy ? 'pointer' : 'default',
-              fontSize: 13,
+          'div',
+          { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement(
+            'button',
+            {
+              type: 'button',
+              disabled: !snap.writable || snap.busy,
+              onClick: () => setAllSkills(true),
+              style: {
+                fontSize: 12,
+                padding: '4px 10px',
+                borderRadius: 4,
+                cursor: !snap.writable || snap.busy ? 'default' : 'pointer',
+                background: 'var(--dsw-alias-bg-layer-2)',
+                border: '0.5px solid var(--dsw-alias-border-l2)',
+                color: 'var(--dsw-alias-label-secondary)',
+              },
             },
-          },
-          React.createElement('input', {
-            type: 'radio',
-            name: 'loadMode',
-            value: 'preset',
-            checked: snap.loadMode === 'preset',
-            disabled: !snap.writable || snap.busy,
-            onChange: () => changeMode('preset'),
-            style: { cursor: snap.writable && !snap.busy ? 'pointer' : 'default' },
-          }),
-          React.createElement('span', { style: { fontWeight: snap.loadMode === 'preset' ? 600 : 400 } }, t('modePreset')),
+            t('enableAll'),
+          ),
+          React.createElement(
+            'button',
+            {
+              type: 'button',
+              disabled: !snap.writable || snap.busy,
+              onClick: () => setAllSkills(false),
+              style: {
+                fontSize: 12,
+                padding: '4px 10px',
+                borderRadius: 4,
+                cursor: !snap.writable || snap.busy ? 'default' : 'pointer',
+                background: 'var(--dsw-alias-bg-layer-2)',
+                border: '0.5px solid var(--dsw-alias-border-l2)',
+                color: 'var(--dsw-alias-label-secondary)',
+              },
+            },
+            t('disableAll'),
+          ),
         ),
       ),
-    ),
 
-    React.createElement(
-      'section',
-      { style: { marginBottom: 18 } },
-      head(t('hostSection'), t('hostHint')),
-      React.createElement(Guide, { t }),
-    ),
+      // 实时搜索框
+      React.createElement(
+        'div',
+        {
+          style: {
+            position: 'relative',
+            marginBottom: 12,
+          },
+        },
+        React.createElement('input', {
+          type: 'text',
+          value: filterText,
+          placeholder: t('searchPlaceholder'),
+          onChange: (e: any) => setFilterText(e.target.value),
+          style: {
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '8px 12px',
+            fontSize: 12,
+            borderRadius: 'var(--dsw-radius-md, 6px)',
+            background: 'var(--dsw-alias-bg-layer-2)',
+            color: 'var(--dsw-alias-label-primary)',
+            border: '0.5px solid var(--dsw-alias-border-l2)',
+            outline: 'none',
+          },
+        }),
+      ),
 
-    React.createElement(
-      'section',
-      { style: { marginTop: 18 } },
-      head(t('skillSection'), t('skillHint')),
+      // 技能卡片列表
       snap.skills.length === 0
-        ? React.createElement(
-            'p',
-            { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' } },
-            t('noSkills'),
-          )
+        ? React.createElement('p', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' } }, t('noSkills'))
+        : filteredSkills.length === 0
+        ? React.createElement('p', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', padding: '16px 0', textAlign: 'center' } }, t('noMatchingSkills'))
         : React.createElement(
-            'ul',
-            { style: { listStyle: 'none', margin: 0, padding: 0 } },
-            snap.skills.map((skill: SkillRowModel) =>
-              React.createElement(SkillRow, {
+            'div',
+            { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+            filteredSkills.map((skill) =>
+              React.createElement(SkillCard, {
                 key: skill.name,
-                name: skill.name,
-                summary: skill.summary,
-                modelInvocable: skill.modelInvocable,
-                userInvocable: skill.userInvocable,
+                skill,
                 busy: snap.busy,
                 writable: snap.writable,
                 t,
-                onToggle: toggle,
+                onToggle: toggleSkill,
               }),
             ),
           ),
     ),
 
+    // 4. 说明与配置引导
+    React.createElement(Guide, { t }),
+
   )
 }
 
 // ---------------------------------------------------------------------------
-// 入口
+// 插件入口注册
 // ---------------------------------------------------------------------------
 
-/**
- * 只声明 slots：其余一律不需要。
- * plugins.row.config 由「插件」页在挂载时声明为子插槽，注入会在那一刻挂起，
- * 页面打开后自动放行 —— 不必自己判断时机，也不必 ctx.inject 等待任何服务。
- */
 export function apply(ctx: any): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'cfbridge: dictionaries')
   const t = ctx.locale.bind(NS) as Translate
 
-  // bundle 详情页：宿主在这一层不送 form（见宿主 PackageDetail 的 renderSlot 调用），
-  // 而动态插件的 ctx.inject 回调参数只有 fiber，拿不到 remote —— 也就是说第三方
-  // 插件在这一页没有任何写通道。所以这里只放引导，不带开关。
   ctx.effect(
     () =>
       ctx.slots.inject('plugins.detail.section', () =>
@@ -650,22 +1092,17 @@ export function apply(ctx: any): void {
               : null,
         ),
       ),
-    'cfbridge: bundle guide',
+    'cfbridge: guide section in bundle detail',
   )
 
-  // 行详情页：宿主在这里送 form（它的 ConfigForm 控制器），
-  // 而 formFor 用的正是行 id —— 与 settings 描述面的 namespace 同名。
-  // 因此技能开关零跨端代码：写入、落盘、版本栅栏都由宿主表单控制器负责。
   ctx.effect(
     () =>
       ctx.slots.inject('plugins.row.config', () =>
         ctx.slots.register(
           { name: 'plugins.row.config', key: ROW_CONFIG_KEY, locale: NS },
-          (props: PanelProps) => Panel(props, t),
+          (props: PanelProps) => React.createElement(Panel, props as any, t),
         ),
       ),
-    'cfbridge: row page panel',
+    'cfbridge: config panel in row view',
   )
 }
-
-export default { apply, PanelController, inject: ['slots', 'locale'] }

@@ -133,6 +133,7 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 | `cache` | boolean | `true` | 是否启用基于文件 mtime 的技能元数据内存缓存 |
 | `watchSkills` | boolean | `false` | 是否开启技能目录递归变动监听（开发模式下自动广播 `skills/change` 触发热刷新） |
 | `loadMode` | string | `'preset'` | 运行模式：`'preset'` 仅在 cfbridge 模式下加载（默认），`'global'` 全局加载 |
+| `mcpEnabled` | boolean | `true` | 是否启用 Cloudflare MCP 工具（docs / search / execute） |
 | `disabledSkills` | string[] | `[]` | **完全关闭**的技能：模型与人类都不可调用，等同该技能不存在 |
 | `modelHiddenSkills` | string[] | `[]` | **只不给模型**的技能：模型目录看不到，但人类仍可调用 |
 | `userHiddenSkills` | string[] | `[]` | **只不给人类**的技能：面板上人类不可调用，但模型仍可调用 |

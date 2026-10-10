@@ -23,8 +23,6 @@ async function mountClientPanel() {
   runInNewContext(clientSource, { window: sandbox, console, Symbol, Object, Array, Set, JSON })
   assert.ok(captured, 'lib/client.js 未调用 __ModuleLoader__.load')
 
-  // 记录每次渲染出的开关。技能按名字排序渲染，每个技能两个开关，
-  // 因此开关数组的下标可以稳定映射回技能与轴。
   const switches = []
   function createElement(type, props, ...children) {
     return { type, props: props ?? {}, children: children.filter((c) => c !== null && c !== undefined) }
@@ -83,9 +81,6 @@ const ZERO_REVISION_STATE = (user, value) => ({
 
 /**
  * 把一次 mutate 的三个投影字段读成本地快照。
- *
- * lib/client.js 跑在独立 realm 里，它的数组原型与测试进程不同，直接
- * deepEqual 会退化成引用比较，因此这里显式拷贝成本地数组。
  */
 function readProjection(entry) {
   const projection = {}
@@ -96,48 +91,63 @@ function readProjection(entry) {
   return projection
 }
 
-test('skill switches project the three volatile fields through the real row panel', async () => {
+test('skill switches and MCP switch project volatile fields through the real row panel', async () => {
   const { row, switches, render } = await mountClientPanel()
   switches.length = 0
 
   const mutated = []
   const form = {
     state: ZERO_REVISION_STATE(
-      { disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [] },
+      { disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [], mcpEnabled: true },
       { availableSkills: ['wrangler', 'cloudflare'] },
     ).state,
     mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
   }
 
   render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
-  // 渲染按技能名排序：cloudflare 在前，wrangler 在后；每行两个开关（model, user）。
-  assert.equal(switches.length, 4, '两个技能各两个开关')
-  assert.deepEqual(switches.map((s) => s.label), ['model', 'user', 'model', 'user'])
-  assert.deepEqual(switches.map((s) => s.checked), [true, true, true, true])
+  // 1 个 MCP 总控开关 + 2 个单一技能开关（cloudflare, wrangler）
+  assert.equal(switches.length, 3, '1 个 MCP 开关与 2 个技能开关')
+  assert.equal(switches[0].label, 'mcpSection')
+  assert.equal(switches[0].checked, true)
+  assert.equal(switches[1].label, 'cloudflare')
+  assert.equal(switches[1].checked, true)
+  assert.equal(switches[2].label, 'wrangler')
+  assert.equal(switches[2].checked, true)
 
-  const wranglerModel = switches[2]
-
-  wranglerModel.onChange(false)
+  // 1. 关闭 wrangler 技能
+  switches[2].onChange(false)
   await new Promise((r) => setImmediate(r))
 
   assert.equal(mutated.length, 1)
-  const [entry] = mutated
-  assert.equal(entry.revision, 7, '写入必须带上当前 revision')
-  assert.deepEqual(readProjection(entry), {
-    disabledSkills: [],
-    modelHiddenSkills: ['wrangler'],
+  const [entry1] = mutated
+  assert.equal(entry1.revision, 7, '写入必须带上当前 revision')
+  assert.deepEqual(readProjection(entry1), {
+    disabledSkills: ['wrangler'],
+    modelHiddenSkills: [],
     userHiddenSkills: [],
   })
+
+  // 2. 关闭 MCP 总控开关
+  mutated.length = 0
+  switches[0].onChange(false)
+  await new Promise((r) => setImmediate(r))
+
+  assert.equal(mutated.length, 1)
+  const [entry2] = mutated
+  assert.equal(entry2.ops.length, 1)
+  assert.equal(entry2.ops[0].op, 'set')
+  assert.equal(entry2.ops[0].path[0], 'mcpEnabled')
+  assert.equal(entry2.ops[0].value, false)
 })
 
-test('re-enabling one axis does not silently re-enable the other axis', async () => {
+test('re-enabling skill cleans disabledSkills and hidden lists atomically', async () => {
   const { row, switches, render } = await mountClientPanel()
   switches.length = 0
 
   const mutated = []
   const form = {
     state: ZERO_REVISION_STATE(
-      // 历史落盘形态：技能只在 disabledSkills 里，两个隐藏名单均为空。
+      // 历史落盘形态：技能在 disabledSkills 里
       { disabledSkills: ['wrangler'], modelHiddenSkills: [], userHiddenSkills: [] },
       { availableSkills: ['wrangler', 'cloudflare'] },
     ).state,
@@ -145,78 +155,22 @@ test('re-enabling one axis does not silently re-enable the other axis', async ()
   }
 
   render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
-  // cloudflare 在前（两个开关都开），wrangler 在后（两个都关）。
-  assert.deepEqual(switches.map((s) => s.checked), [true, true, false, false])
-  const wranglerModel = switches[2]
-  assert.equal(wranglerModel.label, 'model')
+  // cloudflare 开启，wrangler 关闭
+  assert.equal(switches[1].checked, true)
+  assert.equal(switches[2].checked, false)
 
-  wranglerModel.onChange(true)
+  switches[2].onChange(true)
   await new Promise((r) => setImmediate(r))
 
   assert.equal(mutated.length, 1)
-  // 只打开模型轴：模型可调用、人类仍不可调用。
-  // disabledSkills 的契约是「两轴都关」，此处不适用，只能用 userHiddenSkills 表达。
   assert.deepEqual(readProjection(mutated[0]), {
     disabledSkills: [],
     modelHiddenSkills: [],
-    userHiddenSkills: ['wrangler'],
-  })
-})
-
-test('re-enabling the user axis does not silently re-enable the model axis', async () => {
-  const { row, switches, render } = await mountClientPanel()
-  switches.length = 0
-
-  const mutated = []
-  const form = {
-    state: ZERO_REVISION_STATE(
-      { disabledSkills: ['wrangler'], modelHiddenSkills: [], userHiddenSkills: [] },
-      { availableSkills: ['wrangler', 'cloudflare'] },
-    ).state,
-    mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
-  }
-
-  render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
-  const wranglerUser = switches[3]
-  assert.equal(wranglerUser.label, 'user')
-  assert.equal(wranglerUser.checked, false)
-
-  wranglerUser.onChange(true)
-  await new Promise((r) => setImmediate(r))
-
-  assert.equal(mutated.length, 1)
-  // 只打开人类轴：模型轴必须保持关闭。
-  assert.deepEqual(readProjection(mutated[0]), {
-    disabledSkills: [],
-    modelHiddenSkills: ['wrangler'],
     userHiddenSkills: [],
   })
 })
 
-test('closing the last open axis upgrades to disabledSkills instead of two hidden lists', async () => {
-  const { row, switches, render } = await mountClientPanel()
-  switches.length = 0
-
-  const mutated = []
-  const form = {
-    state: ZERO_REVISION_STATE(
-      { disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [] },
-      { availableSkills: ['wrangler', 'cloudflare'] },
-    ).state,
-    mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
-  }
-
-  render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
-  switches[2].onChange(false) // wrangler 的模型开关：关
-  await new Promise((r) => setImmediate(r))
-  assert.deepEqual(readProjection(mutated[0]), {
-    disabledSkills: [],
-    modelHiddenSkills: ['wrangler'],
-    userHiddenSkills: [],
-  })
-})
-
-test('mode radio switches mutate loadMode field', async () => {
+test('mode card radio switches mutate loadMode field', async () => {
   const { row, render } = await mountClientPanel()
   const mutated = []
   const form = {
@@ -230,12 +184,15 @@ test('mode radio switches mutate loadMode field', async () => {
   const nodes = render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
   const radios = nodes.filter((n) => n.type === 'input' && n.props?.type === 'radio')
   assert.equal(radios.length, 2, '两个运行模式单选框')
-  assert.equal(radios[0].props.value, 'global')
-  assert.equal(radios[0].props.checked, true)
-  assert.equal(radios[1].props.value, 'preset')
-  assert.equal(radios[1].props.checked, false)
 
-  radios[1].props.onChange()
+  const presetRadio = radios.find((r) => r.props.value === 'preset')
+  const globalRadio = radios.find((r) => r.props.value === 'global')
+  assert.ok(presetRadio)
+  assert.ok(globalRadio)
+  assert.equal(globalRadio.props.checked, true)
+  assert.equal(presetRadio.props.checked, false)
+
+  presetRadio.props.onChange()
   await new Promise((r) => setImmediate(r))
 
   assert.equal(mutated.length, 1)
@@ -246,7 +203,7 @@ test('mode radio switches mutate loadMode field', async () => {
   assert.equal(entry.ops[0].value, 'preset')
 })
 
-test('mode radio defaults to preset when loadMode is unspecified', async () => {
+test('mode card radio defaults to preset when loadMode is unspecified', async () => {
   const { row, render } = await mountClientPanel()
   const mutated = []
   const form = {
@@ -260,12 +217,15 @@ test('mode radio defaults to preset when loadMode is unspecified', async () => {
   const nodes = render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
   const radios = nodes.filter((n) => n.type === 'input' && n.props?.type === 'radio')
   assert.equal(radios.length, 2, '两个运行模式单选框')
-  assert.equal(radios[0].props.value, 'global')
-  assert.equal(radios[0].props.checked, false)
-  assert.equal(radios[1].props.value, 'preset')
-  assert.equal(radios[1].props.checked, true, '默认必须选中 preset 模式')
 
-  radios[0].props.onChange()
+  const presetRadio = radios.find((r) => r.props.value === 'preset')
+  const globalRadio = radios.find((r) => r.props.value === 'global')
+  assert.ok(presetRadio)
+  assert.ok(globalRadio)
+  assert.equal(presetRadio.props.checked, true, '默认必须选中 preset 模式')
+  assert.equal(globalRadio.props.checked, false)
+
+  globalRadio.props.onChange()
   await new Promise((r) => setImmediate(r))
 
   assert.equal(mutated.length, 1)
@@ -274,4 +234,22 @@ test('mode radio defaults to preset when loadMode is unspecified', async () => {
   assert.equal(entry.ops[0].op, 'set')
   assert.equal(entry.ops[0].path[0], 'loadMode')
   assert.equal(entry.ops[0].value, 'global')
+})
+
+test('panel renders search input and batch control buttons', async () => {
+  const { row, render } = await mountClientPanel()
+  const form = {
+    state: ZERO_REVISION_STATE(
+      { disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [] },
+      { availableSkills: ['wrangler', 'cloudflare'] },
+    ).state,
+    mutate() { return Promise.resolve(true) },
+  }
+
+  const nodes = render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
+  const inputs = nodes.filter((n) => n.type === 'input' && n.props?.type === 'text')
+  assert.equal(inputs.length, 1, '存在实时搜索输入框')
+
+  const buttons = nodes.filter((n) => n.type === 'button')
+  assert.equal(buttons.length, 2, '存在全部启用与全部停用按钮')
 })

@@ -6,6 +6,7 @@ export interface HealedConfig extends Config {
     cache: boolean;
     watchSkills: boolean;
     loadMode: LoadMode;
+    mcpEnabled: boolean;
     disabledSkills: string[];
     modelHiddenSkills: string[];
     userHiddenSkills: string[];

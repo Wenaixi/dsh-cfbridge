@@ -35,20 +35,16 @@ cfbridge 支持两种运行模式，可通过面板单选框或配置项切换�
 | **专属预设模式**（默认） | `preset` | 仅在切换到 `cfbridge` 专属智能体预设的会话中加载 Cloudflare 工具与技能，并自动注入操作规范系统提示词；普通会话自动屏蔽 Cloudflare MCP 工具与技能，避免非 Cloudflare 会话被特权工具干扰。 |
 | **全局模式** | `global` | 全系统所有会话全局可用 Cloudflare MCP 三工具与 14 个按需技能。 |
 
-## 技能开关（可以只关一边）
+## 技能开关与 MCP 工具控制
 
-14 个 Cloudflare 技能每个都能单独控制，而且**「模型能用」和「人能用」是两个独立的开关**：
+14 个 Cloudflare 专项技能与 Cloudflare MCP 工具均可在面板中直观启停：
+- **技能开关**：单一开关，开即全开，关即全关（不进入模型上下文与调用目录），拒绝双轴认知负担。
+- **MCP 总控开关**：面板顶部一键控制 Cloudflare MCP 三工具（`docs` / `search` / `execute`）的全局物理启停。关闭时全系统所有会话物理屏蔽。
+- **快捷工具栏**：支持即时关键词搜索过滤，以及「全部启用 / 全部停用」一键批量操作。
 
-| 想达到的效果 | 怎么做 |
-| --- | --- |
-| 模型别自作主张调某个技能，但我自己还能用 | 关掉「模型」 |
-| 面板上某技能人类不可调用，但模型仍可调用 | 关掉「人类」 |
-| 这个技能彻底不用了 | 两个都关 |
-
-两种做法，任选其一：
-
-- **图形界面（推荐）**：DSH → 「插件」→ Cloudflare 桥接 → `cfbridge` 行的「配置」，面板里切换运行模式或逐个调整技能开关。
-- **写配置**（持久生效）：在 profile 的 `cordis.patch.yml` 的 cfbridge 行配置 `loadMode: 'global' | 'preset'`，以及 `modelHiddenSkills` / `userHiddenSkills` / `disabledSkills`。
+操作方式：
+- **图形界面（推荐）**：DSH → 「插件」→ Cloudflare 桥接 → `cfbridge` 行的「配置」，面板里切换运行模式、MCP 总控开关、逐项启停技能或使用实时搜索与批量操作。
+- **写配置**（持久生效）：在 profile 的 `cordis.patch.yml` 的 cfbridge 行配置 `loadMode: 'preset' | 'global'`、`mcpEnabled: boolean`，以及 `disabledSkills`。
 
 ## 三工具速查
 

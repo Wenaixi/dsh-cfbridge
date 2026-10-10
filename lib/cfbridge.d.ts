@@ -14,6 +14,8 @@ export interface Config {
     watchSkills?: boolean;
     /** 运行模式：global 全局加载，preset 仅在 cfbridge 模式下加载。 */
     loadMode?: LoadMode;
+    /** 是否启用 Cloudflare MCP 工具（docs / search / execute）。默认 true。 */
+    mcpEnabled?: boolean;
     /** 被单独关闭的技能名列表；命中的技能不进入发现结果，等同不存在。 */
     disabledSkills?: string[];
     /** 不向模型开放的技能名列表；人类仍可调用。 */
@@ -30,6 +32,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
     cache: Schema<boolean, boolean>;
     watchSkills: Schema<boolean, boolean>;
     loadMode: Schema<"global" | "preset", "global" | "preset">;
+    mcpEnabled: Schema<boolean, boolean>;
     disabledSkills: Schema<string[], string[]>;
     modelHiddenSkills: Schema<string[], string[]>;
     userHiddenSkills: Schema<string[], string[]>;
@@ -41,6 +44,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
     cache: Schema<boolean, boolean>;
     watchSkills: Schema<boolean, boolean>;
     loadMode: Schema<"global" | "preset", "global" | "preset">;
+    mcpEnabled: Schema<boolean, boolean>;
     disabledSkills: Schema<string[], string[]>;
     modelHiddenSkills: Schema<string[], string[]>;
     userHiddenSkills: Schema<string[], string[]>;
@@ -177,6 +181,7 @@ declare const _default: {
         cache: Schema<boolean, boolean>;
         watchSkills: Schema<boolean, boolean>;
         loadMode: Schema<"global" | "preset", "global" | "preset">;
+        mcpEnabled: Schema<boolean, boolean>;
         disabledSkills: Schema<string[], string[]>;
         modelHiddenSkills: Schema<string[], string[]>;
         userHiddenSkills: Schema<string[], string[]>;
@@ -188,6 +193,7 @@ declare const _default: {
         cache: Schema<boolean, boolean>;
         watchSkills: Schema<boolean, boolean>;
         loadMode: Schema<"global" | "preset", "global" | "preset">;
+        mcpEnabled: Schema<boolean, boolean>;
         disabledSkills: Schema<string[], string[]>;
         modelHiddenSkills: Schema<string[], string[]>;
         userHiddenSkills: Schema<string[], string[]>;

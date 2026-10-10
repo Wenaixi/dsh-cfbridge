@@ -144,12 +144,14 @@ test('Config schema accepts and defaults rank, cache, watchSkills, and loadMode'
   assert.equal(resolved.cache, true)
   assert.equal(resolved.watchSkills, false)
   assert.equal(resolved.loadMode, 'preset')
+  assert.equal(resolved.mcpEnabled, true)
 
-  const custom = Config({ rank: 800, cache: false, watchSkills: true, loadMode: 'global' })
+  const custom = Config({ rank: 800, cache: false, watchSkills: true, loadMode: 'global', mcpEnabled: false })
   assert.equal(custom.rank, 800)
   assert.equal(custom.cache, false)
   assert.equal(custom.watchSkills, true)
   assert.equal(custom.loadMode, 'global')
+  assert.equal(custom.mcpEnabled, false)
 })
 
 test('Provider filters skills by preset scope when loadMode is preset', async () => {
@@ -263,6 +265,58 @@ test('apply restricts tools and conditions instructions by preset scope in prese
   agentListener(cfAgent)
   assert.equal(restricted.length, 0, 'cfbridge 专属会话绝不可被限制工具')
 })
+
+test('apply restricts tools in all sessions when mcpEnabled is false', async () => {
+  const root = await fixture()
+  const restricted = []
+  let agentListener = null
+
+  const mockPresets = {
+    composedPreset: () => 'cfbridge',
+    register: async () => async () => {},
+    definitions: new Map(),
+  }
+  const mockTools = {
+    restrict: () => () => {},
+  }
+  const mockCtx = {
+    logger: { warn() {}, debug() {}, info() {} },
+    skills: { registerProvider: () => () => {} },
+    get(name) {
+      if (name === 'agentPresets') return mockPresets
+      if (name === 'tools') return mockTools
+      return undefined
+    },
+    on(event, handler) {
+      if (event === 'agent/created') agentListener = handler
+      return () => {}
+    },
+    effect(fn) {
+      return fn()
+    },
+  }
+
+  apply(mockCtx, { skillDir: root, mcpEnabled: false })
+
+  assert.ok(typeof agentListener === 'function')
+  const cfAgent = {
+    agent: {
+      ctx: {
+        tools: {
+          restrict: (filter) => { restricted.push(filter) },
+        },
+      },
+    },
+  }
+  agentListener(cfAgent)
+  assert.equal(restricted.length, 1, '即使是 cfbridge 专属会话，MCP 被关闭时也必须施加工具限制')
+  assert.deepEqual(restricted[0].deny, [
+    'mcp__cloudflare__docs',
+    'mcp__cloudflare__search',
+    'mcp__cloudflare__execute',
+  ])
+})
+
 test('Provider supports custom rank and reuses cached candidates when mtime is unchanged', async () => {
   const root = await fixture()
   const provider = createSkillProvider({ skillDir: root, providerName: 'cfbridge', logger: console, rank: 700, cacheEnabled: true })

@@ -61,6 +61,8 @@ export interface Config {
   watchSkills?: boolean
   /** 运行模式：global 全局加载，preset 仅在 cfbridge 模式下加载。 */
   loadMode?: LoadMode
+  /** 是否启用 Cloudflare MCP 工具（docs / search / execute）。默认 true。 */
+  mcpEnabled?: boolean
   /** 被单独关闭的技能名列表；命中的技能不进入发现结果，等同不存在。 */
   disabledSkills?: string[]
   /** 不向模型开放的技能名列表；人类仍可调用。 */
@@ -91,6 +93,11 @@ export const Config = Schema.object({
       Schema.const('global').description('全局加载（所有会话均可用 MCP 工具与技能）'),
       Schema.const('preset').description('cfbridge 模式（仅专属模式加载 MCP 工具与技能）'),
     ]).default('preset').description('运行模式'),
+  ),
+  mcpEnabled: markVolatile(
+    Schema.boolean()
+      .default(true)
+      .description('是否启用 Cloudflare MCP 工具（docs / search / execute）'),
   ),
   // meta.volatile 是宿主 settings 通道的硬要求：只有被标记为 volatile 的字段
   // 才允许在运行时通过设置面写入（见 dsh-settings 的 volatileForm）。
@@ -808,15 +815,21 @@ function installPresetMode(ctx: Context, options: {
 const CLOUDFLARE_TOOLS = ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'mcp__cloudflare__execute']
 
 /**
- * 特权工具隔离防线：preset 模式下对非 cfbridge 会话屏蔽 Cloudflare MCP 工具。
+ * 特权工具隔离防线：
+ * 1. 当 mcpEnabled 为 false 时，对所有会话全量屏蔽 Cloudflare MCP 工具；
+ * 2. 当 mcpEnabled 为 true 且处于 preset 模式时，对非 cfbridge 专属会话屏蔽 Cloudflare MCP 工具。
  */
 function installToolGuard(ctx: Context, options: {
   getLoadMode: () => LoadMode
+  getMcpEnabled: () => boolean
   getAgentPresets: () => any
   getTools: () => any
 }): () => void {
   return (ctx as any).on('agent/created', (payload: any) => {
-    if (options.getLoadMode() !== 'preset') return
+    const isMcpActive = options.getMcpEnabled()
+    const isPresetMode = options.getLoadMode() === 'preset'
+    if (isMcpActive && !isPresetMode) return
+
     const targetAgent = payload?.agent ?? payload
     const agentCtx = targetAgent?.ctx
     if (!agentCtx) return
@@ -824,7 +837,8 @@ function installToolGuard(ctx: Context, options: {
     if (toolsService === undefined) return
     try {
       const presetId = options.getAgentPresets()?.composedPreset?.(agentCtx)
-      if (presetId !== 'cfbridge') {
+      const shouldBlock = !isMcpActive || presetId !== 'cfbridge'
+      if (shouldBlock) {
         const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
         const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
         if (denyTargets.length > 0 && typeof agentCtx.tools?.restrict === 'function') {
@@ -833,7 +847,9 @@ function installToolGuard(ctx: Context, options: {
         if (typeof agentCtx.tools?.guard === 'function') {
           agentCtx.tools.guard((exec: { name: string }) => {
             if (CLOUDFLARE_TOOLS.includes(exec.name)) {
-              return 'Cloudflare MCP 工具仅在 cfbridge 模式下可用'
+              return !isMcpActive
+                ? 'Cloudflare MCP 工具已在设置中关闭'
+                : 'Cloudflare MCP 工具仅在 cfbridge 模式下可用'
             }
           })
         }
@@ -897,6 +913,7 @@ export function apply(ctx: Context, config: Config = {
   if (changed && settings !== undefined && typeof settings.update === 'function') {
     void settings.update(providerName, {
       loadMode: healed.loadMode,
+      mcpEnabled: healed.mcpEnabled,
       disabledSkills: healed.disabledSkills,
       modelHiddenSkills: healed.modelHiddenSkills,
       userHiddenSkills: healed.userHiddenSkills,
@@ -914,6 +931,17 @@ export function apply(ctx: Context, config: Config = {
       } catch {}
     }
     return healed.loadMode
+  }
+
+  const getMcpEnabled = (): boolean => {
+    if (settings !== undefined && typeof settings.describe === 'function') {
+      try {
+        const view = settings.describe().find((entry: any) => entry.ns === providerName)
+        const live = (view as any)?.user?.mcpEnabled ?? (view as any)?.value?.mcpEnabled
+        if (typeof live === 'boolean') return live
+      } catch {}
+    }
+    return healed.mcpEnabled
   }
 
   // 去重并丢弃空串：配置由 UI 写回，脏值不应变成一次真实比对。
@@ -990,6 +1018,7 @@ export function apply(ctx: Context, config: Config = {
 
     const disposeToolGuard = installToolGuard(ctx, {
       getLoadMode,
+      getMcpEnabled,
       getAgentPresets,
       getTools,
     })

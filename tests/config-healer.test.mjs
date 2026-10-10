@@ -38,6 +38,7 @@ test('healConfig cleanses malformed root and primitives', () => {
   assert.equal(res1.changed, true)
   assert.equal(res1.config.providerName, 'cfbridge')
   assert.equal(res1.config.loadMode, 'preset')
+  assert.equal(res1.config.mcpEnabled, true)
   assert.equal(res1.config.rank, 0)
   assert.equal(res1.config.cache, true)
   assert.equal(res1.config.watchSkills, false)
@@ -48,6 +49,7 @@ test('healConfig cleanses malformed root and primitives', () => {
   assert.equal(res2.changed, true)
   assert.equal(res2.config.providerName, 'cfbridge')
   assert.equal(res2.config.loadMode, 'preset')
+  assert.equal(res2.config.mcpEnabled, true)
   assert.equal(res2.config.rank, 0)
 
   // 3. 正常自定义配置保持不变
@@ -66,9 +68,10 @@ test('healConfig cleanses malformed root and primitives', () => {
   assert.equal(res3.config.watchSkills, true)
   assert.deepEqual(res3.config.disabledSkills, ['turnstile-spin'])
 
-  // 4. 自定义 global 模式同样正常保持
-  const res4 = healConfig({ loadMode: 'global' })
+  // 4. 自定义 global 模式与 mcpEnabled: false 同样正常保持
+  const res4 = healConfig({ loadMode: 'global', mcpEnabled: false })
   assert.equal(res4.config.loadMode, 'global')
+  assert.equal(res4.config.mcpEnabled, false)
 })
 
 test('sanitizeSkillNames and unwrapLazy filter invalid names and unroll functions', () => {
@@ -110,6 +113,7 @@ test('extractCorruptedYaml recovers settings from severely corrupted YAML with s
   const shatteredYaml = `
 [corrupted_bracket
 \tloadMode: preset
+\tmcpEnabled: false
   disabledSkills: [wrangler, agents-sdk, bad skill with spaces]
 random_junk_line_here: {unclosed
 failOnStartupError: false
@@ -119,6 +123,7 @@ url: https://mcp.cloudflare.com/custom
 
   const extracted = extractCorruptedYaml(shatteredYaml)
   assert.equal(extracted.cfbridge.loadMode, 'preset')
+  assert.equal(extracted.cfbridge.mcpEnabled, false)
   assert.deepEqual(extracted.cfbridge.disabledSkills, ['wrangler', 'agents-sdk'])
   assert.equal(extracted.mcp.toolCallTimeoutMs, 90000)
   assert.equal(extracted.mcp.failOnStartupError, false)

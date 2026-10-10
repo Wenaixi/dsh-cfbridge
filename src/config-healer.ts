@@ -11,6 +11,7 @@ export interface HealedConfig extends Config {
   cache: boolean
   watchSkills: boolean
   loadMode: LoadMode
+  mcpEnabled: boolean
   disabledSkills: string[]
   modelHiddenSkills: string[]
   userHiddenSkills: string[]
@@ -148,7 +149,23 @@ export function healConfig(raw: unknown): HealResult {
     repairs.push(`loadMode 包含非法值 "${String(rawMode)}"，已回退为 "preset"`)
   }
 
-  // 3. rank
+  // 3. mcpEnabled
+  const rawMcp = unwrapLazy<unknown>(target.mcpEnabled, true)
+  let mcpEnabled = true
+  if (typeof rawMcp === 'boolean') {
+    mcpEnabled = rawMcp
+  } else if (rawMcp === 'false' || rawMcp === 0) {
+    mcpEnabled = false
+    changed = true
+    repairs.push('mcpEnabled 字段已归一化为布尔值 false')
+  } else if (rawMcp === 'true' || rawMcp === 1) {
+    mcpEnabled = true
+  } else {
+    changed = true
+    repairs.push(`mcpEnabled 包含非布尔值 "${String(rawMcp)}"，已回退为 true`)
+  }
+
+  // 4. rank
   const rawRank = unwrapLazy<unknown>(target.rank, PROVIDER_RANK)
   let rank = PROVIDER_RANK
   if (typeof rawRank === 'number' && Number.isFinite(rawRank)) {
@@ -221,6 +238,7 @@ export function healConfig(raw: unknown): HealResult {
     cache,
     watchSkills,
     loadMode,
+    mcpEnabled,
     disabledSkills,
     modelHiddenSkills,
     userHiddenSkills,
@@ -295,6 +313,14 @@ function scanCorruptedLines(text: string): ExtractedPatchConfig {
       const mode = modeMatch[1].toLowerCase() as LoadMode
       cfbridge.loadMode = mode
       rawRepairs.push(`从损坏行中恢复 loadMode="${mode}"`)
+    }
+
+    // 提取 mcpEnabled
+    const mcpMatch = line.match(/mcpEnabled\s*:\s*(true|false)/i)
+    if (mcpMatch) {
+      const val = mcpMatch[1].toLowerCase() === 'true'
+      cfbridge.mcpEnabled = val
+      rawRepairs.push(`从损坏行中恢复 mcpEnabled=${val}`)
     }
 
     // 提取 rank
@@ -386,6 +412,7 @@ export function extractCorruptedYaml(corruptedText: string): ExtractedPatchConfi
         } else if (row.id === 'cfbridge' || row.name === '@wenaixi/cfbridge') {
           const cfg = row.config || row
           if (cfg.loadMode) cfbridge.loadMode = cfg.loadMode
+          if (cfg.mcpEnabled !== undefined) cfbridge.mcpEnabled = Boolean(cfg.mcpEnabled)
           if (cfg.rank !== undefined) cfbridge.rank = cfg.rank
           if (cfg.cache !== undefined) cfbridge.cache = cfg.cache
           if (cfg.watchSkills !== undefined) cfbridge.watchSkills = cfg.watchSkills
@@ -396,6 +423,7 @@ export function extractCorruptedYaml(corruptedText: string): ExtractedPatchConfi
         } else {
           // 兜底提取顶层字段
           if (row.loadMode) cfbridge.loadMode = row.loadMode
+          if (row.mcpEnabled !== undefined) cfbridge.mcpEnabled = Boolean(row.mcpEnabled)
           if (Array.isArray(row.disabledSkills)) cfbridge.disabledSkills = sanitizeSkillNames(row.disabledSkills).names
         }
       }
@@ -433,6 +461,9 @@ export function generatePatchYaml(options: {
     customConfig.push('        loadMode: preset')
   } else if (healed.loadMode === 'global') {
     customConfig.push('        loadMode: global')
+  }
+  if (healed.mcpEnabled === false) {
+    customConfig.push('        mcpEnabled: false')
   }
   if (healed.rank !== PROVIDER_RANK) {
     customConfig.push(`        rank: ${healed.rank}`)
