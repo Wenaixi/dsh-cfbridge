@@ -1,6 +1,10 @@
 import Schema from '@deepseek-ai/schemastery';
 import type { Context } from '@deepseek-ai/cordis';
 import type { SkillInvocationPolicy, SkillProvider } from '@deepseek-ai/dsh-skill';
+import { healConfig, sanitizeSkillNames, unwrapLazy, extractCorruptedYaml, generatePatchYaml, autoHealConfigFile } from './config-healer.js';
+import type { HealedConfig, HealResult, ExtractedPatchConfig, ExtractedMcpConfig, AutoHealFileResult } from './config-healer.js';
+export { healConfig, sanitizeSkillNames, unwrapLazy, extractCorruptedYaml, generatePatchYaml, autoHealConfigFile, };
+export type { HealedConfig, HealResult, ExtractedPatchConfig, ExtractedMcpConfig, AutoHealFileResult, };
 export type LoadMode = 'global' | 'preset';
 export interface Config {
     providerName: string;
@@ -190,6 +194,10 @@ declare const _default: {
         availableSkills: Schema<string[], string[]>;
     }>>;
     apply: typeof apply;
+    healConfig: typeof healConfig;
+    extractCorruptedYaml: typeof extractCorruptedYaml;
+    generatePatchYaml: typeof generatePatchYaml;
+    autoHealConfigFile: typeof autoHealConfigFile;
 };
 export default _default;
 //# sourceMappingURL=cfbridge.d.ts.map

@@ -14,6 +14,38 @@ import type {
   SkillProvider,
 } from '@deepseek-ai/dsh-skill'
 
+import {
+  healConfig,
+  sanitizeSkillNames,
+  unwrapLazy,
+  extractCorruptedYaml,
+  generatePatchYaml,
+  autoHealConfigFile,
+} from './config-healer.js'
+import type {
+  HealedConfig,
+  HealResult,
+  ExtractedPatchConfig,
+  ExtractedMcpConfig,
+  AutoHealFileResult,
+} from './config-healer.js'
+
+export {
+  healConfig,
+  sanitizeSkillNames,
+  unwrapLazy,
+  extractCorruptedYaml,
+  generatePatchYaml,
+  autoHealConfigFile,
+}
+export type {
+  HealedConfig,
+  HealResult,
+  ExtractedPatchConfig,
+  ExtractedMcpConfig,
+  AutoHealFileResult,
+}
+
 const DEFAULT_PROVIDER_NAME = 'cfbridge'
 const RUNTIME_PROVIDER_NAME = 'runtime'
 const PROVIDER_RANK = 0
@@ -751,14 +783,30 @@ export function apply(ctx: Context, config: Config = {
   providerName: DEFAULT_PROVIDER_NAME,
   skillDir: DEFAULT_SKILL_DIR,
 }): void {
-  const providerName = config.providerName || DEFAULT_PROVIDER_NAME
-  if (providerName === RUNTIME_PROVIDER_NAME) {
+  if (config?.providerName === RUNTIME_PROVIDER_NAME) {
     throw new Error('[cfbridge] providerName "runtime" 为保留名，不可用')
   }
-  const skillDir = resolveSkillDir(config.skillDir)
-  const rank = config.rank ?? PROVIDER_RANK
-  const cacheEnabled = config.cache ?? true
+  const { config: healed, changed, repairs } = healConfig(config)
+  if (changed) {
+    ctx.logger.info?.('[cfbridge] 配置已自动自愈修复: ' + repairs.join('; '))
+  }
+
+  const providerName = healed.providerName
+  const skillDir = resolveSkillDir(healed.skillDir)
+  const rank = healed.rank
+  const cacheEnabled = healed.cache
   const settings = (ctx as Context & { settings?: SettingsRuntime }).settings
+
+  // 若运行时清洗了脏配置且 settings 就绪，自动回写纯净 volatile 字段持久化
+  if (changed && settings !== undefined && typeof settings.update === 'function') {
+    void settings.update(providerName, {
+      loadMode: healed.loadMode,
+      disabledSkills: healed.disabledSkills,
+      modelHiddenSkills: healed.modelHiddenSkills,
+      userHiddenSkills: healed.userHiddenSkills,
+    } as any).catch(() => {})
+  }
+
   const getLoadMode = (): LoadMode => {
     if (settings !== undefined && typeof settings.describe === 'function') {
       try {
@@ -767,13 +815,14 @@ export function apply(ctx: Context, config: Config = {
         if (live === 'preset' || live === 'global') return live
       } catch {}
     }
-    return readLoadModeConfig(config.loadMode)
+    return healed.loadMode
   }
+
   // 去重并丢弃空串：配置由 UI 写回，脏值不应变成一次真实比对。
-  const disabledSkills = readStringListConfig(config.disabledSkills)
+  const disabledSkills = healed.disabledSkills
   const hiddenSkills: SkillVisibility = {
-    model: readStringListConfig(config.modelHiddenSkills),
-    user: readStringListConfig(config.userHiddenSkills),
+    model: healed.modelHiddenSkills,
+    user: healed.userHiddenSkills,
   }
   const getService = <T>(name: string): T | undefined => {
     try {
@@ -968,4 +1017,13 @@ export function apply(ctx: Context, config: Config = {
   }
 }
 
-export default { name, inject, Config, apply }
+export default {
+  name,
+  inject,
+  Config,
+  apply,
+  healConfig,
+  extractCorruptedYaml,
+  generatePatchYaml,
+  autoHealConfigFile,
+}

@@ -163,7 +163,10 @@ function msg(error: unknown): string {
 }
 
 function strArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    .map((v) => v.trim())
 }
 
 /**
@@ -311,14 +314,15 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
   //   modelHiddenSkills —— 只不给模型
   //   userHiddenSkills  —— 只不给人类
   // 面板把它们合成每行的两个开关，写入时再拆回去。
-  const user = (state.user ?? {}) as Record<string, unknown>
+  const user = (state.user && typeof state.user === 'object' && !Array.isArray(state.user) ? state.user : {}) as Record<string, unknown>
+  const value = (state.value && typeof state.value === 'object' && !Array.isArray(state.value) ? state.value : {}) as Record<string, unknown>
   const disabled = strArray(user.disabledSkills)
   const modelHidden = strArray(user.modelHiddenSkills)
   const userHidden = strArray(user.userHiddenSkills)
-  const rawLoadMode = user.loadMode
+  const rawLoadMode = user.loadMode ?? value.loadMode
   const loadMode: 'global' | 'preset' = rawLoadMode === 'preset' ? 'preset' : 'global'
   // 清单由 Host 侧 Provider 发现后发布（config.availableSkills），面板不自己扫目录。
-  const names = strArray(state.value?.availableSkills)
+  const names = strArray(value.availableSkills)
   const skills = [...new Set([...names, ...disabled, ...modelHidden, ...userHidden])].sort()
   const writable = state.writable && state.status === 'ready'
   // 语言只探测一次，避免每行重复比较。

@@ -64,6 +64,7 @@
     "validate:bundle": "node scripts/validate-bundle.js",
     "migrate:from-preset": "node scripts/migrate-from-preset.js",
     "dump:config": "node scripts/dump-config.js",
+    "repair:config": "node scripts/repair-config.js",
     "test": "node scripts/test.js",
     "test:bundle": "node scripts/validate-bundle.js",
     "test:wrangler": "node scripts/test-wrangler.js",

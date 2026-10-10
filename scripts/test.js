@@ -14,6 +14,7 @@ const STEPS = [
   { name: 'typecheck', label: 'TypeScript 类型检查', command: ['npm', 'run', 'typecheck'] },
   { name: 'typecheck-client', label: '客户端半侧类型检查', command: ['npm', 'run', 'typecheck:client'] },
   { name: 'provider', label: 'Provider 行为测试', command: [process.execPath, '--test', 'tests/provider.test.mjs'] },
+  { name: 'config-healer', label: '配置自愈与容错测试', command: [process.execPath, '--test', 'tests/config-healer.test.mjs'] },
   { name: 'metadata', label: 'Bundle 元数据测试', command: [process.execPath, '--test', 'tests/bundle-metadata.test.mjs'] },
   { name: 'client-panel', label: '客户端面板行为测试', command: [process.execPath, '--test', 'tests/client-panel.test.mjs'] },
   { name: 'wrangler-entry', label: 'Wrangler 入口契约测试', command: [process.execPath, '--test', 'tests/wrangler-entry.test.mjs'] },
