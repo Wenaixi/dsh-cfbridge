@@ -17,6 +17,7 @@ const STEPS = [
   { name: 'config-healer', label: '配置自愈与容错测试', command: [process.execPath, '--test', 'tests/config-healer.test.mjs'] },
   { name: 'metadata', label: 'Bundle 元数据测试', command: [process.execPath, '--test', 'tests/bundle-metadata.test.mjs'] },
   { name: 'client-panel', label: '客户端面板行为测试', command: [process.execPath, '--test', 'tests/client-panel.test.mjs'] },
+  { name: 'client-controller', label: '客户端控制器行为测试', command: [process.execPath, '--test', 'tests/client-controller.test.mjs'] },
   { name: 'wrangler-entry', label: 'Wrangler 入口契约测试', command: [process.execPath, '--test', 'tests/wrangler-entry.test.mjs'] },
   { name: 'workflow-gate', label: 'CI/Release 门禁契约测试', command: [process.execPath, '--test', 'tests/workflow-gate.test.mjs'] },
   { name: 'demo', label: '独立 demo 文档测试', command: [process.execPath, '--test', 'tests/demo-config.test.mjs'] },

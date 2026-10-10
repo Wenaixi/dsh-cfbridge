@@ -461,7 +461,7 @@ export class PanelController {
 function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
   const t = props.t ?? fallbackT
   const [, setTick] = React.useState(0)
-  const [controller] = React.useState(() => new PanelController(props.form, t))
+  const [controller] = React.useState(new PanelController(props.form, t))
   controller.update(props.form, t)
 
   if (props.view !== 'page') {
