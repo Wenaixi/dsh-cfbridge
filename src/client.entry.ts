@@ -1100,9 +1100,12 @@ export function apply(ctx: any): void {
       ctx.slots.inject('plugins.row.config', () =>
         ctx.slots.register(
           { name: 'plugins.row.config', key: ROW_CONFIG_KEY, locale: NS },
-          (props: PanelProps) => React.createElement(Panel, props as any, t),
+          (props: PanelProps) => Panel(props, t),
         ),
       ),
     'cfbridge: config panel in row view',
   )
 }
+
+export const inject = ['slots', 'locale']
+export default { apply, PanelController, inject }
