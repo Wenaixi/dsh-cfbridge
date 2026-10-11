@@ -77,6 +77,14 @@ DSH Bundle（全局常驻，按需开关）
 
 **一句话心智模型**：你负责一句话触发；`cfbridge` 是薄桥（挂三工具 + 审批规范），`cloudflare` 是总入口（决策树 → 指引到 `wrangler` 等 12 个子 Skill），路由全由模型决策。
 
+## 设置与管理控制台（Web GUI）
+
+在 DSH Web 客户端 →「插件」→「Cloudflare 桥接」→「配置」中，提供原生高质感控制面板：
+- **运行模式卡片**：双列分段卡片直观切换「cfbridge 专属模式（推荐）」与「全局加载模式」；
+- **MCP 总控开关**：顶部一键物理启停 Cloudflare Code Mode MCP 三工具（`docs` / `search` / `execute`）；
+- **技能一元化控制**：14 个专项技能单一开关开闭，带分类徽标（Core、Platform、CLI、AI/Agents、Storage、Zero Trust 等）与人话功能简介；
+- **即时搜索与批量控制**：支持关键词即时过滤，提供「全部启用」/「全部停用」一键操作。
+
 ## 官方 Skills 入口（与 cfbridge 互补）
 
 领域知识由 [cloudflare/skills](https://github.com/cloudflare/skills) 的 `cloudflare` Skill 提供。**何时加载它**：不确定该选哪个 Cloudflare 产品（KV/D1/R2？Workers/Pages?）；需要 30+ 产品决策树或 `references/` 索引；需要判断该加载哪个子 Skill；任何 Cloudflare 开发任务的起点。其余子 Skill 由它按需指引，本包已 vendoring 13 个 SKILL.md 到 `skills/<name>/`（离线可用）。

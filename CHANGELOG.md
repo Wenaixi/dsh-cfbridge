@@ -1,3 +1,18 @@
+## 0.12.0 — 2026-10-11
+- **feat(client)**: 采用 `frontend-design` 专业美学重塑 DSH 插件设置面板 UI：
+  - 引入头部微型状态展板（`HeroBanner`），集成琥珀色（`#f6821f`）呼吸指示灯与三状态动态徽标（当前运行模式、MCP 激活状态、技能启用计数）；
+  - 引入双列卡片式分段选择器（`ModeCard`），高对比度琥珀高亮边框与「推荐」胶囊徽标，替代简陋的原生 radio 控件；
+  - 引入 Cloudflare Code Mode MCP 工具独立控制面板（`McpMasterCard`），集成总控 `Switch`、三大特权工具功能芯片标牌（`docs` / `search` / `execute`）及停用状态全局预警横幅；
+  - 引入技能库即时搜索栏与「全部启用 / 全部停用」一键批量控制工具条；
+  - 技能列表卡片化：等宽代码风技能名、分类彩色徽标（Core、Platform、CLI、AI/Agents、Storage、Zero Trust、Security 等）、人话功能简介与一元化单开关。
+- **feat(skills)**: 技能开关一元化：彻底废弃模型与人类双轴分裂的心智负担，合并为单一开/关。开启时原子移出 `disabledSkills` 并清空隐藏名单，关闭时原子写入 `disabledSkills` 并清空隐藏名单；单次原子 3-ops 批处理提交，两轴同步开闭，对历史字段保持平滑向后兼容。
+- **feat(mcp)**: 新增 Cloudflare MCP 工具总控开关（`mcpEnabled` volatile 配置字段与全链路拦截防线）：
+  - 当 `mcpEnabled: false` 时，无论处于 `preset` 还是 `global` 模式，对全系统所有会话统一物理触发 `tools.restrict({ deny: CLOUDFLARE_TOOLS })` 并挂载运行期 `tools.guard` 拦截，杜绝越权与意外调用；
+  - 配置自愈与提取引擎（`src/config-healer.ts`）全面支持 `mcpEnabled` 容错解析、坏损 YAML 恢复与持久化回写。
+- **feat(mode)**: 将运行模式默认值从 `global` 调整为 `preset`（Cloudflare 专属模式），全系统默认对非专属会话实施特权工具与技能物理隔离，防范非 Cloudflare 任务被特权干扰。
+- **fix(client)**: 修复客户端插件依赖注入声明缺陷：在客户端导出显式补齐 `inject: ['slots', 'locale']`，确保全新实例在服务未完全就绪时不会触发未定义异常，冷启动激活率 100%。
+- **test**: 综合质量门禁全面升级并通过 **15/15** 全绿，包含纯 Node 脱机状态机单测、MCP 拦截测试、单开关状态机与冷安装真实浏览器端到端全链路验收。
+
 ## 0.11.1 — 2026-10-10
 - **docs**: 根目录主 `README.md` 全面重构为高质感全英文档，排版美学与五联徽章体系（npm / MIT / DSH Bundle / Node >= 22 / pnpm >= 11）对齐 `dsh-superpower` 风格。
 - **docs**: 中文说明书精修留存为 `README.zh.md`，并在 `package.json.files` 白名单中正式注册，根除 npm 线上发布后多语言跳转链接沦为 404 死链的反模式。

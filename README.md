@@ -84,6 +84,16 @@ cfbridge supports two operating modes, togglable via the plugin settings UI or c
 
 ---
 
+## Settings & Management Console (Web GUI)
+
+In DSH Web UI → **Plugins** → **Cloudflare Bridge** → **Configure**, enjoy a native, polished management console:
+- **Segmented Mode Cards**: Two-card selector switching between **cfbridge Preset Mode (Recommended)** and **Global Mode**;
+- **MCP Master Switch**: One-click physical toggle for Cloudflare Code Mode MCP tools (`docs` / `search` / `execute`);
+- **Unified Skill Toggles**: Single intuitive switch per skill, with category badges (`Core`, `Platform`, `CLI`, `AI / Agents`, `Storage`, `Zero Trust`, etc.) and human-readable summaries;
+- **Instant Search & Batch Controls**: Live keyword search filter, plus one-click **Enable All** / **Disable All** operations.
+
+---
+
 ## Skills
 
 | Skill | Category | Description | Primary Triggers |
