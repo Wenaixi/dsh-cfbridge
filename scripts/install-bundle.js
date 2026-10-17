@@ -18,7 +18,7 @@ const fs = require('fs')
 const path = require('path')
 const { spawnSync } = require('child_process')
 
-const { ROOT, log, dshHome: resolveDshHome, removeLegacySkillLink } = require('./lib/fs')
+const { ROOT, log, dshHome: resolveDshHome } = require('./lib/fs')
 
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const DSH_HOME = resolveDshHome()
@@ -79,7 +79,7 @@ function profileDir(name) {
 }
 
 function cleanupLegacySymlink() {
-  removeLegacySkillLink(DSH_HOME, { log })
+  
 }
 
 function dumpConfig(profile) {

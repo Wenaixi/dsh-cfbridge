@@ -13,8 +13,6 @@ export interface HealedConfig extends Config {
   loadMode: LoadMode
   mcpEnabled: boolean
   disabledSkills: string[]
-  modelHiddenSkills: string[]
-  userHiddenSkills: string[]
   availableSkills: string[]
 }
 
@@ -210,7 +208,7 @@ export function healConfig(raw: unknown): HealResult {
   }
 
   // 6. 技能列表清洗
-  const cleanList = (field: 'disabledSkills' | 'modelHiddenSkills' | 'userHiddenSkills' | 'availableSkills') => {
+  const cleanList = (field: 'disabledSkills' | 'availableSkills') => {
     const rawList = target[field]
     const { names, dropped } = sanitizeSkillNames(rawList)
     if (dropped.length > 0) {
@@ -224,8 +222,6 @@ export function healConfig(raw: unknown): HealResult {
   }
 
   const disabledSkills = cleanList('disabledSkills')
-  const modelHiddenSkills = cleanList('modelHiddenSkills')
-  const userHiddenSkills = cleanList('userHiddenSkills')
   const availableSkills = cleanList('availableSkills')
 
   const skillDir = typeof target.skillDir === 'string' && target.skillDir.trim() !== ''
@@ -240,8 +236,6 @@ export function healConfig(raw: unknown): HealResult {
     loadMode,
     mcpEnabled,
     disabledSkills,
-    modelHiddenSkills,
-    userHiddenSkills,
     availableSkills,
     ...(skillDir ? { skillDir } : {}),
   }
@@ -259,11 +253,9 @@ function scanCorruptedLines(text: string): ExtractedPatchConfig {
   const mcp: ExtractedMcpConfig = {}
   const rawRepairs: string[] = []
 
-  let currentListField: 'disabledSkills' | 'modelHiddenSkills' | 'userHiddenSkills' | 'availableSkills' | null = null
+  let currentListField: 'disabledSkills' | 'availableSkills' | null = null
   const extractedLists: Record<string, string[]> = {
     disabledSkills: [],
-    modelHiddenSkills: [],
-    userHiddenSkills: [],
     availableSkills: [],
   }
 
@@ -272,7 +264,7 @@ function scanCorruptedLines(text: string): ExtractedPatchConfig {
     if (!line || line.startsWith('#')) continue
 
     // 检查是否包含内联列表: e.g. disabledSkills: [a, b, "c"]
-    const inlineMatch = line.match(/^(disabledSkills|modelHiddenSkills|userHiddenSkills|availableSkills)\s*:\s*\[(.*?)\]/i)
+    const inlineMatch = line.match(/^(disabledSkills|availableSkills)\s*:\s*\[(.*?)\]/i)
     if (inlineMatch) {
       const field = inlineMatch[1]
       const items = inlineMatch[2].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter((s) => s && isSkillName(s))
@@ -285,7 +277,7 @@ function scanCorruptedLines(text: string): ExtractedPatchConfig {
     }
 
     // 检查列表键起始行: e.g. disabledSkills:
-    const listKeyMatch = line.match(/^(disabledSkills|modelHiddenSkills|userHiddenSkills|availableSkills)\s*:/i)
+    const listKeyMatch = line.match(/^(disabledSkills|availableSkills)\s*:/i)
     if (listKeyMatch) {
       currentListField = listKeyMatch[1] as any
       continue
@@ -417,8 +409,6 @@ export function extractCorruptedYaml(corruptedText: string): ExtractedPatchConfi
           if (cfg.cache !== undefined) cfbridge.cache = cfg.cache
           if (cfg.watchSkills !== undefined) cfbridge.watchSkills = cfg.watchSkills
           if (Array.isArray(cfg.disabledSkills)) cfbridge.disabledSkills = sanitizeSkillNames(cfg.disabledSkills).names
-          if (Array.isArray(cfg.modelHiddenSkills)) cfbridge.modelHiddenSkills = sanitizeSkillNames(cfg.modelHiddenSkills).names
-          if (Array.isArray(cfg.userHiddenSkills)) cfbridge.userHiddenSkills = sanitizeSkillNames(cfg.userHiddenSkills).names
           if (Array.isArray(cfg.availableSkills)) cfbridge.availableSkills = sanitizeSkillNames(cfg.availableSkills).names
         } else {
           // 兜底提取顶层字段
@@ -475,7 +465,7 @@ export function generatePatchYaml(options: {
     customConfig.push('        watchSkills: true')
   }
 
-  const renderList = (field: 'disabledSkills' | 'modelHiddenSkills' | 'userHiddenSkills', items: string[]) => {
+  const renderList = (field: 'disabledSkills', items: string[]) => {
     if (items.length > 0) {
       customConfig.push(`        ${field}:`)
       for (const item of items) {
@@ -485,8 +475,6 @@ export function generatePatchYaml(options: {
   }
 
   renderList('disabledSkills', healed.disabledSkills)
-  renderList('modelHiddenSkills', healed.modelHiddenSkills)
-  renderList('userHiddenSkills', healed.userHiddenSkills)
 
   const cfbridgeConfigBlock = customConfig.length > 0
     ? `\n      config:\n${customConfig.join('\n')}`

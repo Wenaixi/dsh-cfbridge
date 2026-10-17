@@ -46,8 +46,6 @@ function mockForm(stateOverrides = {}, onMutate) {
     revision: 42,
     user: {
       disabledSkills: [],
-      modelHiddenSkills: [],
-      userHiddenSkills: [],
       loadMode: 'preset',
       mcpEnabled: true,
     },
@@ -81,7 +79,7 @@ test('PanelController initializes cleanly even with malformed or empty state', a
   assert.equal(snap.error, null)
 })
 
-test('PanelController projects single skill switch into atomic 3-ops mutation', async () => {
+test('PanelController projects single skill switch into atomic 1-op mutation', async () => {
   const PanelController = await loadController()
   const form = mockForm()
   const controller = new PanelController(form)
@@ -100,18 +98,14 @@ test('PanelController projects single skill switch into atomic 3-ops mutation', 
   assert.equal(form.history[0].revision, 42, '严格带上 expectedRevision 栅栏')
   assert.deepEqual(toJson(form.history[0].ops), [
     { op: 'set', path: ['disabledSkills'], value: ['wrangler'] },
-    { op: 'set', path: ['modelHiddenSkills'], value: [] },
-    { op: 'set', path: ['userHiddenSkills'], value: [] },
   ])
 })
 
-test('re-enabling skill cleans disabledSkills and hidden lists atomically', async () => {
+test('re-enabling skill cleans disabledSkills atomically', async () => {
   const PanelController = await loadController()
   const form = mockForm({
     user: {
       disabledSkills: ['wrangler'],
-      modelHiddenSkills: [],
-      userHiddenSkills: [],
     },
   })
   const controller = new PanelController(form)
@@ -126,8 +120,6 @@ test('re-enabling skill cleans disabledSkills and hidden lists atomically', asyn
 
   assert.deepEqual(toJson(form.history[0].ops), [
     { op: 'set', path: ['disabledSkills'], value: [] },
-    { op: 'set', path: ['modelHiddenSkills'], value: [] },
-    { op: 'set', path: ['userHiddenSkills'], value: [] },
   ])
 })
 
@@ -151,8 +143,6 @@ test('PanelController supports mcpEnabled toggle and batch skill toggles', async
   assert.equal(form.history.length, 1)
   assert.deepEqual(toJson(form.history[0].ops), [
     { op: 'set', path: ['disabledSkills'], value: ['cloudflare', 'wrangler'] },
-    { op: 'set', path: ['modelHiddenSkills'], value: [] },
-    { op: 'set', path: ['userHiddenSkills'], value: [] },
   ])
 
   // 3. 全部启用技能
@@ -162,8 +152,6 @@ test('PanelController supports mcpEnabled toggle and batch skill toggles', async
   assert.equal(form.history.length, 1)
   assert.deepEqual(toJson(form.history[0].ops), [
     { op: 'set', path: ['disabledSkills'], value: [] },
-    { op: 'set', path: ['modelHiddenSkills'], value: [] },
-    { op: 'set', path: ['userHiddenSkills'], value: [] },
   ])
 })
 

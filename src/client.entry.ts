@@ -261,8 +261,6 @@ export class PanelController {
     const user = (state.user && typeof state.user === 'object' && !Array.isArray(state.user) ? state.user : {}) as Record<string, unknown>
     const value = (state.value && typeof state.value === 'object' && !Array.isArray(state.value) ? state.value : {}) as Record<string, unknown>
     const disabled = strArray(user.disabledSkills)
-    const modelHidden = strArray(user.modelHiddenSkills)
-    const userHidden = strArray(user.userHiddenSkills)
 
     const rawMode = user.loadMode ?? value.loadMode
     const loadMode: 'global' | 'preset' = rawMode === 'global' ? 'global' : 'preset'
@@ -271,11 +269,10 @@ export class PanelController {
     const mcpEnabled = typeof rawMcp === 'boolean' ? rawMcp : true
 
     const names = strArray(value.availableSkills)
-    const allNames = [...new Set([...names, ...disabled, ...modelHidden, ...userHidden])].sort()
+    const allNames = [...new Set([...names, ...disabled])].sort()
 
     const skills: SkillRowModel[] = allNames.map((name) => {
-      const isOff = disabled.includes(name) || (modelHidden.includes(name) && userHidden.includes(name))
-      const enabled = !isOff
+      const enabled = !disabled.includes(name)
       return {
         name,
         summary: skillSummary(name, this.lang),
@@ -339,18 +336,15 @@ export class PanelController {
     }
   }
 
-  // 单一技能开关翻转（单次原子 3-ops 批处理提交）
-  // 保持重载兼容：toggle(name, next) 或 toggle(name, 'model'|'user', next)
+  // 单一技能开关翻转（单次原子 1-op 批处理提交）
   async toggle(name: string, nextOrAxis?: boolean | 'model' | 'user', explicitNext?: boolean): Promise<boolean> {
     const snap = this.getSnapshot()
     if (!snap.writable || this._busy || !this.form) return false
     const state = this.form.state
     const user = (state.user && typeof state.user === 'object' && !Array.isArray(state.user) ? state.user : {}) as Record<string, unknown>
     const disabled = new Set(strArray(user.disabledSkills))
-    const modelHidden = new Set(strArray(user.modelHiddenSkills))
-    const userHidden = new Set(strArray(user.userHiddenSkills))
 
-    const isCurrentOff = disabled.has(name) || (modelHidden.has(name) && userHidden.has(name))
+    const isCurrentOff = disabled.has(name)
 
     let next: boolean
     if (typeof explicitNext === 'boolean') {
@@ -363,12 +357,8 @@ export class PanelController {
 
     if (next) {
       disabled.delete(name)
-      modelHidden.delete(name)
-      userHidden.delete(name)
     } else {
       disabled.add(name)
-      modelHidden.delete(name)
-      userHidden.delete(name)
     }
 
     this._busy = true
@@ -377,8 +367,6 @@ export class PanelController {
       const ok = await this.form.mutate(
         [
           { op: 'set', path: ['disabledSkills'], value: [...disabled].sort() },
-          { op: 'set', path: ['modelHiddenSkills'], value: [...modelHidden].sort() },
-          { op: 'set', path: ['userHiddenSkills'], value: [...userHidden].sort() },
         ],
         state.revision,
       )
@@ -406,8 +394,6 @@ export class PanelController {
       const ok = await this.form.mutate(
         [
           { op: 'set', path: ['disabledSkills'], value: nextDisabled },
-          { op: 'set', path: ['modelHiddenSkills'], value: [] },
-          { op: 'set', path: ['userHiddenSkills'], value: [] },
         ],
         state.revision,
       )

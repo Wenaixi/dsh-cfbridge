@@ -65,10 +65,6 @@ export interface Config {
   mcpEnabled?: boolean
   /** 被单独关闭的技能名列表；命中的技能不进入发现结果，等同不存在。 */
   disabledSkills?: string[]
-  /** 不向模型开放的技能名列表；人类仍可调用。 */
-  modelHiddenSkills?: string[]
-  /** 不向人类开放的技能名列表；模型仍可调用。 */
-  userHiddenSkills?: string[]
   /** 技能清单快照，由插件在发现后写回，供设置面板逐个渲染技能。 */
   availableSkills?: string[]
 }
@@ -107,16 +103,6 @@ export const Config = Schema.object({
     Schema.array(Schema.string())
       .default([])
       .description('被单独关闭的技能名列表；命中的技能不进入发现结果'),
-  ),
-  modelHiddenSkills: markVolatile(
-    Schema.array(Schema.string())
-      .default([])
-      .description('不向模型开放的技能名列表；人类仍可调用'),
-  ),
-  userHiddenSkills: markVolatile(
-    Schema.array(Schema.string())
-      .default([])
-      .description('不向人类开放的技能名列表；模型仍可调用'),
   ),
   availableSkills: markVolatile(
     Schema.array(Schema.string())
@@ -915,8 +901,6 @@ export function apply(ctx: Context, config: Config = {
       loadMode: healed.loadMode,
       mcpEnabled: healed.mcpEnabled,
       disabledSkills: healed.disabledSkills,
-      modelHiddenSkills: healed.modelHiddenSkills,
-      userHiddenSkills: healed.userHiddenSkills,
     } as any).catch((err: unknown) => {
       ctx.logger.warn?.('[cfbridge] 自愈配置持久化回写失败: ' + loggerMessage(err))
     })
@@ -946,10 +930,7 @@ export function apply(ctx: Context, config: Config = {
 
   // 去重并丢弃空串：配置由 UI 写回，脏值不应变成一次真实比对。
   const disabledSkills = healed.disabledSkills
-  const hiddenSkills: SkillVisibility = {
-    model: healed.modelHiddenSkills,
-    user: healed.userHiddenSkills,
-  }
+  const hiddenSkills: SkillVisibility = {}
   const getService = <T>(name: string): T | undefined => {
     try {
       const target = (ctx as any).root ?? ctx

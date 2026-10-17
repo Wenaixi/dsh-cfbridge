@@ -98,7 +98,7 @@ test('skill switches and MCP switch project volatile fields through the real row
   const mutated = []
   const form = {
     state: ZERO_REVISION_STATE(
-      { disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [], mcpEnabled: true },
+      { disabledSkills: [], mcpEnabled: true },
       { availableSkills: ['wrangler', 'cloudflare'] },
     ).state,
     mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
@@ -123,8 +123,6 @@ test('skill switches and MCP switch project volatile fields through the real row
   assert.equal(entry1.revision, 7, '写入必须带上当前 revision')
   assert.deepEqual(readProjection(entry1), {
     disabledSkills: ['wrangler'],
-    modelHiddenSkills: [],
-    userHiddenSkills: [],
   })
 
   // 2. 关闭 MCP 总控开关
@@ -148,7 +146,7 @@ test('re-enabling skill cleans disabledSkills and hidden lists atomically', asyn
   const form = {
     state: ZERO_REVISION_STATE(
       // 历史落盘形态：技能在 disabledSkills 里
-      { disabledSkills: ['wrangler'], modelHiddenSkills: [], userHiddenSkills: [] },
+      { disabledSkills: ['wrangler'] },
       { availableSkills: ['wrangler', 'cloudflare'] },
     ).state,
     mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
@@ -165,8 +163,6 @@ test('re-enabling skill cleans disabledSkills and hidden lists atomically', asyn
   assert.equal(mutated.length, 1)
   assert.deepEqual(readProjection(mutated[0]), {
     disabledSkills: [],
-    modelHiddenSkills: [],
-    userHiddenSkills: [],
   })
 })
 
@@ -175,7 +171,7 @@ test('mode card radio switches mutate loadMode field', async () => {
   const mutated = []
   const form = {
     state: ZERO_REVISION_STATE(
-      { loadMode: 'global', disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [] },
+      { loadMode: 'global', disabledSkills: [] },
       { availableSkills: ['cloudflare'] },
     ).state,
     mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
@@ -208,7 +204,7 @@ test('mode card radio defaults to preset when loadMode is unspecified', async ()
   const mutated = []
   const form = {
     state: ZERO_REVISION_STATE(
-      { disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [] },
+      { disabledSkills: [] },
       { availableSkills: ['cloudflare'] },
     ).state,
     mutate(ops, revision) { mutated.push({ ops, revision }); return Promise.resolve(true) },
@@ -240,7 +236,7 @@ test('panel renders search input and batch control buttons', async () => {
   const { row, render } = await mountClientPanel()
   const form = {
     state: ZERO_REVISION_STATE(
-      { disabledSkills: [], modelHiddenSkills: [], userHiddenSkills: [] },
+      { disabledSkills: [] },
       { availableSkills: ['wrangler', 'cloudflare'] },
     ).state,
     mutate() { return Promise.resolve(true) },

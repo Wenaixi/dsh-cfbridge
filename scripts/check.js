@@ -41,7 +41,7 @@ void (async () => {
     for (const entry of ['cordis.patch.yml', 'lib/', 'skills/', 'README.md', 'LICENSE']) {
       check(`package.files[] includes ${entry}`, files.includes(entry))
     }
-    for (const s of ['install:bundle', 'uninstall:bundle', 'validate:bundle', 'migrate:from-preset', 'check', 'test']) {
+    for (const s of ['install:bundle', 'uninstall:bundle', 'validate:bundle', 'check', 'test']) {
       check(`package has ${s} script`, !!pkg.scripts?.[s])
     }
   } else {
@@ -106,25 +106,15 @@ void (async () => {
     'install-bundle.js',
     'uninstall-bundle.js',
     'validate-bundle.js',
-    'migrate-from-preset.js',
     'dump-config.js',
     'check.js',
     'test.js',
     'wrangler.js',
     'test-wrangler.js',
-    // 旧 preset 脚本保留为 shim
-    'install-preset.js',
-    'uninstall-preset.js',
-    'validate-preset.js',
+    'test-isolated-instance.js',
   ]
   for (const s of SCRIPTS) {
     check(`scripts/${s} exists`, fileExists(path.join(ROOT, 'scripts', s)))
-  }
-
-  // 旧 preset shim 必须打印 deprecation
-  for (const s of ['install-preset.js', 'uninstall-preset.js', 'validate-preset.js']) {
-    const t = readText(path.join(ROOT, 'scripts', s))
-    check(`scripts/${s} is marked deprecated`, /DEPRECATED|deprecated/i.test(t))
   }
 
   // === 6. gitignore ===

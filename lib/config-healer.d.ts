@@ -8,8 +8,6 @@ export interface HealedConfig extends Config {
     loadMode: LoadMode;
     mcpEnabled: boolean;
     disabledSkills: string[];
-    modelHiddenSkills: string[];
-    userHiddenSkills: string[];
     availableSkills: string[];
 }
 export interface HealResult {

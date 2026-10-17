@@ -134,8 +134,7 @@ test('generatePatchYaml produces compliant, secure, token-free patch YAML', () =
   const yamlText = generatePatchYaml({
     cfbridgeConfig: {
       loadMode: 'preset',
-      disabledSkills: ['turnstile-spin'],
-      modelHiddenSkills: ['wrangler'],
+      disabledSkills: ['turnstile-spin', 'wrangler'],
     },
     mcpOverrides: {
       toolCallTimeoutMs: 150000,

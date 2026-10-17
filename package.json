@@ -63,7 +63,6 @@
     "install:bundle": "node scripts/install-bundle.js",
     "uninstall:bundle": "node scripts/uninstall-bundle.js",
     "validate:bundle": "node scripts/validate-bundle.js",
-    "migrate:from-preset": "node scripts/migrate-from-preset.js",
     "dump:config": "node scripts/dump-config.js",
     "repair:config": "node scripts/repair-config.js",
     "test": "node scripts/test.js",
@@ -76,12 +75,13 @@
     "wrangler:workers:list": "node scripts/wrangler.js deployments list --name vmail --json",
     "wrangler:pages:list": "node scripts/wrangler.js pages project list --json",
     "sync:vendor": "node scripts/sync-vendor-skills.js",
-    "sync:vendor:force": "node scripts/sync-vendor-skills.js --force"
+    "sync:vendor:force": "node scripts/sync-vendor-skills.js --force",
+    "test:isolated": "node scripts/test-isolated-instance.js"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-mcp-client": "*",
-    "@deepseek-ai/dsh-skill": ">=0.0.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/dsh-mcp-client": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-skill": "^0.2.0-rc.2",
     "@deepseek-ai/dsh-skill-filesystem": "*",
     "@deepseek-ai/dsh-tool-skill": "*",
     "@deepseek-ai/schemastery": "^3.18.1"

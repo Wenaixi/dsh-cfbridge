@@ -70,7 +70,7 @@ async function main() {
       if (Array.isArray(pkg.files) && pkg.files.includes(entry)) pass('files[] includes ' + entry)
       else fail('files[] includes ' + entry, 'missing in package.json files')
     }
-    for (const script of ['build', 'typecheck', 'prepare', 'prepack', 'install:bundle', 'uninstall:bundle', 'validate:bundle', 'migrate:from-preset', 'check', 'test']) {
+    for (const script of ['build', 'typecheck', 'prepare', 'prepack', 'install:bundle', 'uninstall:bundle', 'validate:bundle', 'check', 'test', 'test:isolated']) {
       if (pkg.scripts && pkg.scripts[script]) pass('script ' + script + ' defined')
       else fail('script ' + script + ' defined', 'missing')
     }
@@ -120,11 +120,7 @@ async function main() {
   if (!fs.existsSync(path.join(ROOT, 'src')) || !fs.readdirSync(path.join(ROOT, 'src')).some((file) => file.endsWith('-skill.js'))) pass('legacy skill wrappers removed')
   else fail('legacy skill wrappers removed', 'wrapper file remains')
 
-  for (const script of ['install-bundle.js', 'uninstall-bundle.js', 'validate-bundle.js', 'migrate-from-preset.js', 'dump-config.js', 'check.js', 'test.js', 'wrangler.js', 'test-wrangler.js', 'install-preset.js', 'uninstall-preset.js', 'validate-preset.js']) checkFile(path.join(ROOT, 'scripts', script), 'scripts/' + script + ' exists')
-  for (const script of ['install-preset.js', 'uninstall-preset.js', 'validate-preset.js']) {
-    if (/DEPRECATED|@deprecated|deprecated/i.test(readText(path.join(ROOT, 'scripts', script)))) pass('scripts/' + script + ' is marked deprecated')
-    else fail('scripts/' + script + ' is marked deprecated', 'marker missing')
-  }
+  for (const script of ['install-bundle.js', 'uninstall-bundle.js', 'validate-bundle.js', 'dump-config.js', 'check.js', 'test.js', 'wrangler.js', 'test-wrangler.js', 'test-isolated-instance.js']) checkFile(path.join(ROOT, 'scripts', script), 'scripts/' + script + ' exists')
 
   // README 不得写死本项目版本号。
   // 理由：README 曾写着「当前版本为 0.7.0」，而在 0.10.0 时才被发现——已过时三个版本。

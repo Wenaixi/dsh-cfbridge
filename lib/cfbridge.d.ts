@@ -18,10 +18,6 @@ export interface Config {
     mcpEnabled?: boolean;
     /** 被单独关闭的技能名列表；命中的技能不进入发现结果，等同不存在。 */
     disabledSkills?: string[];
-    /** 不向模型开放的技能名列表；人类仍可调用。 */
-    modelHiddenSkills?: string[];
-    /** 不向人类开放的技能名列表；模型仍可调用。 */
-    userHiddenSkills?: string[];
     /** 技能清单快照，由插件在发现后写回，供设置面板逐个渲染技能。 */
     availableSkills?: string[];
 }
@@ -34,8 +30,6 @@ export declare const Config: Schema<Schemastery.ObjectS<{
     loadMode: Schema<"global" | "preset", "global" | "preset">;
     mcpEnabled: Schema<boolean, boolean>;
     disabledSkills: Schema<string[], string[]>;
-    modelHiddenSkills: Schema<string[], string[]>;
-    userHiddenSkills: Schema<string[], string[]>;
     availableSkills: Schema<string[], string[]>;
 }>, Schemastery.ObjectT<{
     providerName: Schema<string, string>;
@@ -46,8 +40,6 @@ export declare const Config: Schema<Schemastery.ObjectS<{
     loadMode: Schema<"global" | "preset", "global" | "preset">;
     mcpEnabled: Schema<boolean, boolean>;
     disabledSkills: Schema<string[], string[]>;
-    modelHiddenSkills: Schema<string[], string[]>;
-    userHiddenSkills: Schema<string[], string[]>;
     availableSkills: Schema<string[], string[]>;
 }>>;
 /**
@@ -183,8 +175,6 @@ declare const _default: {
         loadMode: Schema<"global" | "preset", "global" | "preset">;
         mcpEnabled: Schema<boolean, boolean>;
         disabledSkills: Schema<string[], string[]>;
-        modelHiddenSkills: Schema<string[], string[]>;
-        userHiddenSkills: Schema<string[], string[]>;
         availableSkills: Schema<string[], string[]>;
     }>, Schemastery.ObjectT<{
         providerName: Schema<string, string>;
@@ -195,8 +185,6 @@ declare const _default: {
         loadMode: Schema<"global" | "preset", "global" | "preset">;
         mcpEnabled: Schema<boolean, boolean>;
         disabledSkills: Schema<string[], string[]>;
-        modelHiddenSkills: Schema<string[], string[]>;
-        userHiddenSkills: Schema<string[], string[]>;
         availableSkills: Schema<string[], string[]>;
     }>>;
     apply: typeof apply;
