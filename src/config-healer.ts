@@ -58,11 +58,21 @@ const PROVIDER_RANK = 0
  */
 export function unwrapLazy<T>(raw: unknown, defaultValue: T): T {
   let value: unknown = raw
-  for (let i = 0; i < 4 && typeof value === 'function'; i += 1) {
-    try {
-      value = (value as () => unknown)()
-    } catch {
-      return defaultValue
+  for (let i = 0; i < 4; i += 1) {
+    if (typeof value === 'function') {
+      try {
+        value = (value as () => unknown)()
+      } catch {
+        return defaultValue
+      }
+    } else if (value && typeof value === 'object' && typeof (value as { get?: unknown }).get === 'function') {
+      try {
+        value = (value as { get: () => unknown }).get()
+      } catch {
+        return defaultValue
+      }
+    } else {
+      break
     }
   }
   return (value === undefined || value === null) ? defaultValue : (value as T)
