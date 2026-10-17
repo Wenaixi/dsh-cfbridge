@@ -79,12 +79,12 @@
     "test:isolated": "node scripts/test-isolated-instance.js"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.4",
-    "@deepseek-ai/dsh-mcp-client": "^0.2.0-rc.2",
-    "@deepseek-ai/dsh-skill": "^0.2.0-rc.2",
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/dsh-mcp-client": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-skill": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-skill-filesystem": "*",
     "@deepseek-ai/dsh-tool-skill": "*",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/schemastery": "^3.18.5"
   },
   "dsh": {
     "bundle": {

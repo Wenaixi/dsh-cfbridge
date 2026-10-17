@@ -12,7 +12,9 @@ const { spawnSync, execSync } = require('node:child_process');
 const assert = require('node:assert/strict');
 
 const ROOT = resolve(__dirname, '..');
-const DSH_BIN = 'C:\\Users\\Administrator\\AppData\\Roaming\\npm\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js';
+const DSH_021_BIN = 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\dsh-021-engine\\package\\lib\\bin.js';
+const DSH_GLOBAL_BIN = 'C:\\Users\\Administrator\\AppData\\Roaming\\npm\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js';
+const DSH_BIN = require('node:fs').existsSync(DSH_021_BIN) ? DSH_021_BIN : DSH_GLOBAL_BIN;
 
 async function main() {
   console.log('=== 开始全新隔离新实例端到端验收 ===');
