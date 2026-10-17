@@ -140,7 +140,7 @@ Open DSH -> **Plugins** -> **Cloudflare Bridge** card -> **Configure**:
 - **Deep Controller Architecture (`PanelController`)**:
   - Toggles are powered by an in-memory domain controller (`PanelController`).
   - **Synchronous Mutex Guard**: An in-memory synchronous lock (`_busy`) physically eliminates React asynchronous microtask race conditions, preventing revision optimism lock conflicts caused by rapid double-clicks.
-  - **Single Atomic Batch**: Flattens `disabledSkills`, `modelHiddenSkills`, and `userHiddenSkills` into a single atomic 3-ops `form.mutate` submission.
+  - **Clean 1-Op Atomic Batch**: Flattens skill toggles into a single atomic 1-op `form.mutate` submission (only mutating `disabledSkills`) with zero legacy baggage.
 
 ---
 
@@ -158,8 +158,6 @@ cfbridge exports a standard Schemastery Schema, customizable in your profile's `
 | `loadMode` | string | `'preset'` | Run mode: `'preset'` (default) or `'global'` |
 | `mcpEnabled` | boolean | `true` | Enable Cloudflare MCP tools (docs / search / execute) |
 | `disabledSkills` | string[] | `[]` | Fully disabled skills (both model and human toggles off) |
-| `modelHiddenSkills` | string[] | `[]` | Skills hidden from model invocation |
-| `userHiddenSkills` | string[] | `[]` | Skills hidden from human slash-command invocation |
 | `availableSkills` | string[] | `[]` | Skill catalog snapshot written back by plugin for UI display |
 
 Example configuration overlay:

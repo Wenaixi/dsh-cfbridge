@@ -1,3 +1,22 @@
+## 0.13.0 — 2026-10-18
+- **feat(core)**: 深度全面适配最新版 DSH 宿主（`@deepseek-ai/dsh` v0.2.0-rc.2）所有架构细节：
+  - 契约无缝对齐 `@deepseek-ai/dsh-agent-preset-registry` 的最新 `PresetDefinition` 规范，支持生命周期内的动态注册、审计与安全注销；
+  - 强化普通会话双道特权物理防线：静态阶段调用 `tools.restrict({ deny: CLOUDFLARE_TOOLS })` 剔除工具调用意图，执行期挂载 `tools.guard()` 动态拦截并返回清晰的可读理由；
+  - 完善 MCP 总控 `mcpEnabled` 的 Master 短路逻辑，关闭时全系统全会话物理阻断对 Cloudflare MCP 三工具（`docs`/`search`/`execute`）的调用；
+  - 全链路取消信号无死角穿透：遍历、I/O 与候选发现严格检查并透传 `AbortSignal`，通过 `isAbortError` 识别重抛，杜绝中断被误判为文件损坏。
+- **refactor(legacy)**: 彻底移除针对历史旧版本 DSH 的兼容代码与冗余包袱（Drop Legacy Baggage）：
+  - 彻底移除 `modelHiddenSkills` 与 `userHiddenSkills` 历史双轴隐藏字段，配置单一真源完全收敛为 `disabledSkills`；
+  - 客户端控制器（`PanelController`）的开关操作从历史的 3-ops 平铺升级为纯净的**单操作（1-op）原子批处理**，网络传输与微内核处理极致轻量；
+  - 物理删除已废弃的 4 个历史脚本（`install-preset.js`、`uninstall-preset.js`、`validate-preset.js` 与 `migrate-from-preset.js`）；
+  - 从工具库中清除历史软链清理函数 `removeLegacySkillLink`；
+  - 将 `peerDependencies` 从宽泛的 0.0.1+ 收敛并锁定为 DSH 最新原生规范 `^0.2.0-rc.2`。
+- **feat(test)**: 构建全新的独立新实例端到端自动化验收套件（`scripts/test-isolated-instance.js` / `npm run test:isolated`）：
+  - 强制将 `DSH_HOME` 导向系统临时目录，实现 100% 物理隔离，绝对不触碰和污染用户的生产环境（`~/.dsh`）与运行中实例；
+  - 遵循 Direct Source Junction Rule 建立直连工作区源码的目录联接；
+  - 真实调用宿主 CLI 导出融合配置（`dump-config`），真机验证动态预设注册、单一开关过滤与普通会话特权工具双道守卫拦截；
+  - 验收完毕自动彻底销毁临时目录，提供可重复、零副作用的交付级验证。
+- **test(gate)**: 综合质量门禁全面通过 **15/15 全绿**，Bundle 结构严格校验 **92/92 全过**，独立隔离验收 **5/5 全通**，发布白名单仅 32 个纯净文件。
+
 ## 0.12.0 — 2026-10-11
 - **feat(client)**: 采用 `frontend-design` 专业美学重塑 DSH 插件设置面板 UI：
   - 引入头部微型状态展板（`HeroBanner`），集成琥珀色（`#f6821f`）呼吸指示灯与三状态动态徽标（当前运行模式、MCP 激活状态、技能启用计数）；

@@ -143,8 +143,6 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 | `loadMode` | string | `'preset'` | 运行模式：`'preset'` 仅在 cfbridge 模式下加载（默认），`'global'` 全局加载 |
 | `mcpEnabled` | boolean | `true` | 是否启用 Cloudflare MCP 工具（docs / search / execute） |
 | `disabledSkills` | string[] | `[]` | **完全关闭**的技能：模型与人类都不可调用，等同该技能不存在 |
-| `modelHiddenSkills` | string[] | `[]` | **只不给模型**的技能：模型目录看不到，但人类仍可调用 |
-| `userHiddenSkills` | string[] | `[]` | **只不给人类**的技能：面板上人类不可调用，但模型仍可调用 |
 | `availableSkills` | string[] | `[]` | 技能清单快照，由插件发现后自动写回，供插件页面板渲染（不建议手改） |
 
 配置示例（可在自己的 patch overlay 中覆盖）：
