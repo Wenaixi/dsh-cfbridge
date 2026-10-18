@@ -1,3 +1,10 @@
+## 0.13.1 — 2026-10-18
+- **fix(peerDependencies)**: 优化宿主微内核对等依赖生命周期区间（`peerDependencies`）：
+  - 将 `@deepseek-ai/dsh-skill` 从过窄的单一 RC 绑定调整为标准生命周期区间 `>=0.2.0-rc.2 <0.3.0-0`；
+  - 将 `@deepseek-ai/cordis` 调整为 `>=4.0.4 <5.0.0`，`@deepseek-ai/schemastery` 调整为 `>=3.18.4 <4.0.0`；
+  - 彻底根除在相近小版本（如 `0.2.0-rc.2`）宿主启动时被加载器版本门禁误判为不兼容并静默禁用插件行（`disabling profile plugin row "cfbridge"`）的暗坑。
+- **feat(isolated)**: 建立独立临时端口与全自动真机验收闭环，实现在全新隔离 DSH Web 实例中 100% 物理隔离、零触碰生产目录下的真机全功能验证。
+
 ## 0.13.0 — 2026-10-18
 - **feat(core)**: 深度全面适配官方最新发布的 DSH 宿主（`@deepseek-ai/dsh` v0.2.1-rc.2）所有架构细节：
   - 契约无缝对齐 `@deepseek-ai/dsh-agent-preset-registry` 的最新 `PresetDefinition` 规范，支持生命周期内的动态注册、审计与安全注销；
