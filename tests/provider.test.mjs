@@ -190,10 +190,16 @@ test('apply restricts tools and conditions instructions by preset scope in prese
   const restricted = []
   let registeredSection = null
   let agentListener = null
+  let toolsChangeListener = null
+  let registeredPresetDef = null
+  let globalGuard = null
 
   const mockPresets = {
     composedPreset: (scope) => (scope === 'scope-cf' ? 'cfbridge' : 'standard'),
-    register: async () => async () => {},
+    register: async (def) => {
+      registeredPresetDef = def
+      return async () => {}
+    },
     definitions: new Map([['standard', { config: { plugins: [] } }]]),
   }
   const mockSystemPrompt = {
@@ -204,6 +210,10 @@ test('apply restricts tools and conditions instructions by preset scope in prese
   }
   const mockTools = {
     restrict: () => () => {},
+    guard: (fn) => {
+      globalGuard = fn
+      return () => {}
+    },
   }
 
   const mockCtx = {
@@ -217,6 +227,7 @@ test('apply restricts tools and conditions instructions by preset scope in prese
     },
     on(event, handler) {
       if (event === 'agent/created') agentListener = handler
+      if (event === 'tools/change') toolsChangeListener = handler
       return () => {}
     },
     effect(fn) {
@@ -226,12 +237,16 @@ test('apply restricts tools and conditions instructions by preset scope in prese
 
   apply(mockCtx, { skillDir: root, loadMode: 'preset' })
 
-  // 1. 验证提示词小节只在 cfbridge 模式注入
+  // 1. 验证预设注册名称必须为 'Cloudflare 模式'
+  assert.ok(registeredPresetDef, '必须向 agentPresets 注册专属预设')
+  assert.equal(registeredPresetDef.name, 'Cloudflare 模式', '预设名称必须严格对齐为 Cloudflare 模式')
+
+  // 2. 验证提示词小节只在 cfbridge 模式注入
   assert.ok(registeredSection, '必须向 systemPrompt 注册提示词小节')
   assert.equal(registeredSection.text({ scope: 'scope-standard' }), '')
   assert.match(registeredSection.text({ scope: 'scope-cf' }), /Cloudflare 专属操作规范/)
 
-  // 2. 验证 agent/created 触发 tools.restrict
+  // 3. 验证 agent/created 触发 tools.restrict
   assert.ok(typeof agentListener === 'function', '必须注册 agent/created 监听器')
   const standardAgent = {
     agent: {
@@ -250,7 +265,7 @@ test('apply restricts tools and conditions instructions by preset scope in prese
     'mcp__cloudflare__execute',
   ])
 
-  // 3. 验证 cfbridge 专属会话不被限制
+  // 4. 验证 cfbridge 专属会话不被限制
   restricted.length = 0
   const cfAgent = {
     agent: {
@@ -264,6 +279,18 @@ test('apply restricts tools and conditions instructions by preset scope in prese
   mockPresets.composedPreset = (scope) => (scope === cfAgent.agent.ctx ? 'cfbridge' : 'standard')
   agentListener(cfAgent)
   assert.equal(restricted.length, 0, 'cfbridge 专属会话绝不可被限制工具')
+
+  // 5. 验证根级全局工具执行守卫（Global Tool Guard）与 tools/change 动态重同步
+  assert.ok(typeof globalGuard === 'function', '必须向 tools 注册根级全局守卫')
+  assert.equal(globalGuard({ name: 'mcp__cloudflare__docs', agent: standardAgent.agent }), 'Cloudflare MCP 工具仅在 Cloudflare 模式下可用')
+  assert.equal(globalGuard({ name: 'mcp__cloudflare__docs', agent: cfAgent.agent }), undefined, '专属模式放行特权 MCP 工具')
+  assert.equal(globalGuard({ name: 'unrelated_tool', agent: standardAgent.agent }), undefined, '无关工具绝不拦截')
+
+  // 6. 验证 tools/change 事件触发时对现有会话重新应用限制
+  restricted.length = 0
+  assert.ok(typeof toolsChangeListener === 'function', '必须注册 tools/change 监听器')
+  toolsChangeListener()
+  assert.ok(restricted.length >= 1, 'tools/change 触发时必须对标准会话重新施加工具限制')
 })
 
 test('apply restricts tools in all sessions when mcpEnabled is false', async () => {

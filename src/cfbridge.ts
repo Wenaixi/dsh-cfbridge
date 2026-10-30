@@ -87,7 +87,7 @@ export const Config = Schema.object({
   loadMode: markVolatile(
     Schema.union([
       Schema.const('global').description('全局加载（所有会话均可用 MCP 工具与技能）'),
-      Schema.const('preset').description('cfbridge 模式（仅专属模式加载 MCP 工具与技能）'),
+      Schema.const('preset').description('Cloudflare 模式（仅专属模式加载 MCP 工具与技能）'),
     ]).default('preset').description('运行模式'),
   ),
   mcpEnabled: markVolatile(
@@ -194,6 +194,24 @@ function optionalMetadata(data: Frontmatter): Record<string, Readonly<Record<str
   return typeof metadata === 'object' && metadata !== null && !Array.isArray(metadata)
     ? { metadata: metadata as Readonly<Record<string, unknown>> }
     : {}
+}
+
+/**
+ * 健壮的智能体预设识别助手：兼顾原始 ScopeKey、Cordis Context 以及包装在 Agent 实例内的 ctx。
+ */
+function resolvePresetId(agentPresets: unknown, scope: unknown): string | undefined {
+  if (!agentPresets || typeof (agentPresets as any).composedPreset !== 'function') return undefined
+  if (scope === undefined || scope === null) return undefined
+  try {
+    const direct = (agentPresets as any).composedPreset(scope)
+    if (direct !== undefined) return direct
+    const fromCtx = (scope as { ctx?: unknown })?.ctx
+    if (fromCtx) {
+      const viaCtx = (agentPresets as any).composedPreset(fromCtx)
+      if (viaCtx !== undefined) return viaCtx
+    }
+  } catch {}
+  return undefined
 }
 
 function openingFrontmatter(raw: string): { bodyStart: number } | undefined {
@@ -431,7 +449,7 @@ export function createSkillProvider(options: SkillProviderOptions): MutableSkill
     if (scope === undefined) return true
     const p = typeof agentPresets === 'function' ? agentPresets() : agentPresets
     if (typeof p?.composedPreset !== 'function') return true
-    return p.composedPreset(scope) === 'cfbridge'
+    return resolvePresetId(p, scope) === 'cfbridge'
   }
 
   return {
@@ -743,8 +761,8 @@ function installPresetMode(ctx: Context, options: {
             }
             const unreg = await presets.register({
               id: 'cfbridge',
-              name: 'Cloudflare',
-              description: 'Cloudflare 专属模式：仅在本模式加载 Cloudflare MCP 工具与 14 个按需技能，预置操作规范',
+              name: 'Cloudflare 模式',
+              description: 'Cloudflare 模式：仅在本模式加载 Cloudflare MCP 工具与 14 个按需技能，预置操作规范',
               order: 10,
               plugins: basePlugins,
             })
@@ -777,7 +795,8 @@ function installPresetMode(ctx: Context, options: {
         order: 550,
         text: (context: { scope?: unknown }) => {
           if (options.getLoadMode() === 'preset') {
-            const presetId = options.getAgentPresets()?.composedPreset?.(context?.scope)
+            const p = options.getAgentPresets()
+            const presetId = resolvePresetId(p, context?.scope)
             if (presetId !== 'cfbridge') return ''
           }
           return CFBRIDGE_SYSTEM_INSTRUCTIONS
@@ -802,8 +821,9 @@ const CLOUDFLARE_TOOLS = ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'm
 
 /**
  * 特权工具隔离防线：
- * 1. 当 mcpEnabled 为 false 时，对所有会话全量屏蔽 Cloudflare MCP 工具；
- * 2. 当 mcpEnabled 为 true 且处于 preset 模式时，对非 cfbridge 专属会话屏蔽 Cloudflare MCP 工具。
+ * 1. 根级全局执行硬核守卫：无论任何会话何时调用，只要处于禁用或非 Cloudflare 模式，一律单调物理阻断；
+ * 2. 智能体提示词视图隔离：在 agent/created 与 tools/change 时动态调用 agentCtx.tools.restrict，
+ *    彻底根除 MCP 异步连接时序穿透导致的工具泄露。
  */
 function installToolGuard(ctx: Context, options: {
   getLoadMode: () => LoadMode
@@ -811,23 +831,46 @@ function installToolGuard(ctx: Context, options: {
   getAgentPresets: () => any
   getTools: () => any
 }): () => void {
-  return (ctx as any).on('agent/created', (payload: any) => {
+  const disposers: (() => void)[] = []
+  const toolsService = options.getTools()
+
+  // 1. 根级全局执行硬核守卫（单调拦截，无论任何会话、任何时序均不可能绕过）
+  if (toolsService !== undefined && typeof toolsService.guard === 'function') {
+    const disposeGlobal = toolsService.guard((exec: { name: string; agent?: any }) => {
+      if (CLOUDFLARE_TOOLS.includes(exec.name)) {
+        if (!options.getMcpEnabled()) {
+          return 'Cloudflare MCP 工具已在设置中关闭'
+        }
+        if (options.getLoadMode() === 'preset') {
+          const p = options.getAgentPresets()
+          const presetId = resolvePresetId(p, exec.agent?.ctx ?? exec.agent)
+          if (presetId !== 'cfbridge') {
+            return 'Cloudflare MCP 工具仅在 Cloudflare 模式下可用'
+          }
+        }
+      }
+    })
+    disposers.push(disposeGlobal)
+  }
+
+  // 2. 活跃智能体提示词视图隔离与动态同步（解决异步 MCP 工具连接上线后的时序穿透）
+  const trackedAgents = new Set<any>()
+
+  const syncAgentRestriction = (agent: any) => {
+    const agentCtx = agent?.ctx
+    if (!agentCtx || typeof agentCtx.tools?.restrict !== 'function') return
     const isMcpActive = options.getMcpEnabled()
     const isPresetMode = options.getLoadMode() === 'preset'
     if (isMcpActive && !isPresetMode) return
 
-    const targetAgent = payload?.agent ?? payload
-    const agentCtx = targetAgent?.ctx
-    if (!agentCtx) return
-    const toolsService = options.getTools()
-    if (toolsService === undefined) return
     try {
-      const presetId = options.getAgentPresets()?.composedPreset?.(agentCtx)
+      const p = options.getAgentPresets()
+      const presetId = resolvePresetId(p, agentCtx)
       const shouldBlock = !isMcpActive || presetId !== 'cfbridge'
       if (shouldBlock) {
         const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
         const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
-        if (denyTargets.length > 0 && typeof agentCtx.tools?.restrict === 'function') {
+        if (denyTargets.length > 0) {
           agentCtx.tools.restrict({ deny: denyTargets })
         }
         if (typeof agentCtx.tools?.guard === 'function') {
@@ -835,7 +878,7 @@ function installToolGuard(ctx: Context, options: {
             if (CLOUDFLARE_TOOLS.includes(exec.name)) {
               return !isMcpActive
                 ? 'Cloudflare MCP 工具已在设置中关闭'
-                : 'Cloudflare MCP 工具仅在 cfbridge 模式下可用'
+                : 'Cloudflare MCP 工具仅在 Cloudflare 模式下可用'
             }
           })
         }
@@ -843,7 +886,38 @@ function installToolGuard(ctx: Context, options: {
     } catch (e) {
       ctx.logger.debug?.('[cfbridge] tools restrict failed: ' + loggerMessage(e))
     }
+  }
+
+  const disposeCreated = (ctx as any).on('agent/created', (payload: any) => {
+    const targetAgent = payload?.agent ?? payload
+    if (targetAgent) {
+      trackedAgents.add(targetAgent)
+      syncAgentRestriction(targetAgent)
+    }
   }, { global: true })
+  disposers.push(disposeCreated)
+
+  const disposeToolsChange = (ctx as any).on('tools/change', () => {
+    for (const agent of trackedAgents) {
+      syncAgentRestriction(agent)
+    }
+  }, { global: true })
+  disposers.push(disposeToolsChange)
+
+  const disposeDisposed = (ctx as any).on('agent/disposed', (payload: any) => {
+    const targetAgent = payload?.agent ?? payload
+    if (targetAgent) {
+      trackedAgents.delete(targetAgent)
+    }
+  }, { global: true })
+  disposers.push(disposeDisposed)
+
+  return () => {
+    trackedAgents.clear()
+    for (const dispose of disposers) {
+      try { dispose() } catch {}
+    }
+  }
 }
 
 /**
