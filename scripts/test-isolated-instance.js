@@ -153,9 +153,11 @@ async function main() {
       listener({ agent: { ctx: standardAgentCtx } });
     }
     assert.ok(restrictedTargets && restrictedTargets.length === 3, '普通会话必须被第一道防线 (tools.restrict) 物理剥离特权工具');
+    assert.ok(registeredPreset, '必须向 agentPresets 注册专属预设');
+    assert.equal(registeredPreset.name, 'Cloudflare 模式', '预设名称必须严格对齐为 Cloudflare 模式');
     assert.ok(guardedBlocker, '普通会话必须挂载第二道防线 (tools.guard) 动态拦截');
     const guardReason = guardedBlocker({ name: 'mcp__cloudflare__docs' });
-    assert.match(guardReason, /仅在 cfbridge 模式下可用/, '普通会话模型调用特权工具必须返回明确的预设隔离拦截理由');
+    assert.match(guardReason, /仅在 Cloudflare 模式下可用/, '普通会话模型调用特权工具必须返回明确的预设隔离拦截理由');
 
     console.log('      ✓ 技能发现单一开关生效，已禁用技能完全隔离');
     console.log('      ✓ 普通会话双道物理守卫拦截生效，特权工具严格隔离');
