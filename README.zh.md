@@ -80,7 +80,7 @@ DSH Bundle（全局常驻，按需开关）
 ## 设置与管理控制台（Web GUI）
 
 在 DSH Web 客户端 →「插件」→「Cloudflare 桥接」→「配置」中，提供原生高质感控制面板：
-- **运行模式卡片**：双列分段卡片直观切换「cfbridge 专属模式（推荐）」与「全局加载模式」；
+- **运行模式卡片**：双列分段卡片直观切换「Cloudflare 模式（推荐）」与「全局加载模式」；
 - **MCP 总控开关**：顶部一键物理启停 Cloudflare Code Mode MCP 三工具（`docs` / `search` / `execute`）；
 - **技能一元化控制**：14 个专项技能单一开关开闭，带分类徽标（Core、Platform、CLI、AI/Agents、Storage、Zero Trust 等）与人话功能简介；
 - **即时搜索与批量控制**：支持关键词即时过滤，提供「全部启用」/「全部停用」一键操作。
@@ -140,7 +140,7 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 | `rank` | number | `0` | 技能提供方排序权重（数值越小优先级越高，0 为最高优先级） |
 | `cache` | boolean | `true` | 是否启用基于文件 mtime 的技能元数据内存缓存 |
 | `watchSkills` | boolean | `false` | 是否开启技能目录递归变动监听（开发模式下自动广播 `skills/change` 触发热刷新） |
-| `loadMode` | string | `'preset'` | 运行模式：`'preset'` 仅在 cfbridge 模式下加载（默认），`'global'` 全局加载 |
+| `loadMode` | string | `'preset'` | 运行模式：`'preset'` 仅在 Cloudflare 模式下加载（默认），`'global'` 全局加载 |
 | `mcpEnabled` | boolean | `true` | 是否启用 Cloudflare MCP 工具（docs / search / execute） |
 | `disabledSkills` | string[] | `[]` | **完全关闭**的技能：模型与人类都不可调用，等同该技能不存在 |
 | `availableSkills` | string[] | `[]` | 技能清单快照，由插件发现后自动写回，供插件页面板渲染（不建议手改） |
@@ -168,13 +168,8 @@ cfbridge 导出标准 Schemastery Schema，可在 profile 的 `cordis.patch.yml`
 1. **插件** → 点 **Cloudflare 桥接** 卡片的「查看」，进入详情页。
 2. **组件开关**：详情页下方「包含的组件」里，`mcp-cloudflare` 与 `cfbridge` 两行各带一个开关，可单独停用其中一行（这是宿主原生能力）。
 3. **运行模式与技能开关**：点 `cfbridge` 那一行的 **配置**，进入面板：
-   - **运行模式**：顶部提供「全局加载」与「cfbridge 模式」单选切换。选择 cfbridge 模式时，宿主将注册专属模式，仅在该模式下加载 MCP 工具与技能，并预置操作与安全规范提示词；
-   - **技能开关**：下方每个技能提供两个**独立**开关：
-
-| 开关 | 关掉后的效果 |
-| --- | --- |
-| **模型** | 模型在技能目录里看不到它（不会主动调用） |
-| **人类** | 人类不可调用它（仍可被模型调用） |
+   - **运行模式**：顶部提供「全局加载」与「Cloudflare 模式」单选切换。选择 Cloudflare 模式时，宿主将注册专属模式，仅在该模式下加载 MCP 工具与技能，并预置操作与安全规范提示词；
+   - **技能开关**：下方每个技能提供一元化单一开关，关闭后模型与人类均不可见不可调用，等同该技能不存在。
 
 两个都关 = **完全关闭**，该技能等同不存在（模型与人类都拿不到）。
 

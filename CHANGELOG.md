@@ -1,3 +1,14 @@
+## 0.13.2 — 2026-10-31
+- **feat(preset)**: 专属预设名称与描述规范化：
+  - 动态注册的专属智能体预设名称正式从 `Cloudflare` 规范化命名为 **`Cloudflare 模式`**，解决宿主界面模式选择与展示语义不直观的问题；
+  - 预设描述同步对齐规范为「Cloudflare 模式：仅在本模式加载 Cloudflare MCP 工具与 14 个按需技能，预置操作规范」。
+- **fix(security)**: 彻底根除远程异步 MCP 客户端握手延迟导致的工具隔离时序穿透漏洞：
+  - **安装根级全局硬核守卫（Global Tool Guard）**：直接在根上下文注册 `ctx.tools.guard` 单调拦截，任何会话在非 Cloudflare 模式或 MCP 关闭时调用特权工具，一律在执行管线最前端物理阻断并返回拒绝原因；
+  - **动态监听 `tools/change` 事件**：解决异步远程 MCP 客户端握手连接延迟上线时，普通会话因创建瞬间无工具而漏配 `tools.restrict` 的竞态问题；MCP 上线后自动对活跃会话补全 `restrict` 屏蔽；
+  - **智能会话作用域解析（`resolvePresetId`）**：全面兼容原始 ScopeKey、Cordis Context 与包装在 `Agent.ctx` 内的上下文，解决 `exec.agent` 无法解包导致预设识别失败降级的问题。
+- **docs**: 同步更新主 README、中文使用说明书与项目核心契约库 `CLAUDE.md`。
+- **test**: 新增全功能真实环境端到端验证脚本 `scripts/verify-all-features.mjs`（9/9 全绿），综合门禁保持 **15/15 全绿**通过。
+
 ## 0.13.1 — 2026-10-18
 - **fix(peerDependencies)**: 优化宿主微内核对等依赖生命周期区间（`peerDependencies`）：
   - 将 `@deepseek-ai/dsh-skill` 从过窄的单一 RC 绑定调整为标准生命周期区间 `>=0.2.0-rc.2 <0.3.0-0`；

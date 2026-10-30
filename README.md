@@ -79,7 +79,7 @@ cfbridge supports two operating modes, togglable via the plugin settings UI or c
 
 | Mode | Value | Scope & Isolation Boundary |
 |---|---|---|
-| **cfbridge Preset Mode** (Default) | `preset` | Dynamically registers dedicated `cfbridge` agent preset and injects `CFBRIDGE_SYSTEM_INSTRUCTIONS` operational guidelines. Non-cfbridge sessions are isolated from Cloudflare tools via dual-layer defense (`tools.restrict` + `agentCtx.tools.guard`). |
+| **Cloudflare Mode** (Default) | `preset` | Dynamically registers dedicated `Cloudflare 模式` agent preset and injects `CFBRIDGE_SYSTEM_INSTRUCTIONS` operational guidelines. Non-cfbridge sessions are isolated from Cloudflare tools via dual-layer defense (`tools.restrict` + `agentCtx.tools.guard`). |
 | **Global Mode** | `global` | Cloudflare MCP tools and all 14 skills are globally available in all conversations. |
 
 ---
@@ -87,7 +87,7 @@ cfbridge supports two operating modes, togglable via the plugin settings UI or c
 ## Settings & Management Console (Web GUI)
 
 In DSH Web UI → **Plugins** → **Cloudflare Bridge** → **Configure**, enjoy a native, polished management console:
-- **Segmented Mode Cards**: Two-card selector switching between **cfbridge Preset Mode (Recommended)** and **Global Mode**;
+- **Segmented Mode Cards**: Two-card selector switching between **Cloudflare Mode (Recommended)** and **Global Mode**;
 - **MCP Master Switch**: One-click physical toggle for Cloudflare Code Mode MCP tools (`docs` / `search` / `execute`);
 - **Unified Skill Toggles**: Single intuitive switch per skill, with category badges (`Core`, `Platform`, `CLI`, `AI / Agents`, `Storage`, `Zero Trust`, etc.) and human-readable summaries;
 - **Instant Search & Batch Controls**: Live keyword search filter, plus one-click **Enable All** / **Disable All** operations.
@@ -132,11 +132,8 @@ npx skills add https://github.com/cloudflare/skills
 
 Open DSH -> **Plugins** -> **Cloudflare Bridge** card -> **Configure**:
 
-- **Operating Mode**: Toggle between Global Mode and cfbridge Preset Mode at the top.
-- **Dual-Axis Switches**: Each skill features two independent toggles:
-  - **Model**: When disabled, the model cannot see or invoke the skill.
-  - **Human**: When disabled, human slash-menu access is hidden while remaining invocable by the model.
-  - **Both off = Fully disabled**: Completely omitted from catalog discovery.
+- **Operating Mode**: Toggle between Global Mode and Cloudflare Mode at the top.
+- **Unified Skill Switches**: Each skill features a single unified toggle: disabled skills are completely omitted from catalog discovery for both model and user.
 - **Deep Controller Architecture (`PanelController`)**:
   - Toggles are powered by an in-memory domain controller (`PanelController`).
   - **Synchronous Mutex Guard**: An in-memory synchronous lock (`_busy`) physically eliminates React asynchronous microtask race conditions, preventing revision optimism lock conflicts caused by rapid double-clicks.
