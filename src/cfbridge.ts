@@ -825,7 +825,7 @@ const CLOUDFLARE_TOOLS = ['mcp__cloudflare__docs', 'mcp__cloudflare__search', 'm
  * 2. 智能体提示词视图隔离：在 agent/created 与 tools/change 时动态调用 agentCtx.tools.restrict，
  *    彻底根除 MCP 异步连接时序穿透导致的工具泄露。
  */
-function installToolGuard(ctx: Context, options: {
+export function installToolGuard(ctx: Context, options: {
   getLoadMode: () => LoadMode
   getMcpEnabled: () => boolean
   getAgentPresets: () => any
@@ -854,51 +854,99 @@ function installToolGuard(ctx: Context, options: {
   }
 
   // 2. 活跃智能体提示词视图隔离与动态同步（解决异步 MCP 工具连接上线后的时序穿透）
-  const trackedAgents = new Set<any>()
+  //
+  // 关键约束：dsh-tools 的 tools.restrict() / tools.guard() 都通过 layers.effect()
+  // 在“生效时”同步 emit('tools/change')。若在这里监听 tools/change 并再次 restrict，
+  // 会形成同步重入：tools/change → sync → restrict → emit('tools/change') → sync → …
+  // 且旧实现每次重入都 new 一个 deny 集合、disposer 直接丢弃，限制无限累积，
+  // 主线程 100% 卡死（见 2026-11-06 线上故障）。
+  // 修复要点：
+  //  a) 每个 agent 只保留一层 restriction + 一个 guard，重复应用时先释放旧的再装新的（幂等）；
+  //  b) sync 内用 applying 标志防重入，避免 restrict 同步发出的 tools/change 自我递归；
+  //  c) agent/disposed 与插件卸载时释放该 agent 的全部 disposer，杜绝注册项泄漏。
+  interface GuardEntry { key: string; disposeRestrict?: () => void; disposeGuard?: () => void }
+  const trackedAgents = new Map<any, GuardEntry>()
+  const applying = new Set<any>()
+
+  const disposeAgentEntries = (entry: GuardEntry | undefined) => {
+    if (!entry) return
+    try { entry.disposeRestrict?.() } catch {}
+    try { entry.disposeGuard?.() } catch {}
+    entry.disposeRestrict = undefined
+    entry.disposeGuard = undefined
+  }
 
   const syncAgentRestriction = (agent: any) => {
     const agentCtx = agent?.ctx
     if (!agentCtx || typeof agentCtx.tools?.restrict !== 'function') return
-    const isMcpActive = options.getMcpEnabled()
-    const isPresetMode = options.getLoadMode() === 'preset'
-    if (isMcpActive && !isPresetMode) return
-
+    // 防重入：restrict/guard 的 install 会“同步” emit('tools/change')。若不存在此标志，
+    // 同一次 sync 尚未写入完毕就会被自己的变化事件再次拉入，形成同步递归。
+    if (applying.has(agent)) return
+    applying.add(agent)
     try {
+      const isMcpActive = options.getMcpEnabled()
+      const isPresetMode = options.getLoadMode() === 'preset'
       const p = options.getAgentPresets()
       const presetId = resolvePresetId(p, agentCtx)
-      const shouldBlock = !isMcpActive || presetId !== 'cfbridge'
-      if (shouldBlock) {
-        const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
-        const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
-        if (denyTargets.length > 0) {
-          agentCtx.tools.restrict({ deny: denyTargets })
-        }
-        if (typeof agentCtx.tools?.guard === 'function') {
-          agentCtx.tools.guard((exec: { name: string }) => {
-            if (CLOUDFLARE_TOOLS.includes(exec.name)) {
-              return !isMcpActive
-                ? 'Cloudflare MCP 工具已在设置中关闭'
-                : 'Cloudflare MCP 工具仅在 Cloudflare 模式下可用'
-            }
-          })
-        }
+      const shouldBlock = !isMcpActive || (isPresetMode && presetId !== 'cfbridge')
+
+      const current = trackedAgents.get(agent)
+
+      if (!shouldBlock) {
+        // 转为允许：释放先前施加的限制/守卫，不残留任何注册项。
+        disposeAgentEntries(current)
+        trackedAgents.delete(agent)
+        return
+      }
+
+      const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
+      const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
+      // 以“目标策略内容”作幂等键：restrict 集合或 need-guard 变化时才重装，
+      // 相同策略（最常见的连续 tools/change）直接跳过，杜绝限制累加。
+      // 注意：键用排序后的副本，实际 deny 顺序保持声明顺序以保持既有行为。
+      const key = 'deny:' + [...denyTargets].sort().join(',')
+      if (current && current.key === key) return
+
+      // 策略变化：先完整释放旧限制，再装新的，保证任一时刻只有一层 restriction + 一个 guard。
+      disposeAgentEntries(current)
+      const entry: GuardEntry = { key }
+      trackedAgents.set(agent, entry)
+      if (denyTargets.length > 0) {
+        const disposeRestrict = agentCtx.tools.restrict({ deny: denyTargets })
+        entry.disposeRestrict = typeof disposeRestrict === 'function' ? disposeRestrict : undefined
+      }
+      if (typeof agentCtx.tools?.guard === 'function') {
+        const disposeGuard = agentCtx.tools.guard((exec: { name: string }) => {
+          if (CLOUDFLARE_TOOLS.includes(exec.name)) {
+            return !options.getMcpEnabled()
+              ? 'Cloudflare MCP 工具已在设置中关闭'
+              : 'Cloudflare MCP 工具仅在 Cloudflare 模式下可用'
+          }
+        })
+        entry.disposeGuard = typeof disposeGuard === 'function' ? disposeGuard : undefined
       }
     } catch (e) {
+      const failed = trackedAgents.get(agent)
+      if (failed) {
+        disposeAgentEntries(failed)
+        trackedAgents.delete(agent)
+      }
       ctx.logger.debug?.('[cfbridge] tools restrict failed: ' + loggerMessage(e))
+    } finally {
+      applying.delete(agent)
     }
   }
 
   const disposeCreated = (ctx as any).on('agent/created', (payload: any) => {
     const targetAgent = payload?.agent ?? payload
     if (targetAgent) {
-      trackedAgents.add(targetAgent)
       syncAgentRestriction(targetAgent)
     }
   }, { global: true })
   disposers.push(disposeCreated)
 
   const disposeToolsChange = (ctx as any).on('tools/change', () => {
-    for (const agent of trackedAgents) {
+    for (const agent of trackedAgents.keys()) {
       syncAgentRestriction(agent)
     }
   }, { global: true })
@@ -907,13 +955,17 @@ function installToolGuard(ctx: Context, options: {
   const disposeDisposed = (ctx as any).on('agent/disposed', (payload: any) => {
     const targetAgent = payload?.agent ?? payload
     if (targetAgent) {
+      disposeAgentEntries(trackedAgents.get(targetAgent))
       trackedAgents.delete(targetAgent)
+      applying.delete(targetAgent)
     }
   }, { global: true })
   disposers.push(disposeDisposed)
 
   return () => {
+    for (const entry of trackedAgents.values()) disposeAgentEntries(entry)
     trackedAgents.clear()
+    applying.clear()
     for (const dispose of disposers) {
       try { dispose() } catch {}
     }

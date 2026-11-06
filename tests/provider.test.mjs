@@ -248,22 +248,40 @@ test('apply restricts tools and conditions instructions by preset scope in prese
 
   // 3. 验证 agent/created 触发 tools.restrict
   assert.ok(typeof agentListener === 'function', '必须注册 agent/created 监听器')
+  // 模拟 dsh-tools：restrictableNames 随 MCP 异步连接上线而增长（初始为空集合）。
+  const onlineNames = new Set()
+  let restrictCalls = 0
   const standardAgent = {
     agent: {
       ctx: {
         tools: {
-          restrict: (filter) => { restricted.push(filter) },
+          view: () => ({ restrictableNames: new Set(onlineNames) }),
+          restrict: (filter) => { restrictCalls++; restricted.push(filter); return () => {} },
+          guard: () => () => {},
         },
       },
     },
   }
   agentListener(standardAgent)
-  assert.equal(restricted.length, 1, '标准会话必须被施加工具限制')
+  // 初始无工具可见 -> 无需 restrict
+  assert.equal(restricted.length, 0, '工具尚未上线时不应限制')
+
+  // 工具异步上线：3 个 Cloudflare 工具出现在可限制集合中，tools/change 应同步补上限制
+  onlineNames.add('mcp__cloudflare__docs')
+  onlineNames.add('mcp__cloudflare__search')
+  onlineNames.add('mcp__cloudflare__execute')
+  toolsChangeListener()
+  assert.equal(restricted.length, 1, '工具上线后应施加一次工具限制')
   assert.deepEqual(restricted[0].deny, [
     'mcp__cloudflare__docs',
     'mcp__cloudflare__search',
     'mcp__cloudflare__execute',
   ])
+
+  // 相同策略下重复 tools/change 不得重复施加（幂等，防同步重入累加）
+  const callsAfterApply = restrictCalls
+  for (let i = 0; i < 20; i++) toolsChangeListener()
+  assert.equal(restrictCalls, callsAfterApply, '策略未变时重复 tools/change 不得重复 restrict')
 
   // 4. 验证 cfbridge 专属会话不被限制
   restricted.length = 0
@@ -271,7 +289,9 @@ test('apply restricts tools and conditions instructions by preset scope in prese
     agent: {
       ctx: {
         tools: {
-          restrict: (filter) => { restricted.push(filter) },
+          view: () => ({ restrictableNames: new Set(onlineNames) }),
+          restrict: (filter) => { restricted.push(filter); return () => {} },
+          guard: () => () => {},
         },
       },
     },
@@ -280,17 +300,11 @@ test('apply restricts tools and conditions instructions by preset scope in prese
   agentListener(cfAgent)
   assert.equal(restricted.length, 0, 'cfbridge 专属会话绝不可被限制工具')
 
-  // 5. 验证根级全局工具执行守卫（Global Tool Guard）与 tools/change 动态重同步
+  // 5. 验证根级全局工具执行守卫（Global Tool Guard）
   assert.ok(typeof globalGuard === 'function', '必须向 tools 注册根级全局守卫')
   assert.equal(globalGuard({ name: 'mcp__cloudflare__docs', agent: standardAgent.agent }), 'Cloudflare MCP 工具仅在 Cloudflare 模式下可用')
   assert.equal(globalGuard({ name: 'mcp__cloudflare__docs', agent: cfAgent.agent }), undefined, '专属模式放行特权 MCP 工具')
   assert.equal(globalGuard({ name: 'unrelated_tool', agent: standardAgent.agent }), undefined, '无关工具绝不拦截')
-
-  // 6. 验证 tools/change 事件触发时对现有会话重新应用限制
-  restricted.length = 0
-  assert.ok(typeof toolsChangeListener === 'function', '必须注册 tools/change 监听器')
-  toolsChangeListener()
-  assert.ok(restricted.length >= 1, 'tools/change 触发时必须对标准会话重新施加工具限制')
 })
 
 test('apply restricts tools in all sessions when mcpEnabled is false', async () => {

@@ -21,27 +21,27 @@ export interface Config {
     /** 技能清单快照，由插件在发现后写回，供设置面板逐个渲染技能。 */
     availableSkills?: string[];
 }
-export declare const Config: Schema<Schemastery.ObjectS<{
-    providerName: Schema<string, string>;
-    skillDir: Schema<string, string>;
-    rank: Schema<number, number>;
-    cache: Schema<boolean, boolean>;
-    watchSkills: Schema<boolean, boolean>;
-    loadMode: Schema<"global" | "preset", "global" | "preset">;
-    mcpEnabled: Schema<boolean, boolean>;
-    disabledSkills: Schema<string[], string[]>;
-    availableSkills: Schema<string[], string[]>;
-}>, Schemastery.ObjectT<{
-    providerName: Schema<string, string>;
-    skillDir: Schema<string, string>;
-    rank: Schema<number, number>;
-    cache: Schema<boolean, boolean>;
-    watchSkills: Schema<boolean, boolean>;
-    loadMode: Schema<"global" | "preset", "global" | "preset">;
-    mcpEnabled: Schema<boolean, boolean>;
-    disabledSkills: Schema<string[], string[]>;
-    availableSkills: Schema<string[], string[]>;
-}>>;
+export declare const Config: Schema<Schemastery.ObjectS<NoInfer<{
+    providerName: Schema<string, string, "defined">;
+    skillDir: Schema<string, string, "defined">;
+    rank: Schema<number, number, "defined">;
+    cache: Schema<boolean, boolean, "defined">;
+    watchSkills: Schema<boolean, boolean, "defined">;
+    loadMode: Schema<"global" | "preset", "global" | "preset", "defined">;
+    mcpEnabled: Schema<boolean, boolean, "defined">;
+    disabledSkills: Schema<string[], string[], "defined">;
+    availableSkills: Schema<string[], string[], "defined">;
+}>>, Schemastery.ObjectT<NoInfer<{
+    providerName: Schema<string, string, "defined">;
+    skillDir: Schema<string, string, "defined">;
+    rank: Schema<number, number, "defined">;
+    cache: Schema<boolean, boolean, "defined">;
+    watchSkills: Schema<boolean, boolean, "defined">;
+    loadMode: Schema<"global" | "preset", "global" | "preset", "defined">;
+    mcpEnabled: Schema<boolean, boolean, "defined">;
+    disabledSkills: Schema<string[], string[], "defined">;
+    availableSkills: Schema<string[], string[], "defined">;
+}>>, "plain">;
 /**
  * Cloudflare 专属模式预置提示词：自动注入操作规范、检索工作流与安全审批要求。
  */
@@ -162,31 +162,43 @@ export interface SkillRuntime {
     /** 用真实技能目录列一次候选；Provider 未就绪或读取失败时返回空数组。 */
     listNames(signal?: AbortSignal): Promise<string[]>;
 }
+/**
+ * 特权工具隔离防线：
+ * 1. 根级全局执行硬核守卫：无论任何会话何时调用，只要处于禁用或非 Cloudflare 模式，一律单调物理阻断；
+ * 2. 智能体提示词视图隔离：在 agent/created 与 tools/change 时动态调用 agentCtx.tools.restrict，
+ *    彻底根除 MCP 异步连接时序穿透导致的工具泄露。
+ */
+export declare function installToolGuard(ctx: Context, options: {
+    getLoadMode: () => LoadMode;
+    getMcpEnabled: () => boolean;
+    getAgentPresets: () => any;
+    getTools: () => any;
+}): () => void;
 export declare function apply(ctx: Context, config?: Config): void;
 declare const _default: {
     name: string;
     inject: readonly ["skills", "settings"];
-    Config: Schema<Schemastery.ObjectS<{
-        providerName: Schema<string, string>;
-        skillDir: Schema<string, string>;
-        rank: Schema<number, number>;
-        cache: Schema<boolean, boolean>;
-        watchSkills: Schema<boolean, boolean>;
-        loadMode: Schema<"global" | "preset", "global" | "preset">;
-        mcpEnabled: Schema<boolean, boolean>;
-        disabledSkills: Schema<string[], string[]>;
-        availableSkills: Schema<string[], string[]>;
-    }>, Schemastery.ObjectT<{
-        providerName: Schema<string, string>;
-        skillDir: Schema<string, string>;
-        rank: Schema<number, number>;
-        cache: Schema<boolean, boolean>;
-        watchSkills: Schema<boolean, boolean>;
-        loadMode: Schema<"global" | "preset", "global" | "preset">;
-        mcpEnabled: Schema<boolean, boolean>;
-        disabledSkills: Schema<string[], string[]>;
-        availableSkills: Schema<string[], string[]>;
-    }>>;
+    Config: Schema<Schemastery.ObjectS<NoInfer<{
+        providerName: Schema<string, string, "defined">;
+        skillDir: Schema<string, string, "defined">;
+        rank: Schema<number, number, "defined">;
+        cache: Schema<boolean, boolean, "defined">;
+        watchSkills: Schema<boolean, boolean, "defined">;
+        loadMode: Schema<"global" | "preset", "global" | "preset", "defined">;
+        mcpEnabled: Schema<boolean, boolean, "defined">;
+        disabledSkills: Schema<string[], string[], "defined">;
+        availableSkills: Schema<string[], string[], "defined">;
+    }>>, Schemastery.ObjectT<NoInfer<{
+        providerName: Schema<string, string, "defined">;
+        skillDir: Schema<string, string, "defined">;
+        rank: Schema<number, number, "defined">;
+        cache: Schema<boolean, boolean, "defined">;
+        watchSkills: Schema<boolean, boolean, "defined">;
+        loadMode: Schema<"global" | "preset", "global" | "preset", "defined">;
+        mcpEnabled: Schema<boolean, boolean, "defined">;
+        disabledSkills: Schema<string[], string[], "defined">;
+        availableSkills: Schema<string[], string[], "defined">;
+    }>>, "plain">;
     apply: typeof apply;
     healConfig: typeof healConfig;
     extractCorruptedYaml: typeof extractCorruptedYaml;

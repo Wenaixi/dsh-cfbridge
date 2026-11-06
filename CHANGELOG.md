@@ -1,3 +1,13 @@
+## Unreleased — fix: 工具限制同步重入导致主线程卡死
+- **fix(tool-guard)**: 修复 `installToolGuard` 的同步重入导致的**主线程 100% 卡死**（2026-11-06 线上故障）：
+  - 根因：`tools.restrict()`/`tools.guard()` 生效时会**同步** `emit('tools/change')`；旧实现在 `tools/change` 回调里再次调用 `restrict`/`guard`，形成同步递归 `tools/change → sync → restrict → emit('tools/change') → sync → …`；且每次重入都新建 deny 集合、disposer 直接丢弃，限制无限累积，事件循环被持续占满，HTTP 无法响应。
+  - 修复 1（防重入）：`syncAgentRestriction` 内用 `applying` 标志短路由自身 restrict/guard 触发的同步 `tools/change`。
+  - 修复 2（幂等）：按 agent 记录「目标策略键」（排序后的 deny 集合），策略未变时直接跳过，连续 `tools/change` 不再重复 append restriction/guard。
+  - 修复 3（生命周期）：每个 agent 只保留一层 restriction + 一个 guard 并保存 disposer；策略变化时先释放旧限制再装新限制；`agent/disposed` 与插件卸载时释放全部注册项，杜绝泄漏。
+  - 保留既有隔离语义：MCP 关闭时全会话拦截；preset 模式下仅 `cfbridge` 模式放行；工具异步上线（`restrictableNames` 增长）后仍能正确补全限制。
+- **test(tool-guard)**: 新增 `tests/tool-guard.test.mjs`（11 例），以忠实模拟 dsh-tools 同步 `tools/change` 语义的宿主覆盖：同步重入不爆栈、重复变化幂等不累积、工具异步上线补限制、策略变更替换非叠加、切到允许/销毁/卸载均释放注册项；`tests/provider.test.mjs` 相应更新为「工具上线后才限制 + 重复变化幂等」的语义。
+- 综合门禁 **15/15 全绿**（干净 `DSH_HOME` 下 77/77 安全检查）。
+
 ## 0.13.2 — 2026-10-31
 - **feat(preset)**: 专属预设名称与描述规范化：
   - 动态注册的专属智能体预设名称正式从 `Cloudflare` 规范化命名为 **`Cloudflare 模式`**，解决宿主界面模式选择与展示语义不直观的问题；
