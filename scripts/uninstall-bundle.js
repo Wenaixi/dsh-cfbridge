@@ -19,7 +19,6 @@ const { ROOT, log, dshHome: resolveDshHome } = require('./lib/fs')
 
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const DSH_HOME = resolveDshHome()
-const SKILL_LINK = path.join(DSH_HOME, 'skills', 'cfbridge')
 const LEGACY_PRESET = path.join(DSH_HOME, '.agent-presets', 'cfbridge')
 
 function parseArgs(argv) {
@@ -50,11 +49,6 @@ function run(cmd, args, opts = {}) {
 
 function runCapture(cmd, args, opts = {}) {
   return spawnSync(cmd, args, { stdio: 'pipe', shell: process.platform === 'win32', ...opts })
-}
-
-function removeSkillLink() {
-  const removed = 
-  if (!removed) log('info', `No skill link at ${SKILL_LINK}; nothing to remove.`)
 }
 
 function dumpConfig(profile) {
@@ -103,7 +97,6 @@ async function main() {
     process.exit(r.status ?? 1)
   }
 
-  removeSkillLink()
   dumpConfig(opts.profile)
 
   if (fs.existsSync(LEGACY_PRESET)) {

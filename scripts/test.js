@@ -21,6 +21,7 @@ const STEPS = [
   { name: 'wrangler-entry', label: 'Wrangler 入口契约测试', command: [process.execPath, '--test', 'tests/wrangler-entry.test.mjs'] },
   { name: 'workflow-gate', label: 'CI/Release 门禁契约测试', command: [process.execPath, '--test', 'tests/workflow-gate.test.mjs'] },
   { name: 'demo', label: '独立 demo 文档测试', command: [process.execPath, '--test', 'tests/demo-config.test.mjs'] },
+  { name: 'script-syntax', label: '脚本语法门禁（所有 scripts/*.js 可解析）', command: [process.execPath, '--test', 'tests/script-syntax.test.mjs'] },
   { name: 'check', label: '仓库配置与安全检查', command: [process.execPath, 'scripts/check.js'] },
   { name: 'bundle', label: 'Bundle manifest 与结构校验', command: [process.execPath, 'scripts/validate-bundle.js', '--strict-router'] },
   { name: 'scripts', label: '脚本共享模块行为测试', command: [process.execPath, '--test', 'tests/scripts-lib.test.mjs'] },

@@ -78,10 +78,6 @@ function profileDir(name) {
   return path.join(DSH_HOME, 'profiles', name)
 }
 
-function cleanupLegacySymlink() {
-  
-}
-
 function dumpConfig(profile) {
   log('info', `Verifying composed config for profile "${profile}"…`)
   const r = runCapture('dsh', ['--profile', profile, '--dump-config'])
@@ -125,7 +121,6 @@ function main() {
     process.exit(r.status ?? 1)
   }
 
-  cleanupLegacySymlink()
   dumpConfig(opts.profile)
 
   log('ok', 'Install complete.')
