@@ -21,6 +21,7 @@ import {
   extractCorruptedYaml,
   generatePatchYaml,
   autoHealConfigFile,
+  obsoleteConfigKeys,
 } from './config-healer.js'
 import type {
   HealedConfig,
@@ -37,6 +38,7 @@ export {
   extractCorruptedYaml,
   generatePatchYaml,
   autoHealConfigFile,
+  obsoleteConfigKeys,
 }
 export type {
   HealedConfig,
@@ -978,6 +980,25 @@ export function apply(ctx: Context, config: Config = {
     } as any).catch((err: unknown) => {
       ctx.logger.warn?.('[cfbridge] 自愈配置持久化回写失败: ' + loggerMessage(err))
     })
+  }
+
+  // 清理本次版本已移除的历史字段：settings.update 只做合并不删除，
+  // 不主动 unset 的话这两个键会随 profile 补丁永久存在（schema 非 strict
+  // 也会静默保留未知键）。用 mutate 的 unset 操作才能真正落盘清掉。
+  const stale = obsoleteConfigKeys(config)
+  const settingsRuntime = settings as unknown as {
+    mutate?: (ns: string, ops: { op: 'unset'; path: string[] }[]) => Promise<unknown>
+    describe?: () => { ns?: string; revision?: number }[]
+  } | undefined
+  if (stale.length > 0 && settingsRuntime !== undefined && typeof settingsRuntime.mutate === 'function') {
+    const ops = stale.map((key) => ({ op: 'unset' as const, path: [key] }))
+    void settingsRuntime.mutate(providerName, ops).then(() => {
+      ctx.logger.info?.('[cfbridge] 已清理历史遗留配置键: ' + stale.join(', '))
+    }).catch((err: unknown) => {
+      ctx.logger.warn?.('[cfbridge] 清理历史遗留配置键失败: ' + loggerMessage(err))
+    })
+  } else if (stale.length > 0) {
+    ctx.logger.debug?.('[cfbridge] 检测到历史遗留配置键但 settings.mutate 不可用，跳过清理: ' + stale.join(', '))
   }
 
   const getLoadMode = (): LoadMode => {

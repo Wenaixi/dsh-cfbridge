@@ -446,6 +446,26 @@ export function extractCorruptedYaml(corruptedText: string): ExtractedPatchConfi
 /**
  * 按照 DSH 官方契约重新生成标准、合法的 cordis.patch.yml 文本。
  */
+/**
+ * 本次及以上版本已移除、但用户 profile 里可能仍残留的历史配置键。
+ *
+ * 这些字段的代码已删除，但由于 schemastery 在非 strict 模式下会静默保留
+ * 未知键、settings.update 又只做合并不删除，不主动清理就会永久留在磁盘上。
+ */
+const OBSOLETE_CONFIG_KEYS = ['modelHiddenSkills', 'userHiddenSkills'] as const
+
+/**
+ * 列出配置对象里仍然存在的历史遗留键。
+ *
+ * @param raw 任意配置对象（含 volatile 解包后的普通字面量）
+ * @returns 命中的遗留键名；输入非对象时返回空数组
+ */
+export function obsoleteConfigKeys(raw: unknown): string[] {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return []
+  const record = raw as Record<string, unknown>
+  return OBSOLETE_CONFIG_KEYS.filter((key) => Object.hasOwn(record, key))
+}
+
 export function generatePatchYaml(options: {
   cfbridgeConfig?: Partial<Config>
   mcpOverrides?: ExtractedMcpConfig

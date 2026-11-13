@@ -1,9 +1,9 @@
 import Schema from '@deepseek-ai/schemastery';
 import type { Context } from '@deepseek-ai/cordis';
 import type { SkillInvocationPolicy, SkillProvider } from '@deepseek-ai/dsh-skill';
-import { healConfig, sanitizeSkillNames, unwrapLazy, extractCorruptedYaml, generatePatchYaml, autoHealConfigFile } from './config-healer.js';
+import { healConfig, sanitizeSkillNames, unwrapLazy, extractCorruptedYaml, generatePatchYaml, autoHealConfigFile, obsoleteConfigKeys } from './config-healer.js';
 import type { HealedConfig, HealResult, ExtractedPatchConfig, ExtractedMcpConfig, AutoHealFileResult } from './config-healer.js';
-export { healConfig, sanitizeSkillNames, unwrapLazy, extractCorruptedYaml, generatePatchYaml, autoHealConfigFile, };
+export { healConfig, sanitizeSkillNames, unwrapLazy, extractCorruptedYaml, generatePatchYaml, autoHealConfigFile, obsoleteConfigKeys, };
 export type { HealedConfig, HealResult, ExtractedPatchConfig, ExtractedMcpConfig, AutoHealFileResult, };
 export type LoadMode = 'global' | 'preset';
 export interface Config {

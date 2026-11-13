@@ -60,8 +60,12 @@ export declare function healConfig(raw: unknown): HealResult;
  */
 export declare function extractCorruptedYaml(corruptedText: string): ExtractedPatchConfig;
 /**
- * 按照 DSH 官方契约重新生成标准、合法的 cordis.patch.yml 文本。
+ * 列出配置对象里仍然存在的历史遗留键。
+ *
+ * @param raw 任意配置对象（含 volatile 解包后的普通字面量）
+ * @returns 命中的遗留键名；输入非对象时返回空数组
  */
+export declare function obsoleteConfigKeys(raw: unknown): string[];
 export declare function generatePatchYaml(options?: {
     cfbridgeConfig?: Partial<Config>;
     mcpOverrides?: ExtractedMcpConfig;
