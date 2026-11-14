@@ -418,8 +418,6 @@ export class PanelController {
 // 现代化前端组件（Frontend Design 专业设计系统）
 // ---------------------------------------------------------------------------
 
-const CF_ORANGE = '#f6821f'
-
 function HeroBanner(props: { snap: PanelSnapshot; t: Translate }): React.ReactElement {
   const { snap, t } = props
   const enabledCount = snap.skills.filter((s) => s.enabled).length
@@ -680,30 +678,6 @@ function SkillCard(props: {
   )
 }
 
-function Guide(props: { t: Translate }): React.ReactElement {
-  return React.createElement(
-    'div',
-    {
-      style: {
-        fontSize: 12,
-        lineHeight: 1.5,
-        padding: '12px 14px',
-        borderRadius: 'var(--dsw-radius-md, 6px)',
-        background: 'var(--dsw-alias-bg-layer-2)',
-        color: 'var(--dsw-alias-label-secondary)',
-        border: '0.5px solid var(--dsw-alias-border-l2)',
-        borderLeft: `3px solid ${CF_ORANGE}`,
-      },
-    },
-    React.createElement(
-      'div',
-      { style: { fontWeight: 600, color: 'var(--dsw-alias-label-primary)', marginBottom: 4 } },
-      props.t('guideTitle'),
-    ),
-    props.t('guideText'),
-  )
-}
-
 // ---------------------------------------------------------------------------
 // 页面主视图组件
 // ---------------------------------------------------------------------------
@@ -894,8 +868,12 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
           ),
     ),
 
-    // 4. 说明与配置引导
-    React.createElement(Guide, { t }),
+    // 4. 说明与配置引导（折叠控件，默认收起）
+    React.createElement(
+      primitives.DisclosureRow,
+      { title: t('guideTitle'), defaultOpen: false },
+      t('guideText'),
+    ),
 
   )
 }
@@ -915,7 +893,11 @@ export function apply(ctx: any): void {
           { name: 'plugins.detail.section', id: 'cfbridge-guide', locale: NS },
           (props: { subject?: { kind?: string; pkg?: { name?: string } } }) =>
             props.subject?.pkg?.name === PACKAGE_NAME
-              ? React.createElement(Guide, { t })
+              ? React.createElement(
+                  primitives.DisclosureRow,
+                  { title: t('guideTitle'), defaultOpen: false },
+                  t('guideText'),
+                )
               : null,
         ),
       ),
