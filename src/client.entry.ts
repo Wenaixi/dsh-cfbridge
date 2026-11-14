@@ -420,27 +420,6 @@ export class PanelController {
 
 const CF_ORANGE = '#f6821f'
 
-function Badge(props: { label: string; color?: string; bg?: string }): React.ReactElement {
-  return React.createElement(
-    'span',
-    {
-      style: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '2px 7px',
-        fontSize: 11,
-        fontWeight: 600,
-        borderRadius: 999,
-        lineHeight: 1.2,
-        color: props.color ?? CF_ORANGE,
-        background: props.bg ?? 'rgba(246, 130, 31, 0.12)',
-        border: '0.5px solid rgba(246, 130, 31, 0.25)',
-      },
-    },
-    props.label,
-  )
-}
-
 function HeroBanner(props: { snap: PanelSnapshot; t: Translate }): React.ReactElement {
   const { snap, t } = props
   const enabledCount = snap.skills.filter((s) => s.enabled).length
@@ -464,15 +443,7 @@ function HeroBanner(props: { snap: PanelSnapshot; t: Translate }): React.ReactEl
     React.createElement(
       'div',
       { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-      React.createElement('div', {
-        style: {
-          width: 10,
-          height: 10,
-          borderRadius: '50%',
-          background: CF_ORANGE,
-          boxShadow: '0 0 10px rgba(246, 130, 31, 0.6)',
-        },
-      }),
+      React.createElement(primitives.StateDot, { state: 'on' }),
       React.createElement(
         'span',
         { style: { fontSize: 14, fontWeight: 600, letterSpacing: -0.2 } },
@@ -482,20 +453,14 @@ function HeroBanner(props: { snap: PanelSnapshot; t: Translate }): React.ReactEl
     React.createElement(
       'div',
       { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-      React.createElement(Badge, {
+      React.createElement(primitives.Tag, {
         label: snap.loadMode === 'preset' ? t('modePreset') : t('modeGlobal'),
-        color: snap.loadMode === 'preset' ? CF_ORANGE : 'var(--dsw-alias-label-secondary)',
-        bg: snap.loadMode === 'preset' ? 'rgba(246, 130, 31, 0.12)' : 'var(--dsw-alias-bg-layer-1)',
       }),
-      React.createElement(Badge, {
+      React.createElement(primitives.Tag, {
         label: snap.mcpEnabled ? t('mcpStatusOn') : t('mcpStatusOff'),
-        color: snap.mcpEnabled ? '#10b981' : 'var(--dsw-alias-state-error-primary)',
-        bg: snap.mcpEnabled ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
       }),
-      React.createElement(Badge, {
+      React.createElement(primitives.Tag, {
         label: `${enabledCount}/${snap.skills.length} ${t('enabledCount')}`,
-        color: 'var(--dsw-alias-label-secondary)',
-        bg: 'var(--dsw-alias-bg-layer-1)',
       }),
     ),
   )
@@ -535,10 +500,8 @@ function McpMasterCard(props: {
           'div',
           { style: { display: 'flex', alignItems: 'center', gap: 8 } },
           React.createElement('h4', { style: { fontSize: 14, fontWeight: 600, margin: 0 } }, t('mcpSection')),
-          React.createElement(Badge, {
+          React.createElement(primitives.Tag, {
             label: snap.mcpEnabled ? t('mcpStatusOn') : t('mcpStatusOff'),
-            color: snap.mcpEnabled ? '#10b981' : 'var(--dsw-alias-state-error-primary)',
-            bg: snap.mcpEnabled ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
           }),
         ),
         React.createElement(
@@ -653,7 +616,6 @@ function SkillCard(props: {
         borderRadius: 'var(--dsw-radius-md, 6px)',
         background: 'var(--dsw-alias-bg-layer-2)',
         border: '0.5px solid var(--dsw-alias-border-l2)',
-        opacity: skill.enabled ? 1 : 0.55,
         transition: 'all 0.18s ease',
       },
     },
@@ -681,7 +643,7 @@ function SkillCard(props: {
             style: {
               fontSize: 10,
               padding: '1px 6px',
-              borderRadius: 4,
+              borderRadius: 'var(--dsw-radius-sm)',
               background: 'var(--dsw-alias-bg-layer-1)',
               color: 'var(--dsw-alias-label-secondary)',
               border: '0.5px solid var(--dsw-alias-border-l1)',
@@ -707,17 +669,7 @@ function SkillCard(props: {
     React.createElement(
       'div',
       { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-      React.createElement(
-        'span',
-        {
-          style: {
-            fontSize: 11,
-            color: skill.enabled ? CF_ORANGE : 'var(--dsw-alias-label-tertiary)',
-            fontWeight: 500,
-          },
-        },
-        skill.enabled ? t('skillActive') : t('skillInactive'),
-      ),
+      React.createElement(primitives.StateDot, { state: skill.enabled ? 'on' : 'off' }),
       React.createElement(primitives.Switch, {
         checked: skill.enabled,
         disabled: !writable || busy,
