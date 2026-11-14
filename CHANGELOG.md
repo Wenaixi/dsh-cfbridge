@@ -6,6 +6,25 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-14
+
+### Added
+
+- 运行模式与批量操作改用 `@deepseek-ai/dsh-client-ui-primitives` 的 `SegmentedControl` 与 `Button`，技能搜索框改用 `Input`。
+- 状态指示改用 `StateDot`，标签改用 `Tag`，说明色块改为可折叠的 `DisclosureRow`。
+
+### Changed
+
+- 设置面板注册到 `plugins.bundle.config`，取代原来的 `plugins.row.config`。前者渲染在插件详情页正文，后者只渲染列表行的一句提示。
+- 配置来源改为 `configForms` 服务的 `get('<entry id>')`。宿主不再向该槽位传 `props.form`。
+
+### Fixed
+
+- `scripts/uninstall-bundle.js` 中 `const removed =` 赋值右侧被截断，`npm run uninstall:bundle` 无法运行。同时修复 `install-bundle.js` 里只剩空函数体却仍在调用的 `cleanupLegacySymlink`。
+- 新增脚本语法门禁：对所有 `scripts/*.js` 逐个执行 `node --check`，接入 `test.js` 作为独立步骤。此前 15 个测试步骤无一覆盖脚本可解析性。
+- 用户 profile 里残留的 `modelHiddenSkills` 与 `userHiddenSkills` 改为启动时主动 `unset`。这两个字段的代码早已移除，但 schema 非 strict 会保留未知键，`settings.update` 也只合并不删除。
+- 配置卡控件全部 `disabled` 的问题。根因是四层错配：槽位选错、宿主不传 `props.form`、`forms.get()` 用包名而非条目 id、`ConfigForm` 的 `getSnapshot()` 被当成 `PageState` 的 `state`。新增 `adaptConfigForm` 把服务对象投影成面板期待的形态。
+
 ## [0.13.2] - 2026-10-31
 
 ### Changed

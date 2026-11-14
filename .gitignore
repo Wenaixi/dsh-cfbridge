@@ -132,3 +132,7 @@ CLAUDE.md
 
 # GitHub CLI 设备认证本地状态（gh 自动生成）
 .local/
+
+
+# OMC 运行时状态（操作性工件，不入库）
+.omc/
