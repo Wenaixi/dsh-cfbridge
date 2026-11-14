@@ -26,6 +26,12 @@ declare module 'react' {
 }
 
 declare module '@deepseek-ai/dsh-client-ui-primitives' {
-  export const Switch: (props: Record<string, unknown>) => unknown
+  export const Button: (props: Record<string, unknown>) => unknown
+  export const DisclosureRow: (props: Record<string, unknown>) => unknown
+  export const Input: (props: Record<string, unknown>) => unknown
+  export const PathLabel: (props: Record<string, unknown>) => unknown
+  export const SegmentedControl: (props: Record<string, unknown>) => unknown
   export const StateDot: (props: Record<string, unknown>) => unknown
+  export const Switch: (props: Record<string, unknown>) => unknown
+  export const Tag: (props: Record<string, unknown>) => unknown
 }

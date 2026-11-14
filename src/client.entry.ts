@@ -166,8 +166,14 @@ type PathOp =
   | { readonly op: 'unset'; readonly path: readonly string[] }
 
 interface Primitives {
-  Switch: (props: Record<string, unknown>) => React.ReactElement
+  Button: (props: Record<string, unknown>) => React.ReactElement
+  DisclosureRow: (props: Record<string, unknown>) => React.ReactElement
+  Input: (props: Record<string, unknown>) => React.ReactElement
+  PathLabel: (props: Record<string, unknown>) => React.ReactElement
+  SegmentedControl: (props: Record<string, unknown>) => React.ReactElement
   StateDot: (props: Record<string, unknown>) => React.ReactElement
+  Switch: (props: Record<string, unknown>) => React.ReactElement
+  Tag: (props: Record<string, unknown>) => React.ReactElement
 }
 
 interface PanelProps {
@@ -491,76 +497,6 @@ function HeroBanner(props: { snap: PanelSnapshot; t: Translate }): React.ReactEl
         color: 'var(--dsw-alias-label-secondary)',
         bg: 'var(--dsw-alias-bg-layer-1)',
       }),
-    ),
-  )
-}
-
-function ModeCard(props: {
-  mode: 'preset' | 'global'
-  title: string
-  desc: string
-  badge?: string
-  checked: boolean
-  disabled: boolean
-  onClick: () => void
-}): React.ReactElement {
-  const { title, desc, badge, checked, disabled, onClick } = props
-  return React.createElement(
-    'div',
-    {
-      onClick: disabled ? undefined : onClick,
-      style: {
-        flex: 1,
-        minWidth: 240,
-        padding: '14px 16px',
-        borderRadius: 'var(--dsw-radius-md, 8px)',
-        border: checked
-          ? `1.5px solid ${CF_ORANGE}`
-          : '0.5px solid var(--dsw-alias-border-l2)',
-        background: checked
-          ? 'rgba(246, 130, 31, 0.05)'
-          : 'var(--dsw-alias-bg-layer-2)',
-        cursor: disabled ? 'default' : 'pointer',
-        transition: 'all 0.18s ease',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
-      },
-    },
-    React.createElement(
-      'div',
-      { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
-      React.createElement(
-        'div',
-        { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-        React.createElement('input', {
-          type: 'radio',
-          name: 'loadMode',
-          value: props.mode,
-          checked,
-          disabled,
-          onChange: onClick,
-          style: { cursor: disabled ? 'default' : 'pointer', accentColor: CF_ORANGE, margin: 0 },
-        }),
-        React.createElement(
-          'span',
-          { style: { fontSize: 13, fontWeight: checked ? 600 : 500, color: 'var(--dsw-alias-label-primary)' } },
-          title,
-        ),
-      ),
-      badge ? React.createElement(Badge, { label: badge }) : null,
-    ),
-    React.createElement(
-      'p',
-      {
-        style: {
-          fontSize: 12,
-          lineHeight: 1.5,
-          color: 'var(--dsw-alias-label-tertiary)',
-          margin: '2px 0 0 24px',
-        },
-      },
-      desc,
     ),
   )
 }
@@ -900,7 +836,7 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
     // 头部状态微型展板
     React.createElement(HeroBanner, { snap, t }),
 
-    // 1. 运行模式选择（双列卡片）
+    // 1. 运行模式选择（分段控件）
     React.createElement(
       'section',
       { style: { marginBottom: 24 } },
@@ -908,28 +844,22 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
         'div',
         { style: { marginBottom: 10 } },
         React.createElement('h3', { style: { fontSize: 14, fontWeight: 600, margin: 0 } }, t('modeSection')),
-        React.createElement('p', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', margin: '4px 0 0' } }, t('modeHint')),
       ),
+      React.createElement(primitives.SegmentedControl, {
+        id: 'cfbridge-load-mode',
+        options: [
+          { value: 'preset', label: t('modePreset') },
+          { value: 'global', label: t('modeGlobal') },
+        ],
+        value: snap.loadMode,
+        disabled: !snap.writable || snap.busy,
+        onChange: (next: string) => changeMode(next === 'global' ? 'global' : 'preset'),
+        label: t('modeSection'),
+      }),
       React.createElement(
-        'div',
-        { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
-        React.createElement(ModeCard, {
-          mode: 'preset',
-          title: t('modePreset'),
-          desc: t('modePresetDesc'),
-          badge: t('modePresetBadge'),
-          checked: snap.loadMode === 'preset',
-          disabled: !snap.writable || snap.busy,
-          onClick: () => changeMode('preset'),
-        }),
-        React.createElement(ModeCard, {
-          mode: 'global',
-          title: t('modeGlobal'),
-          desc: t('modeGlobalDesc'),
-          checked: snap.loadMode === 'global',
-          disabled: !snap.writable || snap.busy,
-          onClick: () => changeMode('global'),
-        }),
+        'p',
+        { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', margin: '8px 0 0', lineHeight: 1.5 } },
+        snap.loadMode === 'preset' ? t('modePresetDesc') : t('modeGlobalDesc'),
       ),
     ),
 
@@ -965,70 +895,29 @@ function Panel(props: PanelProps, fallbackT: Translate): React.ReactElement {
         React.createElement(
           'div',
           { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-          React.createElement(
-            'button',
-            {
-              type: 'button',
-              disabled: !snap.writable || snap.busy,
-              onClick: () => setAllSkills(true),
-              style: {
-                fontSize: 12,
-                padding: '4px 10px',
-                borderRadius: 4,
-                cursor: !snap.writable || snap.busy ? 'default' : 'pointer',
-                background: 'var(--dsw-alias-bg-layer-2)',
-                border: '0.5px solid var(--dsw-alias-border-l2)',
-                color: 'var(--dsw-alias-label-secondary)',
-              },
-            },
-            t('enableAll'),
-          ),
-          React.createElement(
-            'button',
-            {
-              type: 'button',
-              disabled: !snap.writable || snap.busy,
-              onClick: () => setAllSkills(false),
-              style: {
-                fontSize: 12,
-                padding: '4px 10px',
-                borderRadius: 4,
-                cursor: !snap.writable || snap.busy ? 'default' : 'pointer',
-                background: 'var(--dsw-alias-bg-layer-2)',
-                border: '0.5px solid var(--dsw-alias-border-l2)',
-                color: 'var(--dsw-alias-label-secondary)',
-              },
-            },
-            t('disableAll'),
-          ),
+          React.createElement(primitives.Button, {
+            variant: 'outline',
+            size: 'sm',
+            disabled: !snap.writable || snap.busy,
+            onClick: () => setAllSkills(true),
+          }, t('enableAll')),
+          React.createElement(primitives.Button, {
+            variant: 'outline',
+            size: 'sm',
+            disabled: !snap.writable || snap.busy,
+            onClick: () => setAllSkills(false),
+          }, t('disableAll')),
         ),
       ),
 
       // 实时搜索框
       React.createElement(
         'div',
-        {
-          style: {
-            position: 'relative',
-            marginBottom: 12,
-          },
-        },
-        React.createElement('input', {
-          type: 'text',
+        { style: { position: 'relative', marginBottom: 12 } },
+        React.createElement(primitives.Input, {
           value: filterText,
           placeholder: t('searchPlaceholder'),
           onChange: (e: any) => setFilterText(e.target.value),
-          style: {
-            width: '100%',
-            boxSizing: 'border-box',
-            padding: '8px 12px',
-            fontSize: 12,
-            borderRadius: 'var(--dsw-radius-md, 6px)',
-            background: 'var(--dsw-alias-bg-layer-2)',
-            color: 'var(--dsw-alias-label-primary)',
-            border: '0.5px solid var(--dsw-alias-border-l2)',
-            outline: 'none',
-          },
         }),
       ),
 

@@ -33,8 +33,14 @@ async function mountClientPanel() {
     Fragment: Symbol('Fragment'),
   }
   const primitivesStub = {
-    Switch(props) { switches.push(props); return createElement('switch-stub', props) },
+    Button(props, ...children) { return createElement('button', props, ...children) },
+    DisclosureRow: () => null,
+    Input(props) { return createElement('input', { ...props, type: 'text' }) },
+    PathLabel: () => null,
+    SegmentedControl(props) { return createElement('segmented-control', props) },
     StateDot: () => null,
+    Switch(props) { switches.push(props); return createElement('switch-stub', props) },
+    Tag: () => null,
   }
   const exportsObj = captured.factory((name) => {
     if (name === 'react') return reactStub
@@ -166,7 +172,7 @@ test('re-enabling skill cleans disabledSkills and hidden lists atomically', asyn
   })
 })
 
-test('mode card radio switches mutate loadMode field', async () => {
+test('segmented mode control switches mutate loadMode field', async () => {
   const { row, render } = await mountClientPanel()
   const mutated = []
   const form = {
@@ -178,17 +184,15 @@ test('mode card radio switches mutate loadMode field', async () => {
   }
 
   const nodes = render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
-  const radios = nodes.filter((n) => n.type === 'input' && n.props?.type === 'radio')
-  assert.equal(radios.length, 2, '两个运行模式单选框')
+  const segmented = nodes.find((n) => n.type === 'segmented-control' && n.props?.id === 'cfbridge-load-mode')
+  assert.ok(segmented, '存在运行模式分段控件')
 
-  const presetRadio = radios.find((r) => r.props.value === 'preset')
-  const globalRadio = radios.find((r) => r.props.value === 'global')
-  assert.ok(presetRadio)
-  assert.ok(globalRadio)
-  assert.equal(globalRadio.props.checked, true)
-  assert.equal(presetRadio.props.checked, false)
+  assert.equal(segmented.props.value, 'global', '当前值反映 loadMode')
+  // 跨 node:vm realm 的数组原型不同，deepStrictEqual 会假失败；拍平后比较
+  const labels = JSON.parse(JSON.stringify(segmented.props.options.map((o) => o.value))).sort()
+  assert.deepEqual(labels, ['global', 'preset'], '两个运行模式选项')
 
-  presetRadio.props.onChange()
+  segmented.props.onChange('preset')
   await new Promise((r) => setImmediate(r))
 
   assert.equal(mutated.length, 1)
@@ -199,7 +203,7 @@ test('mode card radio switches mutate loadMode field', async () => {
   assert.equal(entry.ops[0].value, 'preset')
 })
 
-test('mode card radio defaults to preset when loadMode is unspecified', async () => {
+test('segmented mode control defaults to preset when loadMode is unspecified', async () => {
   const { row, render } = await mountClientPanel()
   const mutated = []
   const form = {
@@ -211,17 +215,11 @@ test('mode card radio defaults to preset when loadMode is unspecified', async ()
   }
 
   const nodes = render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
-  const radios = nodes.filter((n) => n.type === 'input' && n.props?.type === 'radio')
-  assert.equal(radios.length, 2, '两个运行模式单选框')
+  const segmented = nodes.find((n) => n.type === 'segmented-control' && n.props?.id === 'cfbridge-load-mode')
+  assert.ok(segmented, '存在运行模式分段控件')
+  assert.equal(segmented.props.value, 'preset', '默认必须选中 preset 模式')
 
-  const presetRadio = radios.find((r) => r.props.value === 'preset')
-  const globalRadio = radios.find((r) => r.props.value === 'global')
-  assert.ok(presetRadio)
-  assert.ok(globalRadio)
-  assert.equal(presetRadio.props.checked, true, '默认必须选中 preset 模式')
-  assert.equal(globalRadio.props.checked, false)
-
-  globalRadio.props.onChange()
+  segmented.props.onChange('global')
   await new Promise((r) => setImmediate(r))
 
   assert.equal(mutated.length, 1)
@@ -245,6 +243,7 @@ test('panel renders search input and batch control buttons', async () => {
   const nodes = render(row.component({ view: 'page', form, t: (key) => key, ui: {} }))
   const inputs = nodes.filter((n) => n.type === 'input' && n.props?.type === 'text')
   assert.equal(inputs.length, 1, '存在实时搜索输入框')
+  assert.equal(typeof inputs[0].props.onChange, 'function', '搜索框可输入')
 
   const buttons = nodes.filter((n) => n.type === 'button')
   assert.equal(buttons.length, 2, '存在全部启用与全部停用按钮')
