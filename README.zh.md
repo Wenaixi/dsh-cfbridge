@@ -80,10 +80,11 @@ DSH Bundle（全局常驻，按需开关）
 ## 设置与管理控制台（Web GUI）
 
 在 DSH Web 客户端 →「插件」→「Cloudflare 桥接」→「配置」中，提供原生高质感控制面板：
-- **运行模式卡片**：双列分段卡片直观切换「Cloudflare 模式（推荐）」与「全局加载模式」；
-- **MCP 总控开关**：顶部一键物理启停 Cloudflare Code Mode MCP 三工具（`docs` / `search` / `execute`）；
-- **技能一元化控制**：14 个专项技能单一开关开闭，带分类徽标（Core、Platform、CLI、AI/Agents、Storage、Zero Trust 等）与人话功能简介；
-- **即时搜索与批量控制**：支持关键词即时过滤，提供「全部启用」/「全部停用」一键操作。
+- **运行模式**：顶部单行分段控件切换「Cloudflare 模式（推荐）」与「全局加载模式」，选中项的说明显示在控件下方；
+- **MCP 总控开关**：一键启停 Cloudflare Code Mode MCP 三工具（`docs` / `search` / `execute`）；
+- **技能一元化控制**：14 个专项技能单一开关开闭，带分类徽标（Core、Platform、CLI、AI/Agents、Storage、Zero Trust 等）与人话功能简介，行尾状态点标示开闭；
+- **即时搜索与批量控制**：支持关键词即时过滤，提供「全部启用」/「全部停用」一键操作；
+- **使用说明**：默认折叠的说明区，需要时展开。
 
 ## 官方 Skills 入口（与 cfbridge 互补）
 
