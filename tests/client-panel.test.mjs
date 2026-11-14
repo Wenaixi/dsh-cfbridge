@@ -60,12 +60,22 @@ async function mountClientPanel() {
       register(meta, component) { registered.push({ meta, component }); return () => {} },
     },
     effect(fn) { return fn() },
+    // configForms 服务：测试里给一个「无 state」的 ConfigForm 形态替身，
+    // 让面板走 adaptConfigForm 分支（与真实宿主一致）。
+    inject(_deps, callback) {
+      const forms = {
+        get() {
+          return { getSnapshot: () => ({ status: 'ready', writable: true, value: {}, base: {}, user: {}, revision: 0 }), mutate: async () => true }
+        },
+      }
+      return callback({ configForms: forms })
+    },
   }
   exportsObj.apply(ctx)
 
-  const row = registered.find((entry) => entry.meta.name === 'plugins.row.config')
-  assert.ok(row, '客户端未注册 plugins.row.config')
-  assert.equal(row.meta.key, '@wenaixi/cfbridge#cfbridge')
+  const row = registered.find((entry) => entry.meta.name === 'plugins.bundle.config')
+  assert.ok(row, '客户端未注册 plugins.bundle.config')
+  assert.equal(row.meta.key, "@wenaixi/cfbridge")
 
   /** 递归执行函数组件，把它们返回的 element 树摊平成可断言的节点。 */
   function render(node) {

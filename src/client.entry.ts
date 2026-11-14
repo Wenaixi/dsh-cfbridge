@@ -161,6 +161,29 @@ interface PageForm {
   readonly mutate: (ops: readonly PathOp[], expectedRevision?: number) => Promise<boolean>
 }
 
+/**
+ * 把宿主的 ConfigForm 适配成面板期待的 PageForm 形态。
+ *
+ * ConfigForm 的真实接口是 getSnapshot()/subscribe()/mutate()；
+ * 面板内部统一用 { state, mutate }。state 是 getSnapshot() 的实时投影，
+ * 因此每次读都是最新值，不需要额外缓存。
+ */
+function adaptConfigForm(scope: ConfigFormLike): PageForm {
+  return {
+    get state() {
+      return scope.getSnapshot() as unknown as FormState
+    },
+    mutate: (ops, expectedRevision) => scope.mutate(ops, expectedRevision),
+  }
+}
+
+interface ConfigFormLike {
+  /** ConfigForm 形态没有 state；PageForm 形态有。两者都允许出现。 */
+  readonly state?: FormState
+  getSnapshot: () => unknown
+  mutate: (ops: readonly PathOp[], expectedRevision?: number) => Promise<boolean>
+}
+
 type PathOp =
   | { readonly op: 'set'; readonly path: readonly string[]; readonly value: unknown }
   | { readonly op: 'unset'; readonly path: readonly string[] }
@@ -904,15 +927,44 @@ export function apply(ctx: any): void {
     'cfbridge: guide section in bundle detail',
   )
 
+  // 配置卡的 form 来源：宿主 props 不带 form（实测恒 undefined）。
+  // 必须照 prompt-history 的姿势用 ctx.inject(['configForms']) 响应式拿到服务，
+  // 并在注册时把 forms 闭包捕获；ctx.get 的一次性读取拿不到这个服务。
+  // 注意 namespace 是 profile 条目 id（'cfbridge'），不是包名。
+  ctx.inject(['configForms'], (raw: any) => {
+    const forms = raw?.configForms ?? raw
+    if (typeof forms?.get !== 'function') {
+      ctx.logger?.debug?.('[cfbridge] configForms 不可用，配置卡退回 props.form')
+      registerPanel(ctx, t, () => undefined)
+      return
+    }
+    registerPanel(ctx, t, () => {
+      try {
+        const got = forms.get(ROW_ID) as ConfigFormLike | undefined
+        if (got === undefined) return undefined
+        // ConfigForm 没有 .state，必须经适配器投影
+        return got.state !== undefined
+          ? (got as unknown as PageForm)
+          : adaptConfigForm(got)
+      } catch (e) {
+        ctx.logger?.debug?.('[cfbridge] configForms.get 抛错：' + String(e))
+        return undefined
+      }
+    })
+  })
+}
+
+/** 注册插件详情页的配置卡；formOf 每次求值，让服务晚就绪时也能拿到最新 form。 */
+function registerPanel(ctx: any, t: Translate, formOf: () => PageForm | undefined): void {
   ctx.effect(
     () =>
-      ctx.slots.inject('plugins.row.config', () =>
+      ctx.slots.inject('plugins.bundle.config', () =>
         ctx.slots.register(
-          { name: 'plugins.row.config', key: ROW_CONFIG_KEY, locale: NS },
-          (props: PanelProps) => Panel(props, t),
+          { name: 'plugins.bundle.config', key: PACKAGE_NAME, locale: NS },
+          (props: PanelProps) => Panel({ ...props, form: props.form ?? formOf() }, t),
         ),
       ),
-    'cfbridge: config panel in row view',
+    'cfbridge: config panel in bundle detail page',
   )
 }
 
