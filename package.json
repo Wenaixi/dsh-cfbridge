@@ -108,6 +108,7 @@
     "@deepseek-ai/dsh-scope": "^0.2.1-rc.2"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "dsh": ">=0.2.2-rc.1 <0.3.0-0"
   }
 }
