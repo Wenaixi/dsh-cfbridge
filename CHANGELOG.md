@@ -6,6 +6,19 @@
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-21
+
+### Fixed
+
+- **补 `engines.dsh` 声明**：把兼容判定从「peer 巧合通过」变成显式契约。此前
+  宿主的兼容闸门只能退到 peerDependencies 口径，而其中 `dsh-mcp-client`、
+  `dsh-tool-skill`、`dsh-skill-filesystem` 写的是 `"*"`（恒真、不构成约束），
+  真正有约束力的只有 `dsh-skill` 的版本范围。
+- **版本号断言改为格式校验**：`scripts/check.js`、`scripts/validate-bundle.js`
+  与 `tests/bundle-metadata.test.mjs` 里钉死的 `0.14.0` 字面量改为合法 SemVer
+  校验。版本号的唯一真源是 `package.json`，钉死字面量会让每次发版都必须手改
+  校验脚本（本次发版即因此暴露）。
+
 ## [0.14.0] - 2026-11-14
 
 ### Added
