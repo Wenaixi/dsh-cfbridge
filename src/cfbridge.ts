@@ -204,7 +204,11 @@ function optionalMetadata(data: Frontmatter): Record<string, Readonly<Record<str
 /**
  * 健壮的智能体预设识别助手：兼顾原始 ScopeKey、Cordis Context 以及包装在 Agent 实例内的 ctx。
  */
-function resolvePresetId(agentPresets: unknown, scope: unknown): string | undefined {
+function resolvePresetId(
+  agentPresets: unknown,
+  scope: unknown,
+  onError?: (message: string) => void,
+): string | undefined {
   if (!agentPresets || typeof (agentPresets as any).composedPreset !== 'function') return undefined
   if (scope === undefined || scope === null) return undefined
   try {
@@ -215,7 +219,12 @@ function resolvePresetId(agentPresets: unknown, scope: unknown): string | undefi
       const viaCtx = (agentPresets as any).composedPreset(fromCtx)
       if (viaCtx !== undefined) return viaCtx
     }
-  } catch {}
+  } catch (e) {
+    // composedPreset 会抛（ds-agent-preset-registry:720 "Parent preset revision is
+    // unavailable"）。完全静默会让 preset 模式失能且诊断力归零，所以把原因
+    // 交给调用方决定是否记录。
+    onError?.(`[cfbridge] resolvePresetId failed: ${loggerMessage(e)}`)
+  }
   return undefined
 }
 
@@ -729,6 +738,20 @@ interface SettingsRuntime {
 }
 
 /**
+ * 智能体上下文里本插件实际用到的那一小面。
+ *
+ * restrict/guard 都返回 disposer（见 @deepseek-ai/dsh-tools 的 restrict 定义），
+ * 必须持有才能在模式切换时真正解除限制。
+ */
+interface AgentCtxLike {
+  tools: {
+    restrict(options: { deny: string[] }): (() => void) | void
+    guard(predicate: (exec: { name: string }) => string | undefined): (() => void) | void
+    view?(): { restrictableNames?: Set<string> }
+  }
+}
+
+/**
  * 响应式专属模式预设管理器：动态注册或注销 cfbridge 专属模式预设与规范提示词。
  */
 function installPresetMode(ctx: Context, options: {
@@ -860,33 +883,60 @@ function installToolGuard(ctx: Context, options: {
 
   // 2. 活跃智能体提示词视图隔离与动态同步（解决异步 MCP 工具连接上线后的时序穿透）
   const trackedAgents = new Set<any>()
+  // 每个智能体当前的撤销句柄。restrict/guard 都返回 disposer，必须持有：
+  // 否则用户从 preset 切回 global 模式后，已建会话仍被永久 deny，面板开关
+  // 变成单向门；guard 还会随 tools/change 反复累积。
+  const agentDisposers = new WeakMap<object, Array<void | (() => void)>>()
 
-  const syncAgentRestriction = (agent: any) => {
-    const agentCtx = agent?.ctx
+  const releaseAgentRestriction = (agent: unknown) => {
+    if (typeof agent !== 'object' || agent === null) return
+    const list: Array<void | (() => void)> | undefined = agentDisposers.get(agent)
+    if (list === undefined) return
+    for (const dispose of list) {
+      if (typeof dispose !== 'function') continue
+      try { dispose() } catch (e) { ctx.logger.debug?.('[cfbridge] tools unrestrict failed: ' + loggerMessage(e)) }
+    }
+    agentDisposers.delete(agent)
+  }
+
+  const syncAgentRestriction = (agent: unknown) => {
+    const agentCtx = (agent as { ctx?: AgentCtxLike } | undefined)?.ctx
     if (!agentCtx || typeof agentCtx.tools?.restrict !== 'function') return
     const isMcpActive = options.getMcpEnabled()
     const isPresetMode = options.getLoadMode() === 'preset'
-    if (isMcpActive && !isPresetMode) return
+    // 早退分支也必须撤销旧限制：模式从 preset 切到 global 时，这里曾经直接
+    // return，导致已建会话的 deny 永不解锁。
+    if (isMcpActive && !isPresetMode) {
+      releaseAgentRestriction(agent)
+      return
+    }
 
     try {
       const p = options.getAgentPresets()
-      const presetId = resolvePresetId(p, agentCtx)
+      const presetId = resolvePresetId(p, agentCtx, (msg) => ctx.logger.warn?.(msg))
       const shouldBlock = !isMcpActive || presetId !== 'cfbridge'
-      if (shouldBlock) {
-        const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
-        const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
-        if (denyTargets.length > 0) {
-          agentCtx.tools.restrict({ deny: denyTargets })
-        }
-        if (typeof agentCtx.tools?.guard === 'function') {
-          agentCtx.tools.guard((exec: { name: string }) => {
-            if (CLOUDFLARE_TOOLS.includes(exec.name)) {
-              return !isMcpActive
-                ? 'Cloudflare MCP 工具已在设置中关闭'
-                : 'Cloudflare MCP 工具仅在 Cloudflare 模式下可用'
-            }
-          })
-        }
+      // 先撤再判：任何一次 sync 都应从干净状态重建，避免 guard 随
+      // tools/change 反复调用而线性累积。
+      releaseAgentRestriction(agent)
+      if (!shouldBlock) return
+
+      const known: Set<string> | undefined = agentCtx.tools?.view?.()?.restrictableNames
+      const denyTargets = known ? CLOUDFLARE_TOOLS.filter((t) => known.has(t)) : CLOUDFLARE_TOOLS
+      const disposers: Array<void | (() => void)> = []
+      if (denyTargets.length > 0) {
+        disposers.push(agentCtx.tools.restrict({ deny: denyTargets }))
+      }
+      if (typeof agentCtx.tools?.guard === 'function') {
+        disposers.push(agentCtx.tools.guard((exec: { name: string }) => {
+          if (CLOUDFLARE_TOOLS.includes(exec.name)) {
+            return !isMcpActive
+              ? 'Cloudflare MCP 工具已在设置中关闭'
+              : 'Cloudflare MCP 工具仅在 Cloudflare 模式下可用'
+          }
+        }))
+      }
+      if (disposers.length > 0 && typeof agent === 'object' && agent !== null) {
+        agentDisposers.set(agent, disposers)
       }
     } catch (e) {
       ctx.logger.debug?.('[cfbridge] tools restrict failed: ' + loggerMessage(e))

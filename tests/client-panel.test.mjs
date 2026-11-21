@@ -24,12 +24,25 @@ async function mountClientPanel() {
   assert.ok(captured, 'lib/client.js 未调用 __ModuleLoader__.load')
 
   const switches = []
+  const effects = []
   function createElement(type, props, ...children) {
     return { type, props: props ?? {}, children: children.filter((c) => c !== null && c !== undefined) }
   }
   const reactStub = {
     createElement,
     useState(initial) { return [typeof initial === 'function' ? initial() : initial, () => {}] },
+    // 组件级 effect：立即执行并登记清理。空实现会让「订阅 ConfigForm」这条
+    // 路径在测试里完全不跑，进而掩盖真实缺陷（see 本仓 CLAUDE.md 的对照组）。
+    useEffect(effect) {
+      const cleanup = effect()
+      if (typeof cleanup === 'function') effects.push(cleanup)
+      return cleanup
+    },
+    useSyncExternalStore(subscribe, getSnapshot) {
+      const cleanup = subscribe(() => {})
+      if (typeof cleanup === 'function') effects.push(cleanup)
+      return getSnapshot()
+    },
     Fragment: Symbol('Fragment'),
   }
   const primitivesStub = {

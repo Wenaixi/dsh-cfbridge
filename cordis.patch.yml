@@ -23,6 +23,11 @@
           Authorization: !!js '`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`'
         toolCallTimeoutMs: 120000
         failOnStartupError: false
+        # 开启模板模式：mcp-client 在关闭时会把原始 error 直接 warn 进日志
+        # （lib/index.js 的 status 处理器里 `if (!expandTemplates) ctx.logger.warn(error)`），
+        # 上游 SDK 的 StreamableHTTPError 可能回显请求头，Bearer token 会因此落盘。
+        # 开启后只打印经过 diagnostic() 包装的版本。
+        expandTemplates: true
         reconnect:
           enabled: true
           initialDelayMs: 500

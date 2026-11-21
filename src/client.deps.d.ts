@@ -22,6 +22,12 @@ declare module 'react' {
 
   export function useState<S>(initial: S | (() => S)): [S, (next: S | ((prev: S) => S)) => void]
 
+  /** 组件级 effect：回调返回可选的清理函数。 */
+  export function useEffect(
+    effect: () => void | (() => void),
+    dependencies?: readonly unknown[],
+  ): void
+
   export const Fragment: unique symbol
 }
 
