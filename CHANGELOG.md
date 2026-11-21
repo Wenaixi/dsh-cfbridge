@@ -6,6 +6,34 @@
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-21
+
+### Fixed
+
+- **工具 deny 单向锁死**：`tools.restrict` / `tools.guard` 都返回 disposer，此前全部
+  丢弃，且模式从 preset 切回 global 时直接 `return` 不撤销——已建会话被永久 deny，
+  面板开关变成单向门；`tools/change` 反复触发还会让 guard 线性累积。
+  现在按 agent 持有句柄，并在三条生命周期出口都撤：每次 sync 先撤再判、
+  `agent/disposed` 时撤、插件卸载时逐个撤。
+- **自愈抹掉同 patch 的其它插件行**：`autoHealConfigFile` 判定需要修复时用
+  `generatePatchYaml()` 从头生成整份文件。改为优先 `mergeIntoExistingPatch()`
+  只替换 `mcp-cloudflare` / `cfbridge` 两行，结构不可识别才退回整份重写。
+- **token 可能进日志**：`expandTemplates` 关闭时 mcp-client 会把原始 error 直接
+  打印，上游 `StreamableHTTPError` 可能回显请求头。开启后只打印 `diagnostic()`
+  包装过的那一版。
+- **`hasToken` 钉死变量名**：原来只认 `CLOUDFLARE_API_TOKEN`，用户改成 `CF_TOKEN`
+  会被判「缺授权模板」并触发整份重写。现在只要求「存在 Authorization 且值是
+  `!!js` 表达式」。
+- **面板不订阅 ConfigForm**：只靠自身的 `setTick`，其它页面改了
+  `loadMode` / `disabledSkills` 时这里一直显示陈旧值。补 `useEffect` + `form.subscribe`。
+- **`resolvePresetId` 完全静默**：`composedPreset` 抛错时吞掉全部异常，preset 模式
+  失能且无诊断。改为可选 `onError` 回调，关键调用点记 warn。
+
+### Docs
+
+- 新增 `docs/tool-isolation.md`：disposer 持有规则、三条生命周期出口、
+  token 不进日志的机制、自愈就地合并的原因、面板订阅的正确写法。
+
 ## [0.14.1] - 2026-11-21
 
 ### Fixed
