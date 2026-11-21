@@ -11,7 +11,8 @@ const entries = patch.flatMap((item) => item.insert ?? [])
 
 test('bundle exposes package identity and built entry', () => {
   assert.equal(pkg.name, '@wenaixi/cfbridge')
-  assert.equal(pkg.version, '0.14.0')
+  // 版本值由 package.json 单一决定，此处只校验它是合法 SemVer，不钉具体数字。
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/, 'version 必须是 x.y.z 形式')
   assert.equal(pkg.type, 'module')
   assert.equal(pkg.main, 'lib/cfbridge.js')
   assert.equal(pkg.exports['.'].default, './lib/cfbridge.js')

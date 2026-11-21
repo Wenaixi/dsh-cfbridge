@@ -18,8 +18,9 @@ async function main() {
     pass('package.json readable')
     if (pkg.name === '@wenaixi/cfbridge') pass('package name is @wenaixi/cfbridge')
     else fail('package name is @wenaixi/cfbridge', pkg.name)
-    if (pkg.version === '0.14.0') pass('package version is 0.14.0')
-    else fail('package version is 0.14.0', pkg.version)
+    // 版本号唯一来源是 package.json，这里只校验它是合法 SemVer。
+    if (/^\d+\.\d+\.\d+$/.test(pkg.version || '')) pass('package version is a valid SemVer')
+    else fail('package version is a valid SemVer', pkg.version)
     if (pkg.type === 'module') pass('package is an ESM module')
     else fail('package is an ESM module', pkg.type)
     if (pkg.main === 'lib/cfbridge.js') pass('package main points to lib/cfbridge.js')

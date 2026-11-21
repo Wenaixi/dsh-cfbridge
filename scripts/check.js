@@ -14,8 +14,6 @@ const { execSync } = require('child_process')
 
 const { ROOT, readJson, readText, fileExists, hasTokenLeak, dshHome: resolveDshHome } = require('./lib/fs')
 const { verifyProviderContract } = require('./lib/provider-contract')
-
-// 整个检查体包在 async IIFE 中：Provider 契约校验需要 import 构建产物（异步）。
 // 这是本文件唯一需要 await 的地方，不值得为此把全部检查改成异步风格。
 void (async () => {
 
@@ -26,7 +24,8 @@ void (async () => {
   const pkg = readJson(path.join(ROOT, 'package.json'))
   if (pkg) {
     check('package name is @wenaixi/cfbridge', pkg.name === '@wenaixi/cfbridge', `got: ${pkg.name}`)
-    check('package version is 0.14.0', pkg.version === '0.14.0', `got: ${pkg.version}`)
+    // 版本号唯一来源是 package.json，这里只校验它是合法 SemVer。
+    check('package version is a valid SemVer', /^\d+\.\d+\.\d+$/.test(pkg.version || ''), `got: ${pkg.version}`)
     check('package is not private', pkg.private !== true, pkg.private ? 'package.json must not be private for npm publish' : '')
     check('package publishConfig.access is public', pkg.publishConfig?.access === 'public', `got: ${pkg.publishConfig?.access}`)
     check('package repository points to Wenaixi/dsh-cfbridge', /github\.com\/Wenaixi\/dsh-cfbridge(\.git)?$/i.test(pkg.repository?.url || ''), `got: ${pkg.repository?.url}`)
