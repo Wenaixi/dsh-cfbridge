@@ -962,12 +962,17 @@ function installToolGuard(ctx: Context, options: {
   const disposeDisposed = (ctx as any).on('agent/disposed', (payload: any) => {
     const targetAgent = payload?.agent ?? payload
     if (targetAgent) {
+      // 先释放限制再出表：agent 销毁时若不撤 disposer，restrict/guard 会
+      // 一直挂到插件卸载，长会话反复开关会线性累积。
+      releaseAgentRestriction(targetAgent)
       trackedAgents.delete(targetAgent)
     }
   }, { global: true })
   disposers.push(disposeDisposed)
 
   return () => {
+    // 卸载时把每个 agent 的限制都撤干净，再清表。
+    for (const agent of trackedAgents) releaseAgentRestriction(agent)
     trackedAgents.clear()
     for (const dispose of disposers) {
       try { dispose() } catch {}
