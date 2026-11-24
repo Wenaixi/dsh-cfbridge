@@ -1084,9 +1084,17 @@ export function apply(ctx: Context, config: Config = {
   // 去重并丢弃空串：配置由 UI 写回，脏值不应变成一次真实比对。
   const disabledSkills = healed.disabledSkills
   const hiddenSkills: SkillVisibility = {}
+  // 取根上下文：cordis 4.1 用字符串属性 ctx.root，4.2 改为全局注册符号 Symbol.for("cordis.root")。
+  // 两者都试，缺失时退回自身，保证跨版本语义一致（否则 4.2 上会静默退化为只查当前 ctx）。
+  const rootCtx = (c: unknown): unknown => {
+    const bySymbol = (c as any)?.[Symbol.for('cordis.root')]
+    if (bySymbol) return bySymbol
+    const byProp = (c as any)?.root
+    return byProp ?? c
+  }
   const getService = <T>(name: string): T | undefined => {
     try {
-      const target = (ctx as any).root ?? ctx
+      const target = rootCtx(ctx) as any
       const val = typeof target.get === 'function' ? target.get(name) : (target as unknown as Record<string, unknown>)[name]
       if (val !== undefined) return val as T
       return (typeof ctx.get === 'function' ? ctx.get(name) : (ctx as unknown as Record<string, unknown>)[name]) as T | undefined
