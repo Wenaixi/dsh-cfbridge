@@ -6,6 +6,23 @@
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-11-25
+
+### Fixed
+
+- **cordis 4.2 上取根上下文静默退化**：4.1 用字符串属性 `ctx.root` 指向根上下文，
+  4.2 改为全局注册符号 `Symbol.for("cordis.root")` 并删除字符串键，且不保留任何
+  兼容 getter。原写法 `(ctx as any).root ?? ctx` 在新版上不报错、只是拿到
+  `undefined` 后退回当前 ctx，导致 `getService('agentPresets' / 'systemPrompt' /
+  'tools')` 查的是子上下文而非根，读操作全对但语义走偏。改为符号优先、字符串键
+  回退，两代 cordis 都能取到真正的根，缺失时安全退回自身。
+
+### Changed
+
+- `@deepseek-ai/cordis` peer 区间由 `>=4.0.4 <5.0.0` 收紧下限为 `>=4.1.0 <5.0.0`，
+  与实测基线对齐；`@deepseek-ai/schemastery` 同步为 `>=3.19.0 <4.0.0`；`engines.dsh`
+  补上 `<0.3.0-0` 上界，防止未来越界。
+
 ## [0.14.2] - 2026-11-21
 
 ### Fixed
